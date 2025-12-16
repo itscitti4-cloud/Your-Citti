@@ -4,19 +4,13 @@ module.exports = {
     aliases: ["whoishe", "whoisshe", "whoami", "atake"],
     version: "1.0",
     role: 2,
-    author: "Dipto",
+    author: "AkHi",
     Description: "Get user information and profile photo",
     category: "information",
     countDown: 10,
   },
 
-  onStart: async function ({
-    event,
-    message,
-    usersData,
-    api,
-    args,
-  }) {
+  onStart: async function ({ event, message, usersData, api, args, getLang }){
     const uid1 = event.senderID;
 
     const uid2 = Object.keys(event.mentions)[0];
