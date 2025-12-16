@@ -13,7 +13,7 @@ module.exports = {
     version: "1.0",
     role: 0,
     author: "AkHi",
-    Description: "Get user information and profile photo",
+    Description: "Get user information and profilepic",
     category: "information",
     countDown: 10,
   },
