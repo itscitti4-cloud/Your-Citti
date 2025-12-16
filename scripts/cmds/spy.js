@@ -5,9 +5,9 @@ module.exports = {
     author: "AkHi",
     countDown: 10,
     role: 2,
-    shortDescription: "Get user information and profile photo",
-    longDescription: "Get user information and profile photo by mentioning",
-    category: "information",
+    shortDescription: "Get user's information and Fetch user's profile picture",
+    longDescription: "Get user information and Fetch user's profile picture by mentioning",
+    category: "image",
   },
 
    onStart: async function ({ event, message, usersData, api, args, getLang }) {
@@ -55,21 +55,12 @@ module.exports = {
       }
 
       // Construct and send the user's information with avatar
-      const userInformation = `╭────[ 𝐔𝐒𝐄𝐑 𝐈𝐍𝐅𝐎 ]
-├‣ 𝙽𝚊𝚖𝚎: ${userInfo[uid].name}
-├‣ 𝙶𝚎𝚗𝚍𝚎𝚛: ${genderText}
-├‣ 𝚄𝙸𝙳: ${uid}
-├‣ 𝙲𝚕𝚊𝚜𝚜: ${position ? position?.toUpperCase() : "𝙽𝚘𝚛𝚖𝚊𝚕 𝚄𝚜𝚎𝚛🥺"}
-├‣ 𝚄𝚜𝚎𝚛𝚗𝚊𝚖𝚎: ${userInfo[uid].vanity ? userInfo[uid].vanity : "𝙽𝚘𝚗𝚎"}
-├‣ 𝙿𝚛𝚘𝚏𝚒𝚕𝚎 𝚄𝚁𝙻: ${userInfo[uid].profileUrl}
-├‣ 𝙱𝚒𝚛𝚝𝚑𝚍𝚊𝚢: ${userInfo[uid].isBirthday !== false ? userInfo[uid].isBirthday : "𝙿𝚛𝚒𝚟𝚊𝚝𝚎"}
-├‣ 𝙽𝚒𝚌𝚔𝙽𝚊𝚖𝚎: ${userInfo[uid].alternateName || "𝙽𝚘𝚗𝚎"}
-╰‣ 𝙵𝚛𝚒𝚎𝚗𝚍 𝚠𝚒𝚝𝚑 𝚋𝚘𝚝: ${userInfo[uid].isFriend ? "𝚈𝚎𝚜✅" : "𝙽𝚘❎"}`;
+      const userInformation = `❏ Name: ${userInfo[uid].name}\n❏ Profile URL: ${userInfo[uid].profileUrl}\n❏ Gender: ${genderText}\n❏ User Type: ${userInfo[uid].type}\n❏ Is Friend: ${userInfo[uid].isFriend ? "Yes" : "No"}\n❏ Is Birthday today: ${userInfo[uid].isBirthday ? "Yes" : "No"}`;
 
       message.reply({
         body: userInformation,
-        attachment: await global.utils.getStreamFromURL(avatarUrl),
+        attachment: await global.utils.getStreamFromURL(avatarUrl)
       });
     });
   }
-}
+};
