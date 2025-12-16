@@ -5,9 +5,9 @@ module.exports = {
     author: "MR᭄﹅ MAHABUB﹅ メꪜ",
     countDown: 60,
     role: 2,
-    shortDescription: "Get user information and avatar",
-    longDescription: "Get user information and avatar by mentioning",
-    category: "image",
+    shortDescription: "Get user information and Profile Picture",
+    longDescription: "Get user information and Profile Picture by mentioning",
+    category: "information",
   },
 
    onStart: async function ({ event, message, usersData, api, args, getLang }) {
