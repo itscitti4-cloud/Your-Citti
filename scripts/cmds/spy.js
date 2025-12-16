@@ -87,10 +87,3 @@ module.exports = {
     });
   },
 };
-
-function formatMoney(num) {
-  const units = ["", "K", "M", "B", "T", "Q", "Qi", "Sx", "Sp", "Oc", "N", "D"];
-  let unit = 0;
-  while (num >= 1000 && ++unit < units.length) num /= 1000;
-  return num.toFixed(1).replace(/\.0$/, "") + units[unit];
-    }
