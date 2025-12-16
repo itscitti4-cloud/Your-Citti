@@ -69,7 +69,7 @@ module.exports = {
         genderText = "Boy🙋🏻‍♂️";
         break;
       default:
-        genderText = "𝙶𝚊𝚢🤷🏻‍♂️";
+        genderText = "Hided🤷🏻‍♂️";
     }
 
     const money = (await usersData.get(uid)).money;
