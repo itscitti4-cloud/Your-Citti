@@ -10,7 +10,7 @@ module.exports = {
         countDown: 5,
         role: 0,
         shortDescription: { en: "Sends bot and admin info." },
-        longDescription: { en: "Sends bot and admin info along with a random video from the API." },
+        longDescription: { en: "Sends bot and admin info along." },
         category: "Information",
         guide: { en: "{pn}" }
     },
