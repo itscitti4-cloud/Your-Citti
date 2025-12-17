@@ -4,11 +4,11 @@ const fs = require("fs");
 module.exports = {
   config: {
     name: "approve",
-    aliases: ["pen", "pend", "pe"],
+    aliases: ["pen", "pend", "p"],
     version: "1.6.9",
-    author: "NeoKEX",
+    author: "AkHi",
     countDown: 5,
-    role: 0,
+    role: 2,
     shortDescription: "Handle pending requests",
     longDescription: "Approve or reject pending users or group requests",
     category: "utility",
