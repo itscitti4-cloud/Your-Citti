@@ -5,7 +5,7 @@ module.exports = {
     name: "4o",
     aliases: ["gpt4o", "dalle4o"],
     version: "1.0",
-    author: "Neoaz ゐ", //API by RIFAT
+    author: "AkHi",
     countDown: 10,
     role: 0,
     shortDescription: { en: "Generate AI image with 4o" },
