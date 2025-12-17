@@ -6,7 +6,7 @@ module.exports = {
     name: "ai",
     version: "1",
     role: 0,
-    author: "Neoaz 🐦",
+    author: "AkHi",
     description: "Chat with Meta Ai",
     category: "AI",
     usages: "[message] or reply to the bot's message.",
