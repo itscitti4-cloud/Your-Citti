@@ -5,10 +5,10 @@ const configUrl = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/
 module.exports = {
   config: {
     name: "prompt",
-    aliases: ["p"],
+    aliases: ["pro"],
     version: "0.0.1",
     role: 0,
-    author: "ArYAN",
+    author: "AkHi",
     category: "ai",
     cooldowns: 5,
     guide: { en: "Reply to an image to generate Midjourney prompt" }
