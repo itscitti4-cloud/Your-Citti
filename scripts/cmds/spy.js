@@ -9,9 +9,8 @@ const baseApiUrl = async () => {
 module.exports = {
   config: {
     name: "spy",
-    aliases: ["whoishe", "whoisshe", "whoami", "atake"],
     version: "1.0",
-    role: 0,
+    role: 2,
     author: "AkHi",
     Description: "Get user information and profilepic",
     category: "information",
