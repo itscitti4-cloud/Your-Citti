@@ -462,7 +462,7 @@ module.exports = {
         name: "cpanel",
         aliases: ["hosting", "server", "hostinfo", "panel"],
         version: "2.0.0",
-        author: "Neoaz ゐ",
+        author: "AkHi",
         countDown: 10,
         role: 0,
         description: "Display hosting information with beautiful circular visual interface",
