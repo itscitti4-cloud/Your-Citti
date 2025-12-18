@@ -5,10 +5,10 @@ const baseApiUrl = async () => {
 
 module.exports.config = {
     name: "bby",
-    aliases: ["baby", "bbe", "babe", "sam"],
+    aliases: ["baby", "bot", "babe", "sam"],
     version: "6.9.0",
    
-    author: "dipto",
+    author: "AkHi",
     countDown: 0,
     role: 0,
     description: "better then all sim simi",
@@ -165,7 +165,7 @@ module.exports.onChat = async ({
 }) => {
     try {
         const body = event.body ? event.body?.toLowerCase() : ""
-        if (body.startsWith("baby") || body.startsWith("bby") || body.startsWith("চিট্টি") || body.startsWith("Citti") || body.startsWith("citti")) {
+        if (body.startsWith("baby") || body.startsWith("bby") || body.startsWith("চিট্টি") || body.startsWith("bot") || body.startsWith("citti")) {
             const arr = body.replace(/^\S+\s*/, "")
             const randomReplies = ["😚", "Yes 😀, I am here", "What's up?", "Bolo jaan ki korte panmr jonno"];
             if (!arr) {
