@@ -1,104 +1,91 @@
-const fs = require("fs-extra");
-const path = require("path");
+const { getPrefix } = global.utils;
+const { commands } = global.GoatBot;
 
 module.exports = {
-	config: {
-		name: "help",
-		aliases: ["menu", "commands"],
-		version: "4.8",
-		author: "AkHi",
-		shortDescription: "Show all available commands",
-		longDescription: "Displays a clean and premium-styled categorized list of commands.",
-		category: "system",
-		guide: "{pn}help [command name]"
-	},
+  config: {
+    name: "help",
+    version: "3.5",
+    author: "AkHi",
+    usePrefix: false,
+    role: 0,
+    category: "info",
+    priority: 1
+  },
 
-	onStart: async function ({ message, args, prefix }) {
-		const allCommands = global.GoatBot.commands;
-		const categories = {};
+  onStart: async function ({ message, args, event, threadsData, role }) {
+    const prefix = getPrefix(event.threadID);
+    const arg = args[0]?.toLowerCase();
 
-		const emojiMap = {
-			ai: "➥", "ai-image": "➥", group: "➥", system: "➥",
-			fun: "➥", owner: "➥", config: "➥", economy: "➥",
-			media: "➥", "18+": "➥", tools: "➥", utility: "➥",
-			info: "➥", image: "➥", game: "➥", admin: "➥",
-			rank: "➥", boxchat: "➥", others: "➥"
-		};
+    const header = "╔═━「 𝐇𝐄𝐋𝐏 𝐌𝐄𝐍𝐔 」━═╗";
+    const footer = "╚═━──────────────━═╝";
 
-		const cleanCategoryName = (text) => {
-			if (!text) return "others";
-			return text
-				.normalize("NFKD")
-				.replace(/[^\w\s-]/g, "")
-				.replace(/\s+/g, " ")
-				.trim()
-				.toLowerCase();
-		};
+    if (!arg) {
+      const list = Array.from(commands.entries())
+        .filter(([_, cmd]) => cmd.config?.role <= role)
+        .map(([name]) => `┃ ✦ ${name}`)
+        .join("\n");
 
-		for (const [name, cmd] of allCommands) {
-			const cat = cleanCategoryName(cmd.config.category);
-			if (!categories[cat]) categories[cat] = [];
-			categories[cat].push(cmd.config.name);
-		}
+      return message.reply(
+        `${header}\n` +
+        `┃ 🔑 Prefix: ${prefix}\n` +
+        `┃ 📂 Total Commands: ${commands.size}\n` +
+        `┃ ⚙️ Available Commands:\n` +
+        `${list}\n` +
+        `${footer}\n` +
+        `\n📌 Use \`${prefix}help -<category>\` to filter by category\n` +
+        `📌 Use \`${prefix}help <command>\` to see command info`
+      );
+    }
 
+    if (arg === "-c" && args[1]) {
+      const cmdName = args[1].toLowerCase();
+      const cmd = commands.get(cmdName) || commands.get(global.GoatBot.aliases.get(cmdName));
 
-		if (args[0]) {
-			const query = args[0].toLowerCase();
-			const cmd =
-				allCommands.get(query) ||
-				[...allCommands.values()].find((c) => (c.config.aliases || []).includes(query));
-			if (!cmd) return message.reply(`❌ Command "${query}" not found.`);
+      if (!cmd || cmd.config.role > role)
+        return message.reply(`✘ Command "${cmdName}" not found or access denied.`);
 
-			const {
-				name,
-				version,
-				author,
-				guide,
-				category,
-				shortDescription,
-				longDescription,
-				aliases,
-				role 
-			} = cmd.config;
+      return message.reply(
+        `${header}\n` +
+        `┃ ✦ Command: ${cmdName}\n` +
+        `┃ ✦ Category: ${cmd.config.category || "Uncategorized"}\n` +
+        `${footer}`
+      );
+    }
 
-			const desc =
-				typeof longDescription === "string"
-					? longDescription
-					: longDescription?.en || shortDescription?.en || shortDescription || "No description";
+    if (arg.startsWith("-")) {
+      const category = arg.slice(1).toLowerCase();
+      const matched = Array.from(commands.entries())
+        .filter(([_, cmd]) => cmd.config?.category?.toLowerCase() === category && cmd.config.role <= role)
+        .map(([name]) => `┃ ✦ ${name}`);
 
-			const usage =
-				typeof guide === "string"
-					? guide.replace(/{pn}/g, prefix)
-					: guide?.en?.replace(/{pn}/g, prefix) || `${prefix}${name}`;
+      if (matched.length === 0)
+        return message.reply(`✘ No commands found under "${category}".`);
 
-						const requiredRole = cmd.config.role !== undefined ? cmd.config.role : 0; 
+      return message.reply(
+        `╔═━「 𝐂𝐀𝐓𝐄𝐆𝐎𝐑𝐘: ${category.toUpperCase()} 」━═╗\n` +
+        `${matched.join("\n")}\n` +
+        `${footer}\n` +
+        `\n📌 Try: \`${prefix}help <command>\` to view details`
+      );
+    }
 
-			return message.reply(
-				`☠️ 𝗖𝗢𝗠𝗠𝗔𝗡𝗗 𝗜𝗡𝗙𝗢 ☠️\n\n` +
-				`➥ Name: ${name}\n` +
-				`➥ Category: ${category || "Uncategorized"}\n` +
-				`➥ Description: ${desc}\n` +
-				`➥ Aliases: ${aliases?.length ? aliases.join(", ") : "None"}\n` +
-				`➥ Usage: ${usage}\n` +
-				`➥ Permission: ${requiredRole}\n` + 
-				`➥ Author: ${author}\n` +
-				`➥ Version: ${version}`
-			);
-		}
+    const cmd = commands.get(arg) || commands.get(global.GoatBot.aliases.get(arg));
 
-		const formatCommands = (cmds) =>
-			cmds.sort().map((cmd) => `× ${cmd}`);
+    if (!cmd || cmd.config.role > role)
+      return message.reply(`✘ Command "${arg}" not found.`);
 
-		let msg = `___🌸 Lubna Jannat AkHi 🌸___\n`;
-		const sortedCategories = Object.keys(categories).sort();
-		for (const cat of sortedCategories) {
-			const emoji = emojiMap[cat] || "➥";
-			msg += `\n╭──『 ${cat.toUpperCase()} 』\n`; 
-			msg += `${formatCommands(categories[cat]).join(' ')}\n`; 
-			msg += `╰────────────◊\n`;
-		}
-		msg += `\n➥ Use: ${prefix}help [command name] for details\n➥Use: ${prefix}callad to talk with bot admins '_'`;
+    const info = cmd.config;
+    const guide = info.guide?.en || "No usage info.";
+    const desc = info.longDescription?.en || "No description.";
 
-		return message.reply(msg);
-	}
+    return message.reply(
+      `╔═━「 𝐂𝐎𝐌𝐌𝐀𝐍𝐃 𝐃𝐄𝐓𝐀𝐈𝐋𝐒 」━═╗\n` +
+      `┃ ✦ Name: ${info.name}\n` +
+      `┃ ✦ Description: ${desc}\n` +
+      `┃ ✦ Usage: ${guide.replace(/{p}/g, prefix).replace(/{n}/g, info.name)}\n` +
+      `┃ ✦ Role: ${info.role}\n` +
+      `┃ ✦ Category: ${info.category || "Uncategorized"}\n` +
+      `${footer}`
+    );
+  }
 };
