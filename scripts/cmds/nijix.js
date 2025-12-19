@@ -30,7 +30,7 @@ module.exports = {
     description: {
       en: "Anime-style image generation with style, preset, and aspect ratio support."
     },
-    category: "ai-generated",
+    category: "ai",
     guide: {
       en:
         "{pn} <prompt> [--ar <ratio>] [--s <style>] [--preset <id>] [--1]\n\n" +
