@@ -5,11 +5,11 @@ module.exports = {
 				config: {
 								name: "prefix",
 								version: "1.4",
-								author: "NTKhang & NeoKEX",
+								author: "AkHi",
 								countDown: 5,
 								role: 0,
 								description: "Thay đổi dấu lệnh của bot trong box chat của bạn hoặc cả hệ thống bot (chỉ admin bot)",
-								category: "config",
+								category: "bot",
 								guide: {
 												vi: "   {pn} <new prefix>: thay đổi prefix mới trong box chat của bạn"
 																+ "\n   Ví dụ:"
