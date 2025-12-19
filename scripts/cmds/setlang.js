@@ -4,14 +4,14 @@ module.exports = {
 	config: {
 		name: "setlang",
 		version: "1.5",
-		author: "NTKhang",
+		author: "AkHi",
 		countDown: 5,
 		role: 0,
 		description: {
 			vi: "Cài đặt ngôn ngữ của bot cho nhóm chat hiện tại hoặc tất cả các nhóm chat",
 			en: "Set default language of bot for current chat or all chats"
 		},
-		category: "owner",
+		category: "Bot",
 		guide: {
 			vi: "   {pn} <language code ISO 639-1"
 				+ "\n   Ví dụ:"
