@@ -8,7 +8,7 @@ module.exports = {
     credits: "AkHi",
     description: "Chat with a Simsimi-like bot (reply + trigger words support)",
     prefix: false,
-    category: "fun",
+    category: "Chat",
     guide: {
       en: "{pn} [message]\n{pn} teach ask=[q]&ans=[a]\n{pn} delete ask=[q]&ans=[a]\n{pn} edit old=[q]&new=[new]\n{pn} askinfo [q]\n{pn} info"
     }
