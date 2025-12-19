@@ -25,11 +25,11 @@ module.exports = {
     name: "rbg",
     aliases: ["removebg", "nobg", "bgremove"],
     version: "2.0",
-    author: "NeoKEX",
+    author: "AkHi",
     countDown: 10,
     role: 0,
     longDescription: "Removes the background from an image using AI.",
-    category: "image",
+    category: "ai-image",
     guide: {
       en: 
         "{pn} <image_url> OR reply to an image.\n\n" +
