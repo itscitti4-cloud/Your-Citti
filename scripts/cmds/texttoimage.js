@@ -5,14 +5,14 @@ module.exports = {
 		name: "texttoimage",
 		aliases: ["midjourney", "openjourney", "text2image"],
 		version: "1.3",
-		author: "NTKhang",
+		author: "AkHi",
 		countDown: 5,
 		role: 0,
 		description: {
 			uid: "Tạo ảnh từ văn bản của bạn",
 			en: "Create image from your text"
 		},
-		category: "info",
+		category: "ai-image",
 		guide: {
 			vi: "   {pn} <prompt>: tạo ảnh từ văn bản của bạn"
 				+ "\n    Ví dụ: {pn} mdjrny-v4 create a gta style house, gta, 4k, hyper detailed, cinematic, realistic, unreal engine, cinematic lighting, bright lights"
