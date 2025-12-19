@@ -91,7 +91,6 @@ module.exports = {
 const avatarStream = (await require("axios").get(avatarUrl, { responseType: "stream" })).data;
    api.sendMessage({
       body: userInformation,
-      
       attachment: avatarStream,
     }, event.threadID, event.messageID);
   },
