@@ -5,10 +5,10 @@ module.exports = {
   config: {
     name: "say",
     version: "1.7",
-    author: "Samir Œ",
+    author: "AkHi",
     countDown: 5,
     role: 0,
-    category: "tts",
+    category: "tools",
     description: "bot will make your text into voice.",
     guide: {
       en: "{pn} your text (default will be 'en') | {pn} your text | [use two words ISO 639-1 code, ex: English-en, Bangla-bn, Hindi-hi or more, search Google for your language code]"
