@@ -12,7 +12,7 @@ module.exports = {
     role: 0,
     shortDescription: "Displays the current date and time in Dhaka, Bangladesh.",
     longDescription: "This command provides the current date and time in Dhaka, Bangladesh along with a random image.",
-    category: "misc",
+    category: "others",
     guide: "{prefix}{name}",
     envConfig: {}
   },
