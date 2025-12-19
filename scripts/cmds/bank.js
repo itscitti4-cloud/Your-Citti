@@ -364,11 +364,11 @@ module.exports = {
         name: "bank",
         aliases: ["atm", "banking"],
         version: "2.0",
-        author: "Neoaz 🐦",
+        author: "AkHi",
         countDown: 5,
         role: 0,
         description: "Complete banking system with ATM cards, transfers, savings accounts",
-        category: "economy",
+        category: "game",
         guide: `{pn} - View bank menu
 {pn} register - Register account
 {pn} balance - Check balance  
