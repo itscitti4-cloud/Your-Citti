@@ -7,7 +7,7 @@ module.exports = {
  role: 2,
  shortDescription: "Turn off bot",
  longDescription: "Turn off bot",
- category: "owner",
+ category: "Admin",
  guide: "{p}{n}"
  },
  onStart: async function ({event, api}) {
