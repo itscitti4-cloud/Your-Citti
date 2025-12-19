@@ -1,8 +1,6 @@
 const axios = require('axios');
-
 const baseApiUrl = async () => {
-    const base = await axios.get(`https://raw.githubusercontent.com/Mostakim0978/D1PT0/refs/heads/main/baseApiUrl.json`);
-    return base.data.api;
+    return `https://noobs-api.top/dipto`;
 };
 
 module.exports.config = {
