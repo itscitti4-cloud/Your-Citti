@@ -7,7 +7,7 @@ module.exports.config = {
   description: { 
       en: "Automatically kick a user who spams messages in a group chat"
   },
-  category: "group",
+  category: "Box Chat",
   guide: { en:"[on/off] or [settings]"},
   countDown: 5
 };
