@@ -13,7 +13,7 @@ module.exports = {
     description: {
       en: "Get detailed info like rating, genre, cast, and plot from IMDb"
     },
-    category: "entertainment",
+    category: "fun",
     guide: {
       en: "{p}imdb <movie or series name>\nExample: {p}imdb iron man"
     }
