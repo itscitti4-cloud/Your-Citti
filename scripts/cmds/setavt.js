@@ -12,7 +12,7 @@ module.exports = {
 			vi: "Đổi avatar bot",
 			en: "Change bot avatar"
 		},
-		category: "social",
+		category: "Social",
 		guide: {
 			vi: "   {pn} [<image url> | <phản hồi tin nhắn có ảnh>] [<caption> | để trống] [<expirationAfter (seconds)> | để trống]"
 				+ "\nPhản hồi 1 tin nhắn có chứa ảnh với nội dung: {pn}"
