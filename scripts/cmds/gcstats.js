@@ -18,7 +18,7 @@ module.exports = {
  longDescription: {
  en: "🖼️ Group information with admins, actives, top senders & members"
  },
- category: "𝗜MAGE",
+ category: "information",
  guide: {
  en: "{p}{n} --colour [text] --bgcolour [imgURL] --admincolour [clr] --membercolour [clr]"
  },
