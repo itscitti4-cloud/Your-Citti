@@ -5,12 +5,12 @@ module.exports = {
     name: "flux10pro",
     aliases: ["f10pro", "flux10"],
     version: "1.0",
-    author: "Neoaz ゐ", //API by RIFAT
+    author: "AkHi", //API by RIFAT
     countDown: 10,
     role: 0,
     shortDescription: { en: "Generate AI image with Flux 1.0 Pro" },
     longDescription: { en: "Generate images using Flux 1.0 Pro AI model" },
-    category: "image",
+    category: "ai-image",
     guide: {
       en: "{pn} <prompt>"
     }
