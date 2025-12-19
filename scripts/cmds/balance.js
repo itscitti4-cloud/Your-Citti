@@ -315,7 +315,7 @@ module.exports = {
         countDown: 10,
         role: 0,
         description: "Display your wallet balance with a professional card featuring your profile picture",
-        category: "economy",
+        category: "game",
         guide: `{pn} - View your balance card
 {pn} @tag - View tagged user's balance card`
     },
