@@ -42,12 +42,12 @@ module.exports = {
     name: "song",
     aliases: ["music", "sing"],
     version: "0.0.1",
-    author: "ArYAN",
+    author: "AkHi",
     countDown: 5,
     role: 0,
     shortDescription: "Sing tomake chai",
     longDescription: "Search and download music from YouTube",
-    category: "MUSIC",
+    category: "music",
     guide: "/play <song name or YouTube URL>"
   },
 
