@@ -6,9 +6,9 @@ module.exports = {
                 name: "file",
                 aliases: [],
                 version: "1.2",
-                author: "NeoKEX",
+                author: "AkHi",
                 countDown: 5,
-                role: 4,
+                role: 2,
                 description: {
                         vi: "Xem mã nguồn của một lệnh cụ thể",
                         en: "View the source code of a specific command"
