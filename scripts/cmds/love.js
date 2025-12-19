@@ -15,7 +15,7 @@ module.exports = {
     description: {
       en: "Generates a cute ship image between two user avatars"
     },
-    category: "𝗙𝗨𝗡 & 𝗚𝗔𝗠𝗘",
+    category: "fun",
     guide: {
       en: "{p}ship @user1 @user2\nExample: {p}ship @alice @bob"
     }
