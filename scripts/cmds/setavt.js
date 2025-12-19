@@ -8,35 +8,13 @@ module.exports = {
 		author: "Akhi",
 		countDown: 5,
 		role: 2,
-		description: {
-			vi: "Đổi avatar bot",
-			en: "Change bot avatar"
+		description: { "Change bot avatar"
 		},
 		category: "Social",
 		guide: {
-			vi: "   {pn} [<image url> | <phản hồi tin nhắn có ảnh>] [<caption> | để trống] [<expirationAfter (seconds)> | để trống]"
-				+ "\nPhản hồi 1 tin nhắn có chứa ảnh với nội dung: {pn}"
-				+ "\nGửi kèm 1 tin nhắn có chứa ảnh với nội dung: {pn}"
-				+ "\n\nGhi chú:"
-				+ "\n  + caption: caption sẽ đăng kèm khi đổi avatar"
-				+ "\n  + expirationAfter: đặt chế độ ảnh đại diện tạm thời (hết hạn sau expirationAfter(seconds))"
-				+ "\nVí dụ:"
-				+ "\n   {pn} https://example.com/image.jpg: (đổi ảnh đại diện không caption, không hết hạn)"
-				+ "\n   {pn} https://example.com/image.jpg Hello: (đổi ảnh đại diện với caption là \"Hello\", không hết hạn)"
-				+ "\n   {pn} https://example.com/image.jpg Hello 3600: (đổi ảnh đại diện với caption là \"Hello\", đặt tạm thời 1h)"
-		}
-	},
-
-	langs: {
-		vi: {
-			cannotGetImage: "❌ | Đã xảy ra lỗi khi truy vấn đến url hình ảnh",
-			invalidImageFormat: "❌ | Định dạng hình ảnh không hợp lệ",
-			changedAvatar: "✅ | Đã thay đổi avatar của bot thành công"
-		},
-		en: {
-			cannotGetImage: "❌ | An error occurred while querying the image url",
-			invalidImageFormat: "❌ | Invalid image format",
-			changedAvatar: "✅ | Changed bot avatar successfully"
+			cannotGetImage: "❌ | Maam, An error occurred while querying the image url",
+			invalidImageFormat: "❌ | Ma'am, Invalid image format",
+			changedAvatar: "✅ | Changed bot avatar successfully, Ma'am"
 		}
 	},
 
