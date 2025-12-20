@@ -1,6 +1,16 @@
 const fs = require('fs-extra');
 const path = __dirname + '/cache/babyData.json';
 
+// ডেটাবেস ফাইল সেটআপ
+if (!fs.existsSync(path)) {
+    fs.writeJsonSync(path, {
+        responses: {
+            "আখি কে": ["আমার ম্যাম।"],
+            "admin ke": ["আখি ম্যাম।"],
+            "এডমিন কে": ["আখি ম্যাম।"],
+            "akhi ke": ["আমার ম্যাম।"]
+            "tore banaiche ke": ["Lubna Jannat AkHi"]
+                
 // ফাইল না থাকলে তৈরি করার ফাংশন
 if (!fs.existsSync(path)) {
     fs.writeJsonSync(path, {
