@@ -1,97 +1,162 @@
-/**
- * @author AkHi
- * @name bby
- * @version 2.0.0
- * @description Random reply, teach/edit/delete commands for GoatBot
- * @category chat
- */
+const fs = require('fs-extra');
+const path = __dirname + '/cache/babyData.json';
 
-const fs = require("fs");
-const path = __dirname + "/cache/bbyData.json";
+// ফাইল না থাকলে তৈরি করার ফাংশন
+if (!fs.existsSync(path)) {
+    fs.writeJsonSync(path, {
+        responses: {},    // এখানে কথা শেখানো ডেটা থাকবে
+        teachers: {},     // কে কতটুকু শিখিয়েছে
+        randomReplies: [
+            "babu khuda lagse🥺", "Hop beda😾", "আমাকে ডাকলে ,আমি কিন্তূ কিস করে দেবো😘 ", "🐒🐒🐒", "bye",
+            "mb ney bye", "meww", "𝗜 𝗹𝗼𝘃𝗲 𝘆𝗼𝘂__😘😘", "𝗜 𝗵𝗮𝘁𝗲 𝘆𝗼𝘂__😏😏", "অ্যাসলামওয়ালিকুম",
+            "কেমন আসো", "বলেন sir__😌", "বলেন ম্যাডাম__😌", "🙂🙂🙂", "𝗕𝗯𝘆 না জানু, বল 😌",
+            "তোর বিয়ে হয় নি 𝗕𝗯𝘆 হইলো কিভাবে,,🙄", "বলো জানু 😒", "Meow🐤"
+        ]
+    });
+}
 
-module.exports.onLoad = () => {
-    if (!fs.existsSync(path)) {
-        const initialData = {
-            "babu": ["khuda lagse🥺", "Bby না জানু, বল 😌"],
-            "ki koro": ["এইতো তোমার কথা ভাবছি।"],
-            "default": [
-                "babu khuda lagse🥺", "Hop beda😾", "আমাকে ডাকলে ,আমি কিন্তূ কিস করে দেবো😘 ", "🐒🐒🐒", "bye",
-                "mb ney bye", "meww", "গোলাপ ফুল এর জায়গায় আমি দিলাম তোমায় মেসেজ",
-                "বলো কি বলবা, সবার সামনে বলবা নাকি?🤭🤏", "𝗜 𝗹𝗼𝘃𝗲 𝘆𝗼𝘂__😘😘", "𝗜 𝗵𝗮𝘁𝗲 𝘆𝗼𝘂__😏😏",
-                "গোসল করে আসো যাও😑😩", "অ্যাসলামওয়ালিকুম", "কেমন আসো", "বলেন sir__😌", "বলেন ম্যাডাম__😌",
-                "আমি অন্যের জিনিসের সাথে কথা বলি না__😏ওকে", "🙂🙂🙂", "এটায় দেখার বাকি সিলো_🙂🙂🙂",
-                "𝗕𝗯𝘆 𝗯𝗼𝗹𝗹𝗮 𝗽𝗮𝗽 𝗵𝗼𝗶𝗯𝗼 😒😒", "𝗧𝗮𝗿𝗽𝗼𝗿 𝗯𝗼𝗹𝗼_🙂", "𝗕𝗲𝘀𝗵𝗶 𝗱𝗮𝗸𝗹𝗲 𝗮𝗺𝗺𝘂 𝗯𝗼𝗸𝗮 𝗱𝗲𝗯𝗮 𝘁𝗼__🥺",
-                "𝗕𝗯𝘆 না জানু, বল 😌", "বেশি citti, citti করলে leave নিবো কিন্তু 😒😒", "__বেশি বেবি বললে কামুর দিমু 🤭🤭",
-                "𝙏𝙪𝙢𝙖𝙧 𝙜𝙛 𝙣𝙖𝙞, 𝙩𝙖𝙮 𝙖𝙢𝙠 𝙙𝙖𝙠𝙨𝙤? 😂😂😂", "bolo baby😒", "তোর কথা তোর বাড়ি কেউ শুনে না ,তো আমি কোনো শুনবো ?🤔😂",
-                "আমি তো অন্ধ কিছু দেখি না🐸 😎", "আম গাছে আম নাই ঢিল কেন মারো, তোমার সাথে প্রেম নাই বেবি কেন ডাকো 😒🫣",
-                "𝗼𝗶𝗶 ঘুমানোর আগে.! তোমার মনটা কথায় রেখে ঘুমাও.!🤔_নাহ মানে চুরি করতাম 😞😘", "𝗕𝗯𝘆 না বলে 𝗕𝗼𝘄 বলো 😘",
-                "দূরে যা, তোর কোনো কাজ নাই, শুধু citti, citti করিস  😉😋🤣", "এই এই তোর পরীক্ষা কবে? শুধু citti, citti করিস, porte bos 😾",
-                "তোরা যে হারে 𝗕𝗯𝘆 ডাকছিস আমি তো সত্যি বাচ্চা হয়ে যাবো_☹😑", "আজব তো__😒", "আমাকে ডেকো না,আমি ব্যাস্ত আসি🙆🏻‍♀",
-                "𝗕𝗯𝘆 বললে চাকরি থাকবে না", "𝗕𝗯𝘆 𝗕𝗯𝘆 না করে kiss de😑?", "আমার সোনার বাংলা, তারপরে লাইন কি? 🙈",
-                "🍺 এই নাও জুস খাও..! citti বলতে বলতে হাপায় গেছো না 🥲", "হটাৎ আমাকে মনে পড়লো 🙄", "𝗕ot বলে অসম্মান করচ্ছিছ,😰😿",
-                "Assalamualaikum Wa Rahmatullahi Wa Barkatuhu🌸", "আমি তোমার সিনিয়র আপু ওকে 😼সম্মান দেও🙁", "খাওয়া দাওয়া করসো 🙄",
-                "এত কাছেও এসো না,প্রেম এ পরে যাবো তো 🙈", "আরে আমি মজা করার mood এ নাই😒", "𝗛𝗲𝘆 𝗛𝗮𝗻𝗱𝘀𝗼𝗺𝗲 বলো 😁😁",
-                "আরে Bolo আমার জান, কেমন আসো? 😚", "একটা BF খুঁজে দাও 😿", "ফ্রেন্ড রিকোয়েস্ট দিলে ৫ টাকা দিবো 😗",
-                "oi mama ar dakis na pilis 😿", "🐤🐤", "__ভালো হয়ে  যাও 😑😒", "এমবি কিনে দাও না_🥺🥺", "ওই মামা_আর ডাকিস না প্লিজ",
-                "৩২ তারিখ আমার বিয়ে 🐤", "হা বলো😒,কি করতে পারি😐😑?", "বলো ফুলটুশি_😘", "amr JaNu lagbe,Tumi ki single aso?",
-                "আমাকে না দেকে একটু পড়তে বস🥺🥺", "তোর বিয়ে হয় নি 𝗕𝗯𝘆 হইলো কিভাবে,,🙄", "আজ একটা ফোন নাই বলে রিপ্লাই দিতে পারলাম না_🙄",
-                "চৌধুরী সাহেব আমি গরিব হতে পারি😾🤭 -কিন্তু বড়লোক না🥹 😫", "আমি অন্যের জিনিসের সাথে কথা বলি না__😏ওকে",
-                "বলো কি বলবা, সবার সামনে বলবা নাকি?🤭🤏", "ভুলে জাও আমাকে 😞😞", "দেখা হলে কাঠগোলাপ দিও..🤗",
-                "শুনবো না😼 তুমি আমাকে প্রেম করাই দাও নি🥺 পচা তুমি🥺", "আগে একটা গান বলো, ☹ নাহলে কথা বলবো না 🥺",
-                "বলো কি করতে পারি তোমার জন্য 😚", "কথা দেও আমাকে পটাবা...!! 😌", "বার বার Disturb করেছিস কোনো 😾, আমার জানু এর সাথে ব্যাস্ত আসি 😋",
-                "আমাকে না ডেকে একটু পড়তে বস 🥺🥺", "বার বার ডাকলে মাথা গরম হয় কিন্তু 😑😒", "ওই তুমি single না?🫵🤨 😑😒", "বলো জানু 😒",
-                "Meow🐤", "আর কত বার ডাকবা ,শুনছি তো 🤷🏻‍♀", "কি হলো, মিস টিস করচ্ছো নাকি 🤣", "Bolo Babu, তুমি কি আমাকে ভালোবাসো? 🙈",
-                "আজকে আমার mন ভালো নেই 🙉", "আমি হাজারো মশার Crush😓", "প্রেম করার বয়সে লেখাপড়া করতেছি, রেজাল্ট তো খা/রা'প হবেই.!🙂",
-                "আমার ইয়ারফোন চু'রি হয়ে গিয়েছে!! কিন্তু চোর'কে গা-লি দিলে আমার বান্ধবী রেগে যায়!'🙂",
-                "ছেলেদের প্রতি আমার এক আকাশ পরিমান শরম🥹🫣", "__ফ্রী ফে'সবুক চালাই কা'রন ছেলেদের মুখ দেখা হারাম 😌",
-                "মন সুন্দর বানাও মুখের জন্য তো 'Snapchat' আছেই! 🌚"
-            ]
-        };
-        fs.writeFileSync(path, JSON.stringify(initialData, null, 4));
+module.exports.config = {
+    name: "bby",
+    aliases: ["baby", "bbe", "babe", "sam"],
+    version: "7.0.0",
+    author: "AkHi",
+    countDown: 0,
+    role: 0,
+    description: "Local cache based chat bot",
+    category: "chat",
+    guide: {
+        en: "{pn} [anyMessage] OR\nteach [Question] - [Reply] OR\nremove [Question] OR\nlist OR\nedit [Question] - [NewReply]"
     }
 };
 
-module.exports.run = async ({ api, event, args }) => {
-    const data = JSON.parse(fs.readFileSync(path));
-    const command = args[0];
+module.exports.onStart = async ({ api, event, args, usersData }) => {
+    const { threadID, messageID, senderID } = event;
+    const dipto = args.join(" ").toLowerCase();
+    let data = fs.readJsonSync(path);
 
-    if (command === "teach") {
-        const input = args.slice(1).join(" ").split("|");
-        if (input.length < 2) return api.sendMessage("ব্যবহার: bby teach প্রশ্ন | উত্তর", event.threadID);
-        const ques = input[0].trim().toLowerCase();
-        const ans = input[1].trim();
-        if (!data[ques]) data[ques] = [];
-        data[ques].push(ans);
-        fs.writeFileSync(path, JSON.stringify(data, null, 4));
-        return api.sendMessage(`শিখিয়ে দিলাম! এখন থেকে কেউ "${ques}" বললে আমি "${ans}" বলবো।`, event.threadID);
-    }
-
-    if (command === "del") {
-        const ques = args.slice(1).join(" ").toLowerCase();
-        if (data[ques]) {
-            delete data[ques];
-            fs.writeFileSync(path, JSON.stringify(data, null, 4));
-            return api.sendMessage(`"${ques}" এর সব উত্তর ডিলিট করা হয়েছে।`, event.threadID);
-        } else {
-            return api.sendMessage("এমন কোনো প্রশ্ন খুঁজে পাইনি।", event.threadID);
+    try {
+        // ১. সাধারণ মেসেজ রিপ্লাই (যখন শুধু !bby লিখবে)
+        if (!args[0]) {
+            const ran = ["Bolo baby", "hum", "ki go?", "type help bby"];
+            return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], threadID, messageID);
         }
-    }
 
-    // Default: Random Reply logic
-    const userMsg = event.body.toLowerCase();
-    let responses = data[userMsg] || data["default"];
-    const randomReply = responses[Math.floor(Math.random() * responses.length)];
-    api.sendMessage(randomReply, event.threadID);
+        // ২. রিমুভ কমান্ড
+        if (args[0] === 'remove' || args[0] === 'rm') {
+            const key = args.slice(1).join(" ").toLowerCase();
+            if (data.responses[key]) {
+                delete data.responses[key];
+                fs.writeJsonSync(path, data);
+                return api.sendMessage(`🗑️ | "${key}" এর সকল রিপ্লাই রিমুভ করা হয়েছে।`, threadID, messageID);
+            }
+            return api.sendMessage("❌ | এই নামে কোনো ডেটা নেই।", threadID, messageID);
+        }
+
+        // ৩. লিস্ট কমান্ড
+        if (args[0] === 'list') {
+            const totalQ = Object.keys(data.responses).length;
+            const teachersList = Object.entries(data.teachers)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 10);
+            
+            let msg = `❇️ | Total Questions: ${totalQ}\n👑 | Top Teachers:\n`;
+            for (let [id, count] of teachersList) {
+                const name = await usersData.getName(id) || id;
+                msg += `• ${name}: ${count}\n`;
+            }
+            return api.sendMessage(msg, threadID, messageID);
+        }
+
+        // ৪. এডিট কমান্ড
+        if (args[0] === 'edit') {
+            const content = args.slice(1).join(" ").split(/\s*-\s*/);
+            const ques = content[0]?.toLowerCase();
+            const newAns = content[1];
+            if (!ques || !newAns) return api.sendMessage("❌ | Format: edit [পুরানো কথা] - [নতুন কথা]", threadID, messageID);
+            
+            if (data.responses[ques]) {
+                data.responses[ques] = [newAns];
+                fs.writeJsonSync(path, data);
+                return api.sendMessage(`✅ | "${ques}" এর উত্তর আপডেট করা হয়েছে।`, threadID, messageID);
+            }
+            return api.sendMessage("❌ | এই কথাটি আগে শেখানো হয়নি।", threadID, messageID);
+        }
+
+        // ৫. কথা শেখানো (Teach)
+        if (args[0] === 'teach') {
+            const content = args.slice(1).join(" ").split(/\s*-\s*/);
+            const ques = content[0]?.toLowerCase();
+            const ans = content[1];
+
+            if (!ques || !ans) return api.sendMessage("❌ | Format: teach [কথা] - [রিপ্লাই]", threadID, messageID);
+
+            if (!data.responses[ques]) data.responses[ques] = [];
+            data.responses[ques].push(ans);
+
+            // টিচার লিস্ট আপডেট
+            data.teachers[senderID] = (data.teachers[senderID] || 0) + 1;
+
+            fs.writeJsonSync(path, data);
+            return api.sendMessage(`✅ | শিখে গেছি!\n🗣️ আপনি বললে: ${ques}\n🤖 আমি বলবো: ${ans}`, threadID, messageID);
+        }
+
+        // ৬. চ্যাটিং লজিক (কমান্ড দিয়ে কথা বলা)
+        const response = data.responses[dipto] || data.randomReplies;
+        const result = response[Math.floor(Math.random() * response.length)];
+        
+        return api.sendMessage(result, threadID, (error, info) => {
+            global.GoatBot.onReply.set(info.messageID, {
+                commandName: this.config.name,
+                messageID: info.messageID,
+                author: senderID
+            });
+        }, messageID);
+
+    } catch (e) {
+        api.sendMessage("Error: " + e.message, threadID, messageID);
+    }
+};
+
+module.exports.onReply = async ({ api, event, Reply }) => {
+    if (event.senderID == api.getCurrentUserID()) return;
+    let data = fs.readJsonSync(path);
+    const body = event.body.toLowerCase();
+
+    const response = data.responses[body] || data.randomReplies;
+    const result = response[Math.floor(Math.random() * response.length)];
+
+    api.sendMessage(result, event.threadID, (err, info) => {
+        global.GoatBot.onReply.set(info.messageID, {
+            commandName: this.config.name,
+            messageID: info.messageID,
+            author: event.senderID
+        });
+    }, event.messageID);
 };
 
 module.exports.onChat = async ({ api, event }) => {
-    if (!event.body || event.body.startsWith("!")) return; // Command prefix check
-    const data = JSON.parse(fs.readFileSync(path));
-    const userMsg = event.body.toLowerCase();
+    const body = event.body ? event.body.toLowerCase() : "";
+    const prefix = ["baby", "bby", "bot", "jan", "babu", "janu"];
+    
+    if (prefix.some(p => body.startsWith(p))) {
+        let data = fs.readJsonSync(path);
+        const input = body.replace(/^\S+\s*/, "").trim();
+        
+        let response;
+        if (!input) {
+            response = ["Bolo baby", "Janu dako keno?", "Hmm bolo kisu bolba?", "I am here!"];
+        } else {
+            response = data.responses[input] || data.randomReplies;
+        }
 
-    if (data[userMsg]) {
-        const responses = data[userMsg];
-        const randomReply = responses[Math.floor(Math.random() * responses.length)];
-        api.sendMessage(randomReply, event.threadID);
+        const result = response[Math.floor(Math.random() * response.length)];
+        api.sendMessage(result, event.threadID, (err, info) => {
+            global.GoatBot.onReply.set(info.messageID, {
+                commandName: this.config.name,
+                messageID: info.messageID,
+                author: event.senderID
+            });
+        }, event.messageID);
     }
 };
+        
