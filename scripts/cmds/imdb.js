@@ -3,60 +3,55 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "imdb",
-    version: "1.0",
-    author: "AkHi",
-    countDown: 5,
-    role: 0,
-    shortDescription: {
-      en: "Search for a movie/show info from IMDb"
-    },
-    description: {
-      en: "Get detailed info like rating, genre, cast, and plot from IMDb"
-    },
-    category: "fun",
-    guide: {
-      en: "{p}imdb <movie or series name>\nExample: {p}imdb iron man"
-    }
+    version: "1.0.0",
+    hasPermssion: 0,
+    credits: "AkHi",
+    description: "মুভির বিস্তারিত তথ্য জানার জন্য",
+    commandCategory: "utility",
+    usages: "[মুভির নাম]",
+    cooldowns: 5
   },
 
-  langs: {
-    en: {
-      missing: "❌ | Please provide a movie or show name.",
-      error: "❌ | Couldn't fetch IMDb data. Try a valid title.",
-      result: `🎬 Title: %1\n⭐ Rating: %2/10\n📅 Released: %3\n🎭 Genre: %4\n🎬 Director: %5\n👥 Actors: %6\n📖 Plot: %7\n🌍 Country: %8\n📺 Type: %9\n🔗 URL: %10`
+  onStart: async function ({ api, event, args }) {
+    const { threadID, messageID } = event;
+    const movieName = args.join(" ");
+
+    if (!movieName) {
+      return api.sendMessage("দয়া করে মুভির নাম লিখুন। উদাহরণ: /imdb Titanic", threadID, messageID);
     }
-  },
 
-  onStart: async function ({ message, args, getLang }) {
-    if (!args[0]) return message.reply(getLang("missing"));
-
-    const query = encodeURIComponent(args.join(" "));
+    // আপনার OMDb API Key এখানে বসান
+    const apiKey = "YOUR_API_KEY_HERE"; 
 
     try {
-      const res = await axios.get(`https://api.popcat.xyz/v2/imdb?q=${query}`);
-      const d = res.data;
+      const res = await axios.get(`https://www.omdbapi.com/?t=${encodeURIComponent(movieName)}&apikey=${apiKey}`);
+      
+      if (res.data.Response === "False") {
+        return api.sendMessage("দুঃখিত, এই নামে কোনো মুভি খুঁজে পাওয়া যায়নি।", threadID, messageID);
+      }
 
-      const msg = getLang("result",
-        d.title || "N/A",
-        d.rating || "N/A",
-        d.released || "N/A",
-        d.genre || "N/A",
-        d.director || "N/A",
-        d.actors || "N/A",
-        d.plot || "N/A",
-        d.country || "N/A",
-        d.type || "N/A",
-        d.imdb_url || "N/A"
-      );
+      const { Title, Year, Rated, Released, Runtime, Genre, Director, Actors, Plot, Poster, imdbRating } = res.data;
 
-      message.reply({
-        body: msg,
-        attachment: d.poster ? await global.utils.getStreamFromURL(d.poster) : undefined
-      });
+      const message = `🎬 **${Title} (${Year})**\n` +
+                      `──────────────────\n` +
+                      `⭐ Rating: ${imdbRating}\n` +
+                      `📅 Release: ${Released}\n` +
+                      `⏳ Runtime: ${Runtime}\n` +
+                      `🎭 Genre: ${Genre}\n` +
+                      `👨‍ directors: ${Director}\n` +
+                      `🌟 Cast: ${Actors}\n\n` +
+                      `📝 Plot: ${Plot}`;
 
-    } catch (err) {
-      console.error(err);
-      message.reply(getLang("error"));
+      // যদি মুভির পোস্টার থাকে তবে সেটিসহ পাঠানো
+      if (Poster && Poster !== "N/A") {
+        const imageStream = (await axios.get(Poster, { responseType: "stream" })).data;
+        return api.sendMessage({ body: message, attachment: imageStream }, threadID, messageID);
+      } else {
+        return api.sendMessage(message, threadID, messageID);
+      }
+
+    } catch (error) {
+      return api.sendMessage("সার্ভার থেকে তথ্য সংগ্রহ করতে সমস্যা হয়েছে।", threadID, messageID);
     }
   }
 };
