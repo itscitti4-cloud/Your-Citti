@@ -1,15 +1,5 @@
 const fs = require('fs-extra');
 const path = __dirname + '/cache/babyData.json';
-
-// ডেটাবেস ফাইল সেটআপ
-if (!fs.existsSync(path)) {
-    fs.writeJsonSync(path, {
-        responses: {
-            "আখি কে": ["আমার ম্যাম।"],
-            "admin ke": ["আখি ম্যাম।"],
-            "এডমিন কে": ["আখি ম্যাম।"],
-            "akhi ke": ["আমার ম্যাম।"]
-            "tore banaiche ke": ["Lubna Jannat AkHi"]
                 
 // ফাইল না থাকলে তৈরি করার ফাংশন
 if (!fs.existsSync(path)) {
@@ -27,7 +17,7 @@ if (!fs.existsSync(path)) {
 
 module.exports.config = {
     name: "bby",
-    aliases: ["baby", "bbe", "babe", "sam"],
+    aliases: ["baby", "hinata", "babe", "citti"],
     version: "7.0.0",
     author: "AkHi",
     countDown: 0,
@@ -107,7 +97,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             data.teachers[senderID] = (data.teachers[senderID] || 0) + 1;
 
             fs.writeJsonSync(path, data);
-            return api.sendMessage(`✅ | শিখে গেছি!\n🗣️ আপনি বললে: ${ques}\n🤖 আমি বলবো: ${ans}`, threadID, messageID);
+            return api.sendMessage(`✅ | AkHi Ma'am শিখে গেছি!\n🗣️ আপনি বললে: ${ques}\n🤖 আমি বলবো: ${ans}`, threadID, messageID);
         }
 
         // ৬. চ্যাটিং লজিক (কমান্ড দিয়ে কথা বলা)
@@ -146,7 +136,7 @@ module.exports.onReply = async ({ api, event, Reply }) => {
 
 module.exports.onChat = async ({ api, event }) => {
     const body = event.body ? event.body.toLowerCase() : "";
-    const prefix = ["baby", "bby", "bot", "jan", "babu", "janu"];
+    const prefix = ["baby", "bby", "bot", "citti", "babu", "hinata"];
     
     if (prefix.some(p => body.startsWith(p))) {
         let data = fs.readJsonSync(path);
