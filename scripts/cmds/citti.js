@@ -3,7 +3,7 @@ const fs = require("fs-extra");
 module.exports = {
   config: {
     name: "citti",
-    aliases: ["citti"],
+    aliases: ["citti","chitti"],
     version: "1.0",
     author: "AkHi",
     countDown: 5,
