@@ -26,7 +26,7 @@ module.exports.config = {
    name: "hinata",
    aliases: ["baby", "bby", "citti", "hinata", "bot"],
    version: "1.7",
-   author: "AkHi",
+   author: "MahMUD",
    role: 0,
    category: "chat",
    guide: {
