@@ -55,14 +55,12 @@ Box Id : ${threadID}
 Approval: ${approvalStatus}
 Emoji: ${emoji || "None"}
 Information: ${participantIDs.length} members
-Males : ${maleCount}
-Female: ${femaleCount}
 Total Administor: ${adminIDs.length}
 Admin list: ${adminNames.join(", ")}
 
 Total message: ${messageCount}
 
-Bot Admin ID: ${botAdminID}
+Bot Admin ID: Lubna Jannat
       `.trim();
 
       return api.sendMessage(infoMessage, threadID, messageID);
