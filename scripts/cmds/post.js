@@ -1,28 +1,27 @@
 module.exports = {
   config: {
     name: "post",
-    version: "1.0.0",
-    role: 2,
+    aliases: ["post"],
+    version: "1.0",
     author: "AkHi",
-    description: "Post on Facebook",
+    countDown: 5,
+    role: 2,
+    shortDescription: "post on Facebook",
+    longDescription: "",
     category: "Social",
-    guide: "{pn} [Caption]",
-    countDown: 5
-  },
-
-  onStart: async function ({ api, event, args }) {
-    const content = args.join(" ");
-
-    if (!content) {
-      return api.sendMessage("Please enter the post caption. guide: /post Hello World!", event.threadID, event.messageID);
+    guide: {
+      en: "{p} post <caption>",
     }
-
-    api.onStart(content, (err, data) => {
-      if (err) {
-        return api.sendMessage("Something went wrong *Ma'am*", event.threadID, event.messageID);
-      }
-
-      return api.sendMessage("AkHi Ma'am, Post done successfully", event.threadID, event.messageID);
-    });
+  },
+  onStart: async function ({ api, event, args }) {
+    const { threadID, messageID } = event;
+    const message = args.join(" ");
+    if (!message) return api.sendMessage("Wrong format. usage: !post <enter your caption>", threadID, messageID);
+    try {
+      await api.sendMessage(message, threadID);
+      api.sendMessage("AkHi Ma'am, Post done successfully ✅", threadID, messageID);
+    } catch (error) {
+      api.sendMessage("AkHi Ma'am, I'm so sorry, post failed🥺", threadID, messageID);
+    }
   }
 };
