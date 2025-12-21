@@ -19,7 +19,7 @@ module.exports = {
     
     // লাইব্রেরির নাম ইনপুট না দিলে ডিফল্ট নাম সেট করুন
     // আপনার package.json এ যে নাম আছে সেটি এখানে দিন (যেমন: fca-project-uno)
-    const libraryName = args[0] || "fca-neokex"; 
+    const libraryName = args[0] || "fca-horizon-remake"; 
 
     api.sendMessage(`AkHi Ma'am, ${libraryName} আপডেট করা শুরু হচ্ছে... দয়া করে অপেক্ষা করুন। ⏳`, threadID, messageID);
 
