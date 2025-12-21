@@ -2,7 +2,7 @@ module.exports = {
   config: {
     name: "notify",
     version: "1.5.0",
-    role: 2, // শুধুমাত্র অ্যাডমিন
+    role: 2,
     author: "AkHi",
     description: "সব গ্রুপে নোটিফিকেশন পাঠান",
     commandCategory: "admin",
