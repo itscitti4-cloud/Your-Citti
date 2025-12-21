@@ -1,24 +1,33 @@
 const fs = require('fs-extra');
-const path = __dirname + '/cache/babyData.json';
-                
-// ফাইল না থাকলে তৈরি করার ফাংশন
-if (!fs.existsSync(path)) {
-    fs.writeJsonSync(path, {
-        responses: {},    // এখানে কথা শেখানো ডেটা থাকবে
-        teachers: {},     // কে কতটুকু শিখিয়েছে
+const path = require('path');
+
+// ফোল্ডার এবং ফাইল পাথ ঠিক করা (Render এর জন্য নিরাপদ উপায়)
+const cacheDir = path.join(__dirname, "cache");
+const filePath = path.join(cacheDir, "babyData.json");
+
+// ফোল্ডার এবং ফাইল অটোমেটিক তৈরি করার লজিক
+if (!fs.existsSync(cacheDir)) {
+    fs.mkdirSync(cacheDir, { recursive: true });
+}
+
+if (!fs.existsSync(filePath)) {
+    const initialData = {
+        responses: {},
+        teachers: {},
         randomReplies: [
             "babu khuda lagse🥺", "Hop beda😾", "আমাকে ডাকলে ,আমি কিন্তূ কিস করে দেবো😘 ", "🐒🐒🐒", "bye",
             "mb ney bye", "meww", "𝗜 𝗹𝗼𝘃𝗲 𝘆𝗼𝘂__😘😘", "𝗜 𝗵𝗮𝘁𝗲 𝘆𝗼𝘂__😏😏", "অ্যাসলামওয়ালিকুম",
             "কেমন আসো", "বলেন sir__😌", "বলেন ম্যাডাম__😌", "🙂🙂🙂", "𝗕𝗯𝘆 না জানু, বল 😌",
             "তোর বিয়ে হয় নি 𝗕𝗯𝘆 হইলো কিভাবে,,🙄", "বলো জানু 😒", "Meow🐤"
         ]
-    });
+    };
+    fs.writeJsonSync(filePath, initialData);
 }
 
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "hinata", "babe", "citti"],
-    version: "7.0.0",
+    version: "7.0.1",
     author: "AkHi",
     countDown: 0,
     role: 0,
@@ -32,27 +41,24 @@ module.exports.config = {
 module.exports.onStart = async ({ api, event, args, usersData }) => {
     const { threadID, messageID, senderID } = event;
     const dipto = args.join(" ").toLowerCase();
-    let data = fs.readJsonSync(path);
+    let data = fs.readJsonSync(filePath);
 
     try {
-        // ১. সাধারণ মেসেজ রিপ্লাই (যখন শুধু !bby লিখবে)
         if (!args[0]) {
             const ran = ["Bolo baby", "hum", "ki go?", "type help bby"];
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], threadID, messageID);
         }
 
-        // ২. রিমুভ কমান্ড
         if (args[0] === 'remove' || args[0] === 'rm') {
             const key = args.slice(1).join(" ").toLowerCase();
             if (data.responses[key]) {
                 delete data.responses[key];
-                fs.writeJsonSync(path, data);
+                fs.writeJsonSync(filePath, data);
                 return api.sendMessage(`🗑️ | "${key}" এর সকল রিপ্লাই রিমুভ করা হয়েছে।`, threadID, messageID);
             }
             return api.sendMessage("❌ | এই নামে কোনো ডেটা নেই।", threadID, messageID);
         }
 
-        // ৩. লিস্ট কমান্ড
         if (args[0] === 'list') {
             const totalQ = Object.keys(data.responses).length;
             const teachersList = Object.entries(data.teachers)
@@ -61,13 +67,13 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             
             let msg = `❇️ | Total Questions: ${totalQ}\n👑 | Top Teachers:\n`;
             for (let [id, count] of teachersList) {
-                const name = await usersData.getName(id) || id;
+                let name;
+                try { name = await usersData.getName(id); } catch(e) { name = id; }
                 msg += `• ${name}: ${count}\n`;
             }
             return api.sendMessage(msg, threadID, messageID);
         }
 
-        // ৪. এডিট কমান্ড
         if (args[0] === 'edit') {
             const content = args.slice(1).join(" ").split(/\s*-\s*/);
             const ques = content[0]?.toLowerCase();
@@ -76,13 +82,12 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             
             if (data.responses[ques]) {
                 data.responses[ques] = [newAns];
-                fs.writeJsonSync(path, data);
+                fs.writeJsonSync(filePath, data);
                 return api.sendMessage(`✅ | "${ques}" এর উত্তর আপডেট করা হয়েছে।`, threadID, messageID);
             }
             return api.sendMessage("❌ | এই কথাটি আগে শেখানো হয়নি।", threadID, messageID);
         }
 
-        // ৫. কথা শেখানো (Teach)
         if (args[0] === 'teach') {
             const content = args.slice(1).join(" ").split(/\s*-\s*/);
             const ques = content[0]?.toLowerCase();
@@ -92,20 +97,17 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
             if (!data.responses[ques]) data.responses[ques] = [];
             data.responses[ques].push(ans);
-
-            // টিচার লিস্ট আপডেট
             data.teachers[senderID] = (data.teachers[senderID] || 0) + 1;
 
-            fs.writeJsonSync(path, data);
+            fs.writeJsonSync(filePath, data);
             return api.sendMessage(`✅ | AkHi Ma'am শিখে গেছি!\n🗣️ আপনি বললে: ${ques}\n🤖 আমি বলবো: ${ans}`, threadID, messageID);
         }
 
-        // ৬. চ্যাটিং লজিক (কমান্ড দিয়ে কথা বলা)
         const response = data.responses[dipto] || data.randomReplies;
         const result = response[Math.floor(Math.random() * response.length)];
         
         return api.sendMessage(result, threadID, (error, info) => {
-            global.GoatBot.onReply.set(info.messageID, {
+            if (!error) global.GoatBot.onReply.set(info.messageID, {
                 commandName: this.config.name,
                 messageID: info.messageID,
                 author: senderID
@@ -119,44 +121,17 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
 module.exports.onReply = async ({ api, event, Reply }) => {
     if (event.senderID == api.getCurrentUserID()) return;
-    let data = fs.readJsonSync(path);
+    let data = fs.readJsonSync(filePath);
     const body = event.body.toLowerCase();
-
     const response = data.responses[body] || data.randomReplies;
     const result = response[Math.floor(Math.random() * response.length)];
 
     api.sendMessage(result, event.threadID, (err, info) => {
-        global.GoatBot.onReply.set(info.messageID, {
+        if (!err) global.GoatBot.onReply.set(info.messageID, {
             commandName: this.config.name,
             messageID: info.messageID,
             author: event.senderID
         });
     }, event.messageID);
 };
-
-module.exports.onChat = async ({ api, event }) => {
-    const body = event.body ? event.body.toLowerCase() : "";
-    const prefix = ["baby", "bby", "bot", "citti", "babu", "hinata"];
-    
-    if (prefix.some(p => body.startsWith(p))) {
-        let data = fs.readJsonSync(path);
-        const input = body.replace(/^\S+\s*/, "").trim();
-        
-        let response;
-        if (!input) {
-            response = ["Bolo baby", "Janu dako keno?", "Hmm bolo kisu bolba?", "I am here!"];
-        } else {
-            response = data.responses[input] || data.randomReplies;
-        }
-
-        const result = response[Math.floor(Math.random() * response.length)];
-        api.sendMessage(result, event.threadID, (err, info) => {
-            global.GoatBot.onReply.set(info.messageID, {
-                commandName: this.config.name,
-                messageID: info.messageID,
-                author: event.senderID
-            });
-        }, event.messageID);
-    }
-};
-        
+          
