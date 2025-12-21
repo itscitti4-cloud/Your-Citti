@@ -1,56 +1,105 @@
+const axios = require("axios");
+
 module.exports = {
   config: {
-    name: "friend",
+    name: "accept",
     aliases: ["acp", "accept"],
-    version: "1.0.0",
-    role: 2, // শুধুমাত্র অ্যাডমিন ব্যবহার করতে পারবে (নিরাপত্তার জন্য)
+    version: "1.0.5",
+    role: 2, // শুধুমাত্র অ্যাডমিন ব্যবহার করতে পারবে
     author: "AkHi",
-    description: "Manage friend requests (Accept/Remove)",
-    category: "Social",
+    description: "Manage friend requests with Reply",
+    category: "admin",
     guide: {
-      en: "!acp <userID> OR !acp remove <userID>"
+      en: "{pn} [list] - To see requests\nReply with: '1 add', '1 remove', 'add all', or 'remove all'"
     },
     countDown: 5
   },
 
-  onStart: async function ({ api, event, args }) {
+  onStart: async function ({ api, event }) {
     const { threadID, messageID } = event;
-    const action = args[0]?.toLowerCase();
-    const uid = args[1];
-
-    // ইউজার আইডি চেক
-    if (!action || !uid || isNaN(uid)) {
-      return api.sendMessage("AkHi Ma'am, Please use the right format.\n\nguide: !acp <ID>\nঅথবা: !friend remove <ID>", threadID, messageID);
-    }
 
     try {
-      if (action === "accept") {
-        // fca-horizon-remake এ handleFriendRequest ব্যবহার করা হয়
-        // true মানে একসেপ্ট করা
-        api.handleFriendRequest(uid, true, (err) => {
-          if (err) {
-            console.error(err);
-            return api.sendMessage(`❌ AkHi Ma'am, Request accept failed\nভুল: ${err.errorDescription || "Unknown error"}`, threadID, messageID);
-          }
-          return api.sendMessage(`AkHi Ma'am ✅ ${uid} Request accept successfully!`, threadID, messageID);
-        });
-
-      } else if (action === "remove" || action === "reject") {
-        // false মানে রিকোয়েস্ট ডিলিট বা রিজেক্ট করা
-        api.handleFriendRequest(uid, false, (err) => {
-          if (err) {
-            console.error(err);
-            return api.sendMessage(`❌ AkHi Ma'am, Failed to remove friend request।`, threadID, messageID);
-          }
-          return api.sendMessage(`AkHi Ma'am ${uid}- Request Remove Successfully!`, threadID, messageID);
-        });
-
-      } else {
-        return api.sendMessage("AkHi Ma'am, please type'accept'/'remove' লিখুন।", threadID, messageID);
+      // পেন্ডিং ফ্রেন্ড রিকোয়েস্ট লিস্ট নেওয়া
+      const listRequest = await api.getFriendRequests();
+      
+      if (listRequest.length === 0) {
+        return api.sendMessage("AkHi Ma'am, বর্তমানে কোনো ফ্রেন্ড রিকোয়েস্ট নেই। 🥺", threadID, messageID);
       }
-    } catch (error) {
-      console.error(error);
-      return api.sendMessage("AkHi Ma'am, কমান্ডটি কাজ করার সময় একটি ইন্টারনাল এরর হয়েছে। 🥺", threadID, messageID);
+
+      // ১০টি লেটেস্ট রিকোয়েস্ট নেওয়া (নতুনগুলো আগে)
+      const requests = listRequest.slice(0, 10);
+      let msg = "✨ পেন্ডিং ফ্রেন্ড রিকোয়েস্ট লিস্ট (সর্বশেষ ১০টি) ✨\n" + "━".repeat(20) + "\n";
+
+      requests.forEach((user, index) => {
+        msg += `${index + 1}. নাম: ${user.name}\nID: ${user.userID}\n\n`;
+      });
+
+      msg += "━".repeat(20) + "Reply with add/remove and number";
+
+      return api.sendMessage(msg, threadID, (err, info) => {
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName: this.config.name,
+          messageID: info.messageID,
+          author: event.senderID,
+          requests: requests // রিকোয়েস্টগুলো ক্যাশে সেভ রাখা হলো
+        });
+      }, messageID);
+
+    } catch (e) {
+      return api.sendMessage("Error: " + e.message, threadID, messageID);
+    }
+  },
+
+  onReply: async function ({ api, event, Reply }) {
+    const { threadID, messageID, body, senderID } = event;
+    const { requests } = Reply;
+
+    if (senderID != Reply.author) return; // যে কমান্ড দিয়েছে শুধু সে ই রিপ্লাই দিতে পারবে
+
+    const input = body.toLowerCase().trim();
+
+    try {
+      // ১. সব একসেপ্ট (add all)
+      if (input === "add all") {
+        api.sendMessage("AkHi Ma'am, Request accept on the way", threadID);
+        for (let user of requests) {
+          await api.handleFriendRequest(user.userID, true);
+        }
+        return api.sendMessage("✅ ${user.name} Request accept successfully", threadID, messageID);
+      }
+
+      // ২. সব ডিলেট (remove all)
+      if (input === "remove all") {
+        api.sendMessage("AkHi Ma'am, Request Delete on the way", threadID);
+        for (let user of requests) {
+          await api.handleFriendRequest(user.userID, false);
+        }
+        return api.sendMessage("❌ Request delete successfully Ma'am", threadID, messageID);
+      }
+
+      // ৩. নির্দিষ্ট রিকোয়েস্ট (যেমন: 1 add বা 1 remove)
+      const match = input.match(/^(\d+)\s+(add|remove)$/);
+      if (match) {
+        const index = parseInt(match[1]) - 1;
+        const action = match[2];
+
+        if (index >= 0 && index < requests.length) {
+          const user = requests[index];
+          const isAccept = action === "add";
+
+          api.handleFriendRequest(user.userID, isAccept, (err) => {
+            if (err) return api.sendMessage("এরর হয়েছে: " + err.errorDescription, threadID, messageID);
+            return api.sendMessage(`${isAccept ? "✅ একসেপ্ট" : "❌ রিমুভ"} করা হয়েছে: ${user.name}`, threadID, messageID);
+          });
+        } else {
+          return api.sendMessage("❌ ভুল নাম্বার! ১ থেকে ১০ এর মধ্যে একটি নাম্বার দিন।", threadID, messageID);
+        }
+      } else {
+        return api.sendMessage("❌ ভুল ফরম্যাট! উদাহরণ: '1 add' অথবা 'add all'", threadID, messageID);
+      }
+
+    } catch (e) {
+      return api.sendMessage("Error: " + e.message, threadID, messageID);
     }
   }
 };
