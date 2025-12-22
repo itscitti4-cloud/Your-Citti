@@ -20,33 +20,44 @@ if (!fs.existsSync(filePath)) {
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "hinata", "babe", "citti"],
-    version: "11.0.0",
-    author: "AkHi",
+    version: "12.0.0",
+    author: "AkHi & AI",
     countDown: 0,
     role: 0,
-    description: "Smart AI Chatbot with Custom Render API",
+    description: "Smart AI Chatbot with Auto-Teach and Render API",
     category: "chat",
     guide: {
         en: "1. [Prefix] {pn} teach [Q] - [A]\n2. [No-Prefix] Just call 'baby' or 'bby'\n3. [Continuous] Reply to bot message to chat."
     }
 };
 
-// --- ফাংশন: স্মার্ট রিপ্লাই লজিক (Custom API First) ---
+// --- ফাংশন: স্মার্ট রিপ্লাই এবং অটো-টিচ লজিক ---
 async function getSmartReply(input, data) {
     const text = input.toLowerCase().trim();
+    if (!text) return "বলো জানু, শুনছি!";
     
-    // ১. প্রথমে লোকাল ডাটাবেজে (Teach করা উত্তর) চেক করবে
-    if (data.responses && data.responses[text]) {
+    // ১. লোকাল ডাটাবেজ চেক
+    if (data.responses && data.responses[text] && data.responses[text].length > 0) {
         const responses = data.responses[text];
         return responses[Math.floor(Math.random() * responses.length)];
     }
 
-    // ২. উত্তর না থাকলে সরাসরি আপনার Render API (ChatGPT Intelligence) ব্যবহার করবে
+    // ২. উত্তর না থাকলে API থেকে আনা এবং অটো-সেভ (Auto-Teach)
     try {
         const res = await axios.get(`https://my-simi-api.onrender.com/simi?text=${encodeURIComponent(text)}`);
         
         if (res.data && res.data.reply) {
-            return res.data.reply;
+            const botReply = res.data.reply;
+
+            // অটো-টিচ লজিক: API এর উত্তরটি লোকাল মেমরিতে সেভ করে রাখা
+            if (!data.responses[text]) data.responses[text] = [];
+            // ডুপ্লিকেট চেক করে পুশ করা
+            if (!data.responses[text].includes(botReply)) {
+                data.responses[text].push(botReply);
+                fs.writeJsonSync(filePath, data); // ডাটা সেভ করা
+            }
+
+            return botReply;
         } else {
             return "আমি আপনার কথাটি বুঝতে পারছি না, একটু বুঝিয়ে বলবেন? 🥺";
         }
@@ -55,7 +66,7 @@ async function getSmartReply(input, data) {
     }
 }
 
-// --- ১. Prefix কমান্ড হ্যান্ডলার ---
+// --- ১. Prefix কমান্ড হ্যান্ডলার (Manual Teach/Remove) ---
 module.exports.onStart = async ({ api, event, args }) => {
     const { threadID, messageID, senderID } = event;
     let data = fs.readJsonSync(filePath);
@@ -65,7 +76,6 @@ module.exports.onStart = async ({ api, event, args }) => {
 
         const action = args[0].toLowerCase();
 
-        // উত্তর মুছে ফেলা
         if (action === 'remove' || action === 'rm') {
             const key = args.slice(1).join(" ").toLowerCase();
             if (data.responses && data.responses[key]) {
@@ -76,7 +86,6 @@ module.exports.onStart = async ({ api, event, args }) => {
             return api.sendMessage("❌ | এই কথাটি আমার মেমোরিতে নেই।", threadID, messageID);
         }
 
-        // বটকে নতুন কিছু শেখানো
         if (action === 'teach') {
             const content = args.slice(1).join(" ").split(/\s*-\s*/);
             const ques = content[0]?.toLowerCase().trim();
@@ -91,7 +100,6 @@ module.exports.onStart = async ({ api, event, args }) => {
             data.teachers[senderID] = (data.teachers[senderID] || 0) + 1;
 
             fs.writeJsonSync(filePath, data);
-            
             return api.sendMessage(`✅ | শেখানো সফল হয়েছে!\n🗣️ কথা: ${ques}\n🤖 উত্তর: ${ans}`, threadID, messageID);
         }
     } catch (e) {
@@ -100,7 +108,7 @@ module.exports.onStart = async ({ api, event, args }) => {
 };
 
 // --- ২. Continuous Reply হ্যান্ডলার ---
-module.exports.onReply = async ({ api, event, Reply }) => {
+module.exports.onReply = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID()) return;
     let data = fs.readJsonSync(filePath);
     
@@ -115,7 +123,7 @@ module.exports.onReply = async ({ api, event, Reply }) => {
     }, event.messageID);
 };
 
-// --- ৩. No-Prefix এবং Initial Chat হ্যান্ডলার ---
+// --- ৩. No-Prefix (নাম ধরে ডাকলে) হ্যান্ডলার ---
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
     
@@ -127,12 +135,7 @@ module.exports.onChat = async ({ api, event }) => {
         let data = fs.readJsonSync(filePath);
         const input = body.replace(targetName, "").trim();
         
-        let result;
-        if (!input) {
-            result = "বলো জানু, শুনছি! কি বলবে?";
-        } else {
-            result = await getSmartReply(input, data);
-        }
+        const result = await getSmartReply(input, data);
 
         return api.sendMessage(result, event.threadID, (err, info) => {
             if (!err) global.GoatBot.onReply.set(info.messageID, {
@@ -143,4 +146,4 @@ module.exports.onChat = async ({ api, event }) => {
         }, event.messageID);
     }
 };
-            
+        
