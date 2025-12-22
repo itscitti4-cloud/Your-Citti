@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "pending",
     aliases: ["pen", "p"],
-    version: "1.0.0",
+    version: "1.0.1",
     author: "AkHi",
     countDown: 5,
     role: 2, 
@@ -33,7 +33,7 @@ module.exports = {
         msg += `${index + 1}. 📂 Name: ${item.name}\n🆔 ID: ${item.threadID}\n━━━━━━━━━━━━━━━━━━\n`;
       });
 
-      msg += "✓ Reply with [number/all] to Approve!\n× Reply with [number r/all r] to Remove.\n× Reply with [c] to Cancel.";
+      msg += "\n✓ Reply with [number/all] to Approve!\n× Reply with [number r/all r] to Remove.\n× Reply with [c] to Cancel.";
 
       return api.sendMessage(msg, threadID, (err, info) => {
         global.GoatBot.onReply.set(info.messageID, {
@@ -56,6 +56,9 @@ module.exports = {
     if (senderID !== author) return;
 
     const input = body.toLowerCase().trim();
+    
+    // বিরতি ফাংশন (২.৫ সেকেন্ড)
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     // ১. ক্যানসেল অপারেশন (c)
     if (input === 'c') {
@@ -65,20 +68,30 @@ module.exports = {
 
     // ২. সব অ্যাপ্রুভ (all)
     if (input === 'all') {
-      api.sendMessage("⏳ Approving all groups...", threadID);
+      api.sendMessage(`⏳ ${pendingList.length} Request Approve processing ⌛ `, threadID);
+      let count = 0;
       for (const item of pendingList) {
-        await api.sendMessage(`Congratulations! Your group has been approved by Lubna Jannat. For my prefix Type and send Prefix. For my admin info type info with prefix.`, item.threadID);
+        await delay(2500); // ২.৫ সেকেন্ড বিরতি
+        try {
+          await api.sendMessage(`Congratulations! Your group has been approved by Lubna Jannat. For my prefix Type and send Prefix. For my admin info type info with prefix.`, item.threadID);
+          count++;
+        } catch (e) { console.log(`Error approving: ${item.threadID}`); }
       }
-      return api.sendMessage(`✅ মোট ${pendingList.length} Request approve successfully`, threadID);
+      return api.sendMessage(`✅ মোট ${count} Request Approved Successful`, threadID);
     }
 
     // ৩. সব রিমুভ (all r)
     if (input === 'all r') {
-      api.sendMessage("⏳ Removing all requests...", threadID);
+      api.sendMessage(`⏳ ${pendingList.length} Request Remove Successfully Ma'am`, threadID);
+      let count = 0;
       for (const item of pendingList) {
-        await api.deleteThread(item.threadID);
+        await delay(2500); // ২.৫ সেকেন্ড বিরতি
+        try {
+          await api.deleteThread(item.threadID);
+          count++;
+        } catch (e) { console.log(`Error deleting: ${item.threadID}`); }
       }
-      return api.sendMessage(`✅ মোট ${pendingList.length} Request remove successfully`, threadID);
+      return api.sendMessage(`✅ মোট ${count} Request Remove Successfully Ma'am.`, threadID);
     }
 
     // ৪. সিঙ্গেল রিমুভ (নাম্বার r)
