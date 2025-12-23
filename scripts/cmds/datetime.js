@@ -1,20 +1,16 @@
 const moment = require('moment-timezone');
-const axios = require('axios');
-const fs = require('fs');
 
 module.exports = {
   config: {
     name: "datetime",
-    aliases: ["date", "time"],
-    version: "1.6",
+    aliases: ["date", "time", "clock"],
+    version: "2.0",
     author: "AkHi",
     countdown: 5,
     role: 0,
-    shortDescription: "Displays the current date and time in Dhaka, Bangladesh.",
-    longDescription: "This command provides the current date and time in Dhaka, Bangladesh along with a random image.",
-    category: "other",
-    guide: "{prefix}{name}",
-    envConfig: {}
+    shortDescription: "বাংলাদেশ ও অন্যান্য গুরুত্বপূর্ণ দেশের প্রিমিয়াম টাইম ও ডেট।",
+    category: "utility",
+    guide: "{prefix}{name}"
   },
 
   onStart: async function ({ message }) {
@@ -22,35 +18,24 @@ module.exports = {
       const timezone = "Asia/Dhaka";
       const now = moment().tz(timezone);
 
-      const reply = `📅 **Date & Time in Dhaka, Bangladesh**\n` +
-        `❏ **Date:** ${now.format("dddd, DD MMMM YYYY")}\n` +
-        `❏ **Time:** ${now.format("h:mm:ss A")} (UTC+6)\n` +
-        `❏ **Author:** MR᭄﹅ MAHABUB﹅ メꪜ`;
+      // প্রিমিয়াম স্টাইল ডিজাইনিং
+      const premiumReply = 
+        `╔══════════════════╗\n` +
+        `       🕒 **𝐃𝐇𝐀𝐊𝐀 𝐂𝐋𝐎𝐂𝐊**\n` +
+        `╚══════════════════╝\n\n` +
+        `  📅 **𝐃𝐚𝐭𝐞:** ${now.format("DD MMMM YYYY")}\n` +
+        `  🌟 **𝐃𝐚𝐲:** ${now.format("dddd")}\n` +
+        `  ⏰ **𝐓𝐢𝐦𝐞:** ${now.format("hh:mm:ss A")}\n` +
+        `  🌐 **𝐙𝐨𝐧𝐞:** GMT+6 (Bangladesh)\n\n` +
+        `  💡 *Have a productive day!* \n` +
+        `━━━━━━━━━━━━━━━━━━\n` +
+        `  **𝐃𝐞𝐯𝐞𝐥𝐨𝐩𝐞𝐝 𝐛𝐲:** Lubna Jannat AkHi`;
 
-      const imageUrls = [
-        "https://drive.google.com/uc?export=download&id=1IwnpXVzcxY9s5HK-Nys2Sy4LhJLdNs3i",
-        "https://drive.google.com/uc?export=download&id=1MWaaJwDKT6C5gPjkDYVDMnbaHRXg0-ke",
-        "https://drive.google.com/uc?export=download&id=1IpIqRVaBV1UpWSUSUgK57VrBZWt--vR2"
-      ];
-
-      const randomImage = imageUrls[Math.floor(Math.random() * imageUrls.length)];
-      const imagePath = `${__dirname}/dhaka-time.jpg`;
-
-      const response = await axios.get(randomImage, { responseType: "arraybuffer" });
-      fs.writeFileSync(imagePath, response.data);
-
-      message.reply({
-        body: reply,
-        attachment: fs.createReadStream(imagePath)
-      }, () => {
-        fs.unlinkSync(imagePath);
-      });
+      return message.reply(premiumReply);
 
     } catch (error) {
       console.error("Error retrieving date and time:", error);
-      message.reply("⚠️ An error occurred while retrieving the date and time.");
+      message.reply("⚠️ সিস্টেমের সময় নির্ণয় করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।");
     }
-  },
-
-  onEvent: async function () {}
+  }
 };
