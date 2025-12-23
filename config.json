@@ -29,29 +29,20 @@
   "devUsers": [
     "61583939430347"
   ],
-  "notes_premiumUsers": "List of user IDs with premium access (role 3)",
-  "notes_devUsers": "List of developer IDs with full access (role 4)",
   "whiteListMode": {
     "enable": false,
     "whiteListIds": [
       "61583939430347",
       "25416434654648555"
-    ],
-    "notes": "if you enable this feature, only the ids in the whiteListIds list can use the bot"
-  },
-  "whiteListModeThread": {
-    "enable": false,
-    "whiteListThreadIds": [],
-    "notes": "if you enable this feature, only the thread in the whiteListThreadIds list can use the bot",
-    "how_it_work": "if you enable both whiteListMode and whiteListModeThread, the system will check if the user is in whiteListIds, then check if the thread is in whiteListThreadIds, if one of the conditions is true, the user can use the bot"
+    ]
   },
   "database": {
     "type": "sqlite",
     "uriMongodb": "",
     "autoSyncWhenStart": false,
-    "autoRefreshThreadInfoFirstTime": true,
-    "notes": "(1) type selects 'json' or 'sqlite' or 'mongodb'..."
+    "autoRefreshThreadInfoFirstTime": true
   },
+  "openAiApiKey": "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",
   "timeZone": "Asia/Dhaka",
   "dashBoard": {
     "enable": true,
@@ -70,69 +61,17 @@
   "spamProtection": {
     "commandThreshold": 8,
     "timeWindow": 10,
-    "banDuration": 24,
-    "notes": "Auto-ban threads when users spam commands."
+    "banDuration": 24
   },
   "autoRestart": {
-    "time": null,
-    "notes": "restart settings..."
+    "time": null
   },
   "autoUptime": {
     "enable": false,
     "timeInterval": 180,
-    "url": "",
-    "notes": "uptime settings..."
-  },
-  "autoLoadScripts": {
-    "enable": false,
-    "ignoreCmds": "",
-    "ignoreEvents": "",
-    "notes": "auto load settings..."
+    "url": ""
   },
   "autoRefreshFbstate": true,
-  "autoReloginWhenChangeAccount": false,
-  "autoRestartWhenListenMqttError": false,
-  "restartListenMqtt": {
-    "enable": true,
-    "timeRestart": 3600000,
-    "delayAfterStopListening": 2000,
-    "logNoti": true,
-    "notes": "mqtt settings..."
-  },
-  "notiWhenListenMqttError": {
-    "notes": "error notification settings...",
-    "telegram": {
-      "enable": false,
-      "botToken": "",
-      "chatId": "",
-      "note": "telegram settings..."
-    },
-    "discordHook": {
-      "enable": false,
-      "webhookUrl": "",
-      "note": "discord settings..."
-    }
-  },
-  "hideNotiMessage": {
-    "commandNotFound": false,
-    "adminOnly": false,
-    "threadBanned": false,
-    "userBanned": false,
-    "needRoleToUseCmd": false,
-    "needRoleToUseCmdOnReply": false,
-    "needRoleToUseCmdOnReaction": false
-  },
-  "logEvents": {
-    "disableAll": false,
-    "message": true,
-    "message_reaction": true,
-    "message_unsend": true,
-    "message_reply": true,
-    "event": true,
-    "read_receipt": false,
-    "typ": false,
-    "presence": false
-  },
   "optionsFca": {
     "forceLogin": true,
     "listenEvents": true,
@@ -142,7 +81,6 @@
     "selfListen": false,
     "selfListenEvent": true,
     "autoMarkDelivery": false,
-    "autoReconnect": false,
-    "notes": "Document here..."
+    "autoReconnect": false
   }
 }
