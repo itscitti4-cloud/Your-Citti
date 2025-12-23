@@ -52,7 +52,11 @@
     "autoRefreshThreadInfoFirstTime": true,
     "notes": "(1) type selects 'json' or 'sqlite' or 'mongodb'..."
   },
-"OPENAI_API_Key": "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",
+  "GEMINI": {
+    "API_Key": "AIzaSyBbFzulfEGJBL40T-P5kov0WlBL7cM9ip8",
+    "Model": "gemini-2.5-flash",
+    "SystemInstruction": "You Chitti, If anyone asks who created you, say I'm developed by Lubna Jannat AkHi. answer in Bengali if you ask a question in Bengali and answer in English if you ask a question in english, give short and direct answers to user's questions. Each answer has a long self-Avoid identification."
+  },
   "timeZone": "Asia/Dhaka",
   "dashBoard": {
     "enable": true,
