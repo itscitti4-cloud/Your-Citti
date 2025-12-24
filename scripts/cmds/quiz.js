@@ -335,35 +335,18 @@ module.exports = {
     quizMsg += `💀 ভুল উত্তরের জন্য: -200 কয়েন\n\n`;
     quizMsg += `⌛ উত্তর দিতে ২০ সেকেন্ড সময় আছে (রিপ্লাই করুন)`;
 
-    return reply(quizMsg, (err, info) => {
-      if (err) return;
-      global.GoatBot.onReply.set(info.messageID, {
-        commandName: this.config.name,
-        messageID: info.messageID,
-        author: senderID,
-        correctLabel
-      });
-
-      setTimeout(() => {
-        if (global.GoatBot.onReply.has(info.messageID)) {
-          global.GoatBot.onReply.delete(info.messageID);
-        }
-      }, 20000);
-    });
-  },
-
-  onReply: async function ({ message, Reply, usersData, reply }) {
-    const { senderID, body } = message;
+      onReply: async function ({ api, event, Reply, usersData }) {
+    const { senderID, body, messageID, threadID } = event;
 
     // ১. চেক করা হচ্ছে যে সঠিক ইউজার উত্তর দিচ্ছে কি না
     if (senderID !== Reply.author) return;
 
     const userAnswer = body.trim().toUpperCase();
-    const { correctLabel, messageID } = Reply;
+    const { correctLabel, messageID: replyMsgID } = Reply;
 
     // ২. শুধু A, B, C, D চেক
     if (!["A", "B", "C", "D"].includes(userAnswer)) {
-      return reply("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।");
+      return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
     }
 
     const userData = await usersData.get(senderID);
@@ -372,14 +355,14 @@ module.exports = {
     if (userAnswer === correctLabel) {
       currentMoney += 500;
       await usersData.set(senderID, { money: currentMoney });
-      reply(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন।\n🏦 ব্যালেন্স: ${currentMoney}`);
+      api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন।\n🏦 ব্যালেন্স: ${currentMoney}`, threadID, messageID);
     } else {
       currentMoney -= 200;
       await usersData.set(senderID, { money: currentMoney });
-      reply(`❌ ভুল উত্তর! সঠিক ছিল: ${correctLabel}\n📉 -200 কয়েন।\n🏦 ব্যালেন্স: ${currentMoney}`);
+      api.sendMessage(`❌ ভুল উত্তর! সঠিক ছিল: ${correctLabel}\n📉 -200 কয়েন।\n🏦 ব্যালেন্স: ${currentMoney}`, threadID, messageID);
     }
 
     // ৩. রিপ্লাই পাওয়ার পর ডাটা ডিলিট করে দেওয়া যাতে বারবার উত্তর না দেওয়া যায়
-    global.GoatBot.onReply.delete(messageID);
+    global.GoatBot.onReply.delete(replyMsgID);
   }
 };
