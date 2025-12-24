@@ -13,27 +13,29 @@ module.exports = {
     guide: "{pn} [bet_amount]"
   },
 
-  onStart: async function ({ message, args, usersData }) {
-    const { senderID, reply } = message;
-    
+  onStart: async function ({ api, event, args, usersData }) {
+    const { senderID, threadID, messageID } = event; // event থেকে আইডি সংগ্রহ
+
     // ১. ডাটা চেক এবং বেট অ্যামাউন্ট নির্ধারণ
     const userData = await usersData.get(senderID);
-    const userMoney = userData.money;
+    if (!userData) return api.sendMessage("❌ ইউজার ডাটা পাওয়া যায়নি।", threadID, messageID);
+
+    const userMoney = userData.money || 0;
     const betAmount = parseInt(args[0]);
 
     if (isNaN(betAmount) || betAmount <= 0) {
-      return reply("⚠️ Please enter a valid amount to bet!\nExample: !mine 500");
+      return api.sendMessage("⚠️ Please enter a valid amount to bet!\nExample: !mine 500", threadID, messageID);
     }
 
     if (userMoney < betAmount) {
-      return reply(`❌ You don't have enough money! Your current balance is $${userMoney}`);
+      return api.sendMessage(`❌ You don't have enough money! Your current balance is $${userMoney}`, threadID, messageID);
     }
 
     // ২. গেম লজিক (৫টি স্লটের মধ্যে ১টিতে বোমা থাকবে)
     const items = ["💎", "💎", "💣", "💎", "💎"];
     const randomResult = items[Math.floor(Math.random() * items.length)];
 
-    await reply("⛏️ Digging into the mines...");
+    api.sendMessage("⛏️ Digging into the mines...", threadID, messageID);
 
     // ৩. ফলাফল প্রসেসিং
     setTimeout(async () => {
@@ -41,25 +43,25 @@ module.exports = {
         const lostMoney = betAmount;
         await usersData.set(senderID, { money: userMoney - lostMoney });
         
-        return reply(
+        return api.sendMessage(
           `╭──✦ [ 𝗠𝗜𝗡𝗘 𝗘𝗫𝗣𝗟𝗢𝗗𝗘𝗗 ]\n` +
           `├‣ Result: 💣 BOOM!\n` +
           `├‣ Status: You hit a bomb!\n` +
           `├‣ Loss: -$${lostMoney}\n` +
-          `╰‣ Balance: $${userMoney - lostMoney} 📉`
+          `╰‣ Balance: $${userMoney - lostMoney} 📉`,
+          threadID,
+          messageID
         );
       } else {
-        const winMoney = Math.floor(betAmount * 1.5);
+        const winMoney = Math.floor(betAmount * 0.5); // ০.৫ গুণ লাভ (টোটাল ১.৫)
         await usersData.set(senderID, { money: userMoney + winMoney });
 
-        return reply(
+        return api.sendMessage(
           `╭──✦ [ 𝗠𝗜𝗡𝗘 𝗦𝗨𝗖𝗖𝗘𝗦𝗦 ]\n` +
           `├‣ Result: 💎 DIAMOND!\n` +
           `├‣ Status: Safe and Wealthy!\n` +
           `├‣ Profit: +$${winMoney}\n` +
-          `╰‣ Balance: $${userMoney + winMoney} 📈`
-        );
-      }
-    }, 2000); // ২ সেকেন্ড ডিলে যাতে গেমটি রিয়েলিস্টিক লাগে
-  }
-};
+          `╰‣ Balance: $${userMoney + winMoney} 📈`,
+          threadID,
+          messageID
+          
