@@ -977,6 +977,12 @@ Thank you for banking with us!`;
 
             default:
                 return message.reply(getLang("menu"));
+
+                // টাকা বিয়োগ বা যোগ করার পর এভাবে সেভ করতে হয়
+await usersData.set(userID, { 
+    money: newBalance 
+});
+                
         }
     }
 };
