@@ -7,7 +7,7 @@ module.exports = {
     role: 2,
     author: "AkHi",
     description: "Get detailed information about the group.",
-    category: "group",
+    category: "information",
     guides: "{p}boxinfo",
     countDown: 2
   },
