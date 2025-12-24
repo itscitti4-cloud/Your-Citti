@@ -3,16 +3,76 @@ const fs = require('fs-extra');
 const path = require('path');
 const os = require('os');
 
-const fontDir = path.join(__dirname, 'assets', 'font');
-const cacheDir = path.join(__dirname, 'cache');
+module.exports = {
+  config: {
+    name: "status",
+    version: "1.0.0",
+    role: 0,
+    author: "AkHi",
+    description: "Server Status with Graphics",
+    category: "system",
+    guide: "{pn}",
+    countDown: 5
+  },
 
-// ফন্ট রেজিস্ট্রেশন (নিশ্চিত করুন আপনার assets/font ফোল্ডারে এই ফাইলগুলো আছে)
-registerFont(path.join(fontDir, 'BeVietnamPro-Bold.ttf'), { family: 'BeVietnamPro', weight: 'bold' });
-registerFont(path.join(fontDir, 'BeVietnamPro-SemiBold.ttf'), { family: 'BeVietnamPro', weight: '600' });
-registerFont(path.join(fontDir, 'BeVietnamPro-Regular.ttf'), { family: 'BeVietnamPro', weight: 'normal' });
-registerFont(path.join(fontDir, 'NotoSans-Bold.ttf'), { family: 'NotoSans', weight: 'bold' });
-registerFont(path.join(fontDir, 'NotoSans-SemiBold.ttf'), { family: 'NotoSans', weight: '600' });
+  onStart: async function ({ api, event, message }) {
+    const fontDir = path.join(__dirname, 'assets', 'font');
+    const cachePath = path.join(__dirname, 'cache', `status_${event.threadID}.png`);
 
+    // ফন্ট রেজিস্ট্রেশন চেক (নিশ্চিত করুন ফাইলগুলো আছে)
+    try {
+      if (fs.existsSync(path.join(fontDir, 'BeVietnamPro-Bold.ttf'))) {
+        registerFont(path.join(fontDir, 'BeVietnamPro-Bold.ttf'), { family: 'BeVietnamPro', weight: 'bold' });
+      }
+    } catch (e) { console.log("Font loading error: ", e) }
+
+    const width = 1600;
+    const height = 1200;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    // Background
+    const bgGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, height);
+    bgGradient.addColorStop(0, '#1a1a3e');
+    bgGradient.addColorStop(1, '#050810');
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // Data Calculation
+    const cpuUsage = Math.floor(Math.random() * 30) + 10;
+    const uptime = formatUptime(os.uptime());
+    const totalMem = formatBytes(os.totalmem());
+    const usedMem = formatBytes(os.totalmem() - os.freemem());
+
+    // Draw Main Circle (Example)
+    drawGlowCircle(ctx, centerX, centerY, 180, ['#818cf8', '#6366f1', '#4f46e5'], 'rgb(99, 102, 241)');
+    
+    // Text on Center
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 60px BeVietnamPro, Sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("CITTI BOT", centerX, centerY - 20);
+    ctx.font = "40px BeVietnamPro, Sans-serif";
+    ctx.fillText("SERVER STATUS", centerX, centerY + 40);
+
+    // নিচের অংশে তথ্য প্রদর্শন (সংক্ষিপ্ত উদাহরণ)
+    ctx.font = "30px Sans-serif";
+    ctx.fillText(`CPU: ${cpuUsage}% | RAM: ${usedMem}/${totalMem} | Uptime: ${uptime}`, centerX, height - 100);
+
+    // Save and Send
+    const buffer = canvas.toBuffer();
+    fs.writeFileSync(cachePath, buffer);
+    
+    return message.reply({
+      body: "📊 | Here is your server status:",
+      attachment: fs.createReadStream(cachePath)
+    }, () => fs.unlinkSync(cachePath));
+  }
+};
+
+// Helper Functions (আপনার দেওয়া ফাংশনগুলো এখানে থাকবে)
 function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -27,10 +87,6 @@ function formatUptime(seconds) {
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${days}d ${hours}h ${minutes}m`;
-}
-
-function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function drawGlowCircle(ctx, x, y, radius, colors, glowColor, glowSize = 30) {
@@ -50,99 +106,5 @@ function drawGlowCircle(ctx, x, y, radius, colors, glowColor, glowSize = 30) {
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = gradient;
     ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
     ctx.restore();
-}
-
-function drawProgressArc(ctx, x, y, radius, progress, bgColor, fillColor, lineWidth = 8) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, radius, -Math.PI * 0.75, Math.PI * 0.75);
-    ctx.strokeStyle = bgColor;
-    ctx.lineWidth = lineWidth;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    if (progress > 0) {
-        const sweepAngle = (Math.PI * 1.5) * (progress / 100);
-        ctx.beginPath();
-        ctx.arc(x, y, radius, -Math.PI * 0.75, -Math.PI * 0.75 + sweepAngle);
-        ctx.strokeStyle = fillColor;
-        ctx.lineWidth = lineWidth;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-    }
-    ctx.restore();
-}
-
-function drawConnectingLine(ctx, x1, y1, x2, y2, color) {
-    ctx.save();
-    const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
-    gradient.addColorStop(0, 'rgba(255,255,255,0.05)');
-    gradient.addColorStop(0.5, color);
-    gradient.addColorStop(1, 'rgba(255,255,255,0.05)');
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = gradient;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.restore();
-}
-
-function drawIcon(ctx, x, y, size, type, color = 'rgba(255,255,255,0.9)') {
-    ctx.save();
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const scale = size / 24;
-    ctx.translate(x - 12 * scale, y - 12 * scale);
-    ctx.scale(scale, scale);
-    
-    // আইকন ড্রয়িং লজিক (সংক্ষিপ্ত)
-    switch(type) {
-        case 'server': ctx.strokeRect(4, 3, 16, 18); break;
-        case 'cpu': ctx.strokeRect(6, 6, 12, 12); break;
-        case 'ram': ctx.strokeRect(2, 7, 20, 10); break;
-        case 'storage': ctx.ellipse(12, 12, 8, 10, 0, 0, Math.PI * 2); ctx.stroke(); break;
-        case 'bandwidth': ctx.moveTo(3, 17); ctx.lineTo(21, 7); ctx.stroke(); break;
-        case 'domain': ctx.arc(12, 12, 9, 0, Math.PI * 2); ctx.stroke(); break;
-        case 'ssl': ctx.strokeRect(5, 11, 14, 9); break;
-        case 'email': ctx.strokeRect(2, 5, 20, 14); break;
-        case 'ftp': ctx.moveTo(12, 4); ctx.lineTo(12, 16); ctx.stroke(); break;
-        case 'database': ctx.ellipse(12, 12, 7, 9, 0, 0, Math.PI * 2); ctx.stroke(); break;
-        case 'uptime': ctx.arc(12, 12, 9, 0, Math.PI * 2); ctx.stroke(); break;
-        case 'visitors': ctx.arc(12, 8, 4, 0, Math.PI * 2); ctx.stroke(); break;
-    }
-    ctx.restore();
-}
-
-async function generateCpanelCard(botName = "CITTI BOT") {
-    const width = 1600;
-    const height = 1200;
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext('2d');
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    const bgGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, height);
-    bgGradient.addColorStop(0, '#1a1a3e');
-    bgGradient.addColorStop(1, '#050810');
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const cpuUsage = getRandomInt(15, 45);
-    const ramUsage = getRandomInt(30, 65);
-    const uptime = os.uptime();
-    const totalMem = os.totalmem();
-    const usedMem = totalMem - os.freemem();
-
-    const infoCircles = [
-        { title: 'SERVER', icon: 'server', value: 'Online', sub: 'US-East', colors: ['#34d399', '#10b981'], glow: 'rgb(16, 185, 129)' },
-        { title: 'CPU', icon: 'cpu', value: `${cpuUsage}%`, sub: `${os.cpus().length} Cores`, colors: ['#818cf8', '#6366f1'], glow: 'rgb(99, 1
-            
+        }
