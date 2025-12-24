@@ -77,9 +77,3 @@ module.exports = {
     });
   }
 };
-// টাকা বিয়োগ বা যোগ করার পর এভাবে সেভ করতে হয়
-await usersData.set(userID, { 
-    money: newBalance 
-});
-
-                                           
