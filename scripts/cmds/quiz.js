@@ -3,18 +3,21 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "quiz",
-    aliases: ["bdq", "bangladesh", "বাংলাদেশ"],
-    version: "1.2",
+    aliases: ["কুইজ", "game"],
+    version: "1.5",
     author: "AkHi",
-    countDown: 10,
+    countDown: 5,
     role: 0,
-    shortDescription: "বাংলাদেশ সম্পর্কিত কুইজ গেম",
-    longDescription: "বাংলাদেশ বিষয়াবলি নিয়ে কুইজ খেলুন এবং কয়েন জিতুন।",
+    shortDescription: "বাংলাদেশ বিষয়ক কুইজ গেম",
+    longDescription: "বাংলাদেশ সংক্রান্ত প্রশ্ন এবং উত্তরের মাধ্যমে কয়েন জিতুন।",
     category: "game",
     guide: "{pn}"
   },
 
-  onStart: async function ({ message, senderID, reply }) {
+  onStart: async function ({ api, event, usersData }) {
+    const { threadID, messageID, senderID } = event;
+
+    // বাংলাদেশ সংক্রান্ত প্রশ্নের ডাটাবেস
     const questions = [
       { q: "বাংলাদেশের স্বাধীনতা দিবস কবে?", a: "২৬ মার্চ", options: ["১৬ ডিসেম্বর", "২১ ফেব্রুয়ারি", "২৬ মার্চ", "১৪ এপ্রিল"] },
       { q: "বাংলাদেশের দীর্ঘতম নদী কোনটি?", a: "মেঘনা", options: ["পদ্মা", "যমুনা", "মেঘনা", "ব্রহ্মপুত্র"] },
@@ -318,24 +321,41 @@ module.exports = {
       { q: "বাংলাদেশের বৃহত্তম হাওড় হাকালুকি কোন জেলায়?", a: "মৌলভীবাজার", options: ["সিলেট", "মৌলভীবাজার", "সুনামগঞ্জ", "হবিগঞ্জ"] }
       ];
 
-  const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
-    const correctAnswer = randomQuiz.a;
-    const labels = ["A", "B", "C", "D"];
-    const shuffledOptions = randomQuiz.options.sort(() => Math.random() - 0.5);
-    const correctLabel = labels[shuffledOptions.indexOf(correctAnswer)];
+const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
+    const { q, options, ans } = randomQuiz;
 
-    let quizMsg = `╭───『 🇧🇩 কুইজ বাংলাদেশ 🇧🇩 』\n`;
-    quizMsg += `├‣ 📝 প্রশ্ন: ${randomQuiz.q}\n`;
-    quizMsg += `├───────────────────\n`;
-    shuffledOptions.forEach((opt, i) => {
-      quizMsg += `├‣ ${labels[i]}. ${opt}\n`;
-    });
-    quizMsg += `╰───────────────────\n\n`;
-    quizMsg += `🎁 সঠিক উত্তরের জন্য: +500 কয়েন\n`;
-    quizMsg += `💀 ভুল উত্তরের জন্য: -200 কয়েন\n\n`;
-    quizMsg += `⌛ উত্তর দিতে ২০ সেকেন্ড সময় আছে (রিপ্লাই করুন)`;
+    const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
+      `├‣ প্রশ্ন: ${q}\n` +
+      `│\n` +
+      `├‣ A. ${options[0]}\n` +
+      `├‣ B. ${options[1]}\n` +
+      `├‣ C. ${options[2]}\n` +
+      `├‣ D. ${options[3]}\n` +
+      `╰──────────────◊\n\n` +
+      `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে এই মেসেজে রিপ্লাই দিন।\n` +
+      `⏰ আপনার কাছে ২০ সেকেন্ড সময় আছে।`;
 
-      onReply: async function ({ api, event, Reply, usersData }) {
+    return api.sendMessage(quizMsg, threadID, (err, info) => {
+      if (err) return;
+
+      // রিপ্লাই হ্যান্ডলার সেট করা
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        messageID: info.messageID,
+        author: senderID,
+        correctLabel: ans
+      });
+
+      // ২০ সেকেন্ড পর অটোমেটিক রিপ্লাই ডাটা ডিলিট করা
+      setTimeout(() => {
+        if (global.GoatBot.onReply.has(info.messageID)) {
+          global.GoatBot.onReply.delete(info.messageID);
+        }
+      }, 20000);
+    }, messageID);
+  },
+
+  onReply: async function ({ api, event, Reply, usersData }) {
     const { senderID, body, messageID, threadID } = event;
 
     // ১. চেক করা হচ্ছে যে সঠিক ইউজার উত্তর দিচ্ছে কি না
@@ -355,14 +375,15 @@ module.exports = {
     if (userAnswer === correctLabel) {
       currentMoney += 500;
       await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন।\n🏦 ব্যালেন্স: ${currentMoney}`, threadID, messageID);
+      api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
     } else {
       currentMoney -= 200;
+      if (currentMoney < 0) currentMoney = 0;
       await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`❌ ভুল উত্তর! সঠিক ছিল: ${correctLabel}\n📉 -200 কয়েন।\n🏦 ব্যালেন্স: ${currentMoney}`, threadID, messageID);
+      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel}\n📉 -200 কয়েন কাটা হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
     }
 
-    // ৩. রিপ্লাই পাওয়ার পর ডাটা ডিলিট করে দেওয়া যাতে বারবার উত্তর না দেওয়া যায়
-    global.GoatBot.onReply.delete(replyMsgID);
+    // ৩. একবার উত্তর দেওয়ার পর রিপ্লাই হ্যান্ডলার ক্লিয়ার করা
+    global.GoatBot.onReply.delete(Reply.messageID);
   }
 };
