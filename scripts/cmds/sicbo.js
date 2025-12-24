@@ -14,9 +14,12 @@ module.exports = {
     guide: "{pn} <big | small> <amount>"
   },
 
-  onStart: async function ({ message, args, usersData }) {
-    const { senderID, reply } = message;
+  onStart: async function ({ api, event, args, usersData }) {
+    const { senderID, threadID, messageID } = event; // এখানে event থেকে ডাটা নিতে হবে
     
+    // মেসেজ পাঠানোর জন্য ফাংশন
+    const reply = (text) => api.sendMessage(text, threadID, messageID);
+
     // ১. ইনপুট চেক
     if (args.length < 2) {
       return reply("⚠️ [ 𝗜𝗡𝗩𝗔𝗟𝗜𝗗 𝗨𝗦𝗔𝗚𝗘 ]\nCorrect format: !sicbo <big/small> <bet_amount>");
@@ -24,8 +27,12 @@ module.exports = {
 
     const betChoice = args[0].toLowerCase();
     const betAmount = parseInt(args[1]);
+
+    // ইউজারের ডাটাবেস চেক
     const userData = await usersData.get(senderID);
-    const userMoney = userData.money;
+    if (!userData) return reply("❌ [ 𝗘𝗥𝗥𝗢𝗥 ]\nUser data not found in database.");
+    
+    const userMoney = userData.money || 0;
 
     if (!["big", "small"].includes(betChoice)) {
       return reply("❌ [ 𝗘𝗥𝗥𝗢𝗥 ]\nYou can only bet on 'big' or 'small'.");
@@ -51,7 +58,7 @@ module.exports = {
     let result = "";
     if (total >= 4 && total <= 10) result = "small";
     else if (total >= 11 && total <= 17) result = "big";
-    else result = "triple"; // ৩টি ডাইস একই হলে হাউজ জিতে যায়
+    else result = "triple";
 
     // ৩. ফলাফল নির্ধারণ
     const isWin = betChoice === result;
