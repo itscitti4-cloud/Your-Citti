@@ -145,7 +145,7 @@
     "listenTyping": true,
     "logLevel": "error",
     "selfListen": false,
-    "selfListenEvent": true,
+    "selfListenEvent": false,
     "autoMarkDelivery": false,
     "autoReconnect": false,
     "notes": "Document here..."
