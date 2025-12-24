@@ -8,7 +8,7 @@ module.exports = {
         role: 0,
         shortDescription: "Transfer balance to another user",
         longDescription: "Send money using Reply, Mention, or UID.",
-        category: "Admin",
+        category: "game",
         guide: "{pn} [amount] (reply/mention) or {pn} [UID] [amount]"
     },
 
