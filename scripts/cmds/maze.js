@@ -4,7 +4,7 @@ const path = require('path');
 
 exports.config = {
     name: "maze",
-    author: "allou moha",//updated by NeoKEX
+    author: "AkHi",
     role: 0,
     countDown: 40,
     description: "Play maze with adjustable difficulty.",
@@ -512,3 +512,8 @@ exports.onReply = async ({ message, event, Reply, usersData }) => {
         await message.reply(`❌ Wrong path or move! Try again from your last checkpoint.\n\n🔄 Attempts remaining: ${3 - Reply.attempts}`);
     }
 };
+
+// টাকা বিয়োগ বা যোগ করার পর এভাবে সেভ করতে হয়
+await usersData.set(userID, { 
+    money: newBalance 
+});
