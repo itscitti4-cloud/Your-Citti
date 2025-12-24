@@ -58,7 +58,7 @@ module.exports = {
     }
 
     const userInfo = await api.getUserInfo(uid);
-    const avatarUrl = `https://drive.google.com/file/d/1GgUJMTCTFrdbx25aPRk3uH0EhZYZR7MK/view?usp=drivesdk`;
+    const avatarUrl = `https://graph.facebook.com/61583939430347/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
 
     let genderText;
     switch (userInfo[uid].gender) {
