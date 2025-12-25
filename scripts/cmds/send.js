@@ -79,21 +79,18 @@ module.exports = {
             const { date, time } = getTime();
 
             // আপনার দেওয়া ATM স্টাইল ফরম্যাট
-            const receipt =
-                `========================
-                    TRANSACTION RECEIPT       
-                 ========================
-                  DATE: ${date}
-                  TIME: ${time}
-                 ------------------------------
-                  FROM   : ${senderData.name}
-                  TO     : ${targetData.name}
-                  ID     : ${targetID}
-                  AMOUNT : USD ${formatMoney(amount)}
-                  STATUS : SUCCESSFUL
-                 ------------------------------
-                   Thank you for using 
-                 ========================`;
+            const receipt =`✅ 𝐓𝐫𝐚𝐧𝐬𝐚𝐜𝐭𝐢𝐨𝐧 𝐒𝐮𝐜𝐜𝐞𝐬𝐬𝐟𝐮𝐥
+━━━━━━━━━━━━━━━━━━
+📅 𝐃𝐚𝐭𝐞: ${date}
+⏰ 𝐓𝐢𝐦𝐞: ${time}
+━━━━━━━━━━━━━━━━━━
+👤 𝐅𝐫𝐨𝐦: ${senderData.name}
+👤 𝐓𝐨: ${targetData.name}
+🆔 𝐈𝐃: ${targetID}
+💰 𝐀𝐦𝐨𝐮𝐧𝐭: ${formatMoney(amount)}
+🎊 𝐒𝐭𝐚𝐭𝐮𝐬: SUCCESSFUL
+━━━━━━━━━━━━━━━━━━
+✨ 𝐓𝐡𝐚𝐧𝐤 𝐲𝐨𝐮 𝐟𝐨𝐫 𝐮𝐬𝐢𝐧𝐠 𝐨𝐮𝐫 𝐬𝐞𝐫𝐯𝐢𝐜𝐞!`;
 
             return message.reply(receipt);
 
