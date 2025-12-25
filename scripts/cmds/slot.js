@@ -1,81 +1,120 @@
-Module.exports = {
-    config: {
-        name: "send",
-        aliases: ["pay", "transfer"],
-        version: "2.5.0",
-        author: "AkHi",
-        countDown: 5,
-        role: 0,
-        shortDescription: "Transfer balance to another user",
-        longDescription: "Send money using Reply, Mention, or UID.",
-        category: "game",
-        guide: "{pn} [amount] (reply/mention) or {pn} [UID] [amount]"
+module.exports = {
+  config: {
+    name: "slot",
+    version: "1.6",
+    author: "AkHi",
+    description: {
+      role: 2,
+      en: "Playing slot game with short number formatting",
     },
+    category: "Game",
+  },
 
-    onStart: async function ({ api, event, args, message, usersData }) {
-        const { threadID, messageID, senderID, type, mentions } = event;
+  langs: {
+    en: {
+      invalid_amount: "Enter a valid amount of money to play",
+      not_enough_money: "Check your balance if you have that amount",
+      win_message: "You won $%1!",
+      lose_message: "You lost $%1!",
+      jackpot_message: "JACKPOT!! You won $%1 for five %2 symbols!",
+    },
+  },
 
-        let targetID;
-        let amount;
-
-        // টাকার সংখ্যা ফরম্যাট করার ফাংশন
-        const formatMoney = (n) => {
-            const num = Math.abs(n);
-            if (num >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + 'T';
-            if (num >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
-            if (num >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
-            if (num >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
-            return n.toString();
-        };
-
-        // ১. রিপ্লাই এর মাধ্যমে পাঠানো
-        if (type == "message_reply") {
-            targetID = event.messageReply.senderID;
-            amount = parseInt(args[0]);
-        } 
-        // ২. মেনশন এর মাধ্যমে পাঠানো
-        else if (Object.keys(mentions).length > 0) {
-            targetID = Object.keys(mentions)[0];
-            amount = parseInt(args.find(a => !isNaN(a)));
-        } 
-        // ৩. সরাসরি UID এর মাধ্যমে পাঠানো
-        else if (args.length >= 2 && !isNaN(args[0])) {
-            targetID = args[0];
-            amount = parseInt(args[1]);
-        } 
-        else {
-            return message.reply("❌ | 𝐈𝐧𝐯𝐚𝐥𝐢𝐝 𝐒𝐲𝐧𝐭𝐚𝐱!\n𝐔𝐬𝐞: !send [amount] @mention");
-        }
-
-        // ভ্যালিডেশন চেক
-        if (!amount || isNaN(amount) || amount <= 0) 
-            return message.reply("💸 | 𝐏𝐥𝐞𝐚𝐬𝐞 𝐞𝐧𝐭𝐞𝐫 𝐚 𝐯𝐚𝐥𝐢𝐝 𝐩𝐨𝐬𝐢𝐭𝐢𝐯𝐞 𝐚𝐦𝐨𝐮𝐧𝐭!");
-
-        if (targetID == senderID) 
-            return message.reply("🤦‍♂️ | 𝐘𝐨𝐮 𝐜𝐚𝐧𝐧𝐨𝐭 𝐬𝐞𝐧𝐝 𝐦𝐨𝐧𝐞𝐲 𝐭𝐨 𝐲𝐨𝐮𝐫𝐬𝐞𝐥𝐟!");
-
-        try {
-            const senderData = await usersData.get(senderID);
-            const targetData = await usersData.get(targetID);
-
-            if (!targetData) return message.reply("👤 | 𝐔𝐬𝐞𝐫 𝐧𝐨𝐭 𝐟𝐨𝐮𝐧𝐝 𝐢𝐧 𝐝𝐚𝐭𝐚𝐛𝐚𝐬𝐞!");
-
-            const currentMoney = senderData.money || 0;
-
-            if (amount > currentMoney) 
-                return message.reply(`🚫 | 𝐈𝐧𝐬𝐮𝐟𝐟𝐢𝐜𝐢𝐞𝐧𝐭 𝐁𝐚𝐥𝐚𝐧𝐜𝐞! 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐨𝐧𝐥𝐲 $${formatMoney(currentMoney)}`);
-
-            // টাকা আদান-প্রদান এবং ডাটাবেসে সেভ করা
-            await usersData.set(senderID, { money: currentMoney - amount });
-            await usersData.set(targetID, { money: (targetData.money || 0) + amount });
-
-            return message.reply({
-                body: `✅ 𝐓𝐫𝐚𝐧𝐬𝐚𝐜𝐭𝐢𝐨𝐧 𝐒𝐮𝐜𝐜𝐞𝐬𝐬𝐟𝐮𝐥\n━━━━━━━━━━━━━━━━━━\n👤 𝐓𝐨: ${targetData.name}\n🆔 𝐈𝐃: ${targetID}\n💰 𝐀𝐦𝐨𝐮𝐧𝐭: ${formatMoney(amount)}$\n🎊 𝐒𝐭𝐚𝐭𝐮𝐬: Completed\n━━━━━━━━━━━━━━━━━━\n✨ 𝐓𝐡𝐚𝐧𝐤 𝐲𝐨𝐮 𝐟𝐨𝐫 𝐮𝐬𝐢𝐧𝐠 𝐨𝐮𝐫 𝐬𝐞𝐫𝐯𝐢𝐜𝐞!`
-            });
-
-        } catch (error) {
-            console.error(error);
-            return message.reply("⚠️ | 𝐀𝐧 𝐞𝐫𝐫𝐨𝐫 𝐨𝐜𝐜𝐮𝐫𝐫𝐞𝐝! 𝐌𝐚𝐤𝐞 𝐬𝐮𝐫𝐞 𝐭𝐡𝐞 𝐮𝐬𝐞𝐫 𝐞𝐱𝐢𝐬𝐭𝐬.");
-        }
+  onStart: async function ({ args, message, event, usersData, getLang }) {
+    const { senderID } = event;
+    const userData = await usersData.get(senderID);
+    
+    // ইনপুট হ্যান্ডলিং (1k, 1m ইত্যাদি সাপোর্ট করার জন্য)
+    let amount = args[0];
+    if (amount && (amount.toLowerCase().endsWith('k') || amount.toLowerCase().endsWith('m') || amount.toLowerCase().endsWith('b') || amount.toLowerCase().endsWith('t'))) {
+        const unit = amount.slice(-1).toLowerCase();
+        const value = parseFloat(amount);
+        if (unit === 'k') amount = value * 1000;
+        else if (unit === 'm') amount = value * 1000000;
+        else if (unit === 'b') amount = value * 1000000000;
+        else if (unit === 't') amount = value * 1000000000000;
+    } else {
+        amount = parseInt(amount);
     }
+
+    if (isNaN(amount) || amount <= 0) {
+      return message.reply(getLang("invalid_amount"));
+    }
+
+    if (amount > userData.money) {
+      return message.reply(getLang("not_enough_money"));
+    }
+
+    const slots = ["💚", "🧡", "❤️", "💜", "💙", "💛"];
+    const s1 = slots[Math.floor(Math.random() * slots.length)];
+    const s2 = slots[Math.floor(Math.random() * slots.length)];
+    const s3 = slots[Math.floor(Math.random() * slots.length)];
+    const s4 = slots[Math.floor(Math.random() * slots.length)];
+    const s5 = slots[Math.floor(Math.random() * slots.length)];
+
+    const winnings = calculateWinnings(s1, s2, s3, s4, s5, amount);
+
+    await usersData.set(senderID, {
+      money: userData.money + winnings,
+      data: userData.data,
+    });
+
+    const msg = formatResult(s1, s2, s3, s4, s5, winnings, getLang);
+    return message.reply(msg);
+  },
 };
+
+// সংখ্যাকে K, M, B, T তে কনভার্ট করার ফাংশন
+function formatNumber(num) {
+  if (num < 1000) return num.toString();
+  const units = ["K", "M", "B", "T"];
+  let unitIndex = -1;
+  let value = Math.abs(num);
+
+  while (value >= 1000 && unitIndex < units.length - 1) {
+    value /= 1000;
+    unitIndex++;
+  }
+
+  return (num < 0 ? "-" : "") + value.toFixed(2).replace(/\.00$/, "") + units[unitIndex];
+}
+
+function calculateWinnings(s1, s2, s3, s4, s5, bet) {
+  if (s1 === s2 && s2 === s3 && s3 === s4 && s4 === s5) {
+    if (s1 === "💚") return bet * 20;
+    if (s1 === "💛") return bet * 15;
+    if (s1 === "💙") return bet * 10;
+    return bet * 7;
+  }
+
+  const isWin = Math.random() < 0.45; // জয়ের সম্ভাবনা ৪৫%
+  if (isWin) {
+    const unique = new Set([s1, s2, s3, s4, s5]);
+    const matchedCount = (5 - unique.size) * 2;
+    return bet * (matchedCount > 0 ? matchedCount : 2);
+  } else {
+    return -bet;
+  }
+}
+
+function formatResult(s1, s2, s3, s4, s5, winnings, getLang) {
+  const bold = (text) =>
+    text
+      .replace(/[A-Z]/gi, (c) =>
+        String.fromCodePoint(c.charCodeAt(0) + (c >= "a" ? 119737 - 97 : 119743 - 65))
+      )
+      .replace(/\d/g, (d) => String.fromCodePoint(0x1d7ce + parseInt(d)));
+
+  const slotLine = `🎰 [ ${s1} | ${s2} | ${s3} | ${s4} | ${s5} ] 🎰`;
+  const formattedWinnings = formatNumber(Math.abs(winnings));
+
+  if (winnings > 0) {
+    const isJackpot = s1 === s2 && s2 === s3 && s3 === s4 && s4 === s5;
+    const text = isJackpot 
+      ? getLang("jackpot_message", formattedWinnings, s1) 
+      : getLang("win_message", formattedWinnings);
+    return `${bold(slotLine)}\n${bold(text)}`;
+  } else {
+    return `${bold(slotLine)}\n${bold(getLang("lose_message", formattedWinnings))}`;
+  }
+}
