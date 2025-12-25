@@ -1,10 +1,10 @@
 module.exports = {
   config: {
     name: "sleep",
-    version: "1.0.0",
-    author: "AkHi",
+    version: "1.1.0",
+    author: "AkHi / Gemini AI",
     countDown: 5,
-    role: 2, // Bot Admin, Developer, Operator access
+    role: 2, 
     description: "Turn off bot replies for 10 minutes in the current group",
     category: "admin",
     guide: "{pn} mode on"
@@ -15,32 +15,45 @@ module.exports = {
     const mode = args[0]?.toLowerCase();
 
     if (mode === "mode" && args[1]?.toLowerCase() === "on") {
-      // 10 minutes in milliseconds
-      const sleepDuration = 10 * 60 * 1000; 
+      const sleepDuration = 10 * 60 * 1000; // 10 minutes
 
-      // Set thread data to sleep mode
+      // Save sleep mode to database
       await threadsData.set(threadID, true, "settings.isSleep");
 
-      api.sendMessage("Sleep mode is now ON. The bot will not reply to any commands in this group for 10 minutes.", threadID, messageID);
+      api.sendMessage("💤 Sleep mode is now ON! The bot will not reply to any commands in this group for the next 10 minutes.", threadID, messageID);
 
-      // Automatically turn off sleep mode after 10 minutes
+      // Automatically turn off after specific time
       setTimeout(async () => {
-        await threadsData.set(threadID, false, "settings.isSleep");
+        const currentStatus = await threadsData.get(threadID, "settings.isSleep");
+        if (currentStatus) {
+          await threadsData.set(threadID, false, "settings.isSleep");
+          api.sendMessage("⏰ 10 minutes are up! Sleep mode is now OFF. The bot is back to work.", threadID);
+        }
       }, sleepDuration);
 
+    } else if (mode === "mode" && args[1]?.toLowerCase() === "off") {
+        await threadsData.set(threadID, false, "settings.isSleep");
+        return api.sendMessage("✅ Sleep mode has been manually turned OFF.", threadID, messageID);
     } else {
-      return api.sendMessage("Usage: !sleep mode on", threadID, messageID);
+      return api.sendMessage("Usage: sleep mode on OR sleep mode off", threadID, messageID);
     }
   },
 
-  // This part checks if the bot should reply or not
-  onChat: async function ({ event, threadsData }) {
-    const { threadID } = event;
-    const threadSettings = await threadsData.get(threadID, "settings");
+  // This part checks every message
+  onChat: async function ({ event, threadsData, api }) {
+    const { threadID, body } = event;
+    
+    // Check status from database
+    const isSleep = await threadsData.get(threadID, "settings.isSleep");
 
-    if (threadSettings && threadSettings.isSleep) {
-      // If sleep mode is on, stop command execution
-      return false; 
+    if (isSleep === true) {
+      // Allow execution only if the user types 'sleep mode off'
+      if (body && body.toLowerCase().startsWith("sleep mode off")) {
+          return; 
+      }
+      
+      // Stop command execution during sleep mode
+      return event.stop(); 
     }
   }
 };
