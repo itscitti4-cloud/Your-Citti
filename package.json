@@ -9,7 +9,7 @@
         },
         "dependencies": {
                 "moment-timezone": "^0.5.43",
-                "islamic-date-res-bt": "^1.0.5"
+                "islamic-date-res-bt": "^1.0.5",
 			    "@google/generative-ai": "^0.21.0",
 			    "fca-neokex": "^1.0.1",
                 "@distube/ytdl-core": "^4.13.3",
