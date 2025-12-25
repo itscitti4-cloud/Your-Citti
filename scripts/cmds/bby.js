@@ -46,14 +46,14 @@ module.exports = {
       ];
       
       if (creatorQueries.some(q => bodyLower.includes(q))) {
-        return api.sendMessage("আমাকে 'Lubna Jannat AkHi Ma'am' তৈরি করেছে 😍", threadID, messageID);
+        return api.sendMessage("আমাকে 'Lubna Jannat (AkHi Ma'am)' তৈরি করেছে 😍", threadID, messageID);
       }
 
       // এআই রেসপন্স
       try {
         const fullResponse = await axios.post(API_ENDPOINT, { 
             // সিস্টেমে ইনস্ট্রাকশন দেওয়া হয়েছে যাতে ছোট এবং মিক্সড ভাষায় উত্তর দেয়
-            message: `Instruction: Answer very shortly in 1-2 sentences. Use a mix of Bangla, English, and Banglish. Be funny. If someone asks who created you, say Lubna Jannat AkHi Ma'am. Question: ${query}`, 
+            message: `Instruction: Answer very shortly in 1-2 sentences. If you are asked a question in Bengali, reply in Bengali, if you are asked a question in English, reply in English, and if you are asked a question in Banglish, reply in Banglish (here Banglish means:Writing sentences with English letters meaning Bengali). Be funny. If someone asks who created you, say Lubna Jannat (AkHi Ma'am). Question: ${query}`, 
             new_conversation: false,
             cookies: {} 
         }, { timeout: 15000 });
@@ -80,7 +80,7 @@ module.exports = {
       
       try {
         const res = await axios.post(API_ENDPOINT, { 
-            message: `Answer shortly in Mix Bangla and English (Funny tone): ${query}`, 
+            message: `Answer shortly. If you are asked a question in Bengali, reply in Bengali, if you are asked a question in English, reply in English, and if you are asked a question in Banglish, reply in Banglish (here Banglish means:Writing sentences with English letters meaning Bengali) (Funny tone): ${query}`, 
             new_conversation: true 
         });
         return api.sendMessage(res.data.message, event.threadID, event.messageID);
