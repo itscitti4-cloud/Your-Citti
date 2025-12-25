@@ -2,29 +2,29 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 module.exports = {
   config: {
-    name: "citti", 
-    version: "6.5.0",
-    author: "AkHi",
+    name: "bby", // কমান্ড লিস্টে এই নামে দেখাবে
+    version: "2.6.0",
     role: 0,
-    category: "Chat",
-    guide: "{pn} <message>",
-    countDown: 0,
+    author: "AkHi",
+    description: "Chat with Google Gemini AI (Short & Friendly)",
+    category: "chat",
+    usages: "[message]",
+    cooldowns: 0,
     hasPrefix: false // Prefix ছাড়া কাজ করার জন্য
   },
 
-  // এটি কমান্ড লিস্টে নাম দেখানোর জন্য সাহায্য করবে
   onStart: async function ({ api, event, args }) {
     const { threadID, messageID } = event;
-    if (args.length === 0) return api.sendMessage("জি! আমি Citti বলছি। কিছু বলতে চাইলে লিখুন।", threadID, messageID);
+    const query = args.join(" ");
     
-    // কমান্ড হিসেবে ব্যবহার করলে (যেমন: !citti hello)
-    const prompt = args.join(" ");
-    return await this.getGeminiResponse({ api, event, prompt });
+    if (!query) return api.sendMessage("জি জানু! কিছু তো বলো। শুধু শুধু ডাকলে হবে? 🙄", threadID, messageID);
+    
+    return await this.getGeminiResponse({ api, event, prompt: query });
   },
 
-  // এটি নাম ধরে ডাকলে বা রিপ্লাই দিলে কাজ করবে
   onChat: async function ({ api, event }) {
     const { threadID, messageID, body, messageReply, senderID } = event;
+    
     if (!body || senderID == api.getCurrentUserID()) return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
@@ -34,19 +34,25 @@ module.exports = {
     const isReplyToBot = messageReply && messageReply.senderID == api.getCurrentUserID();
 
     if (matchedKeyword || isReplyToBot) {
-      // শুধু নাম ধরে ডাকলে
+      
+      // শুধু নাম ধরে ডাকলে ফানি উত্তর
       if (matchedKeyword && bodyLower === matchedKeyword) {
-        const nicknames = {
-            "citti": "জি! আমি Citti বলছি।",
-            "চিট্টি": "জি জানু, বলো কী সাহায্য করতে পারি?",
-            "baby": "জি বেবি! বলো শুনছি।",
-            "bby": "জি সোনা! বলো কী হয়েছে?",
-            "hinata": "হ্যাঁ, আমি হিনাতা। তোমাকে কীভাবে সাহায্য করতে পারি?",
-            "bot": "জি, আমি একটি এআই বট।"
-        };
-        return api.sendMessage(nicknames[matchedKeyword] || "জি! আমি শুনছি।", threadID, messageID);
+        const nicknames = [
+          "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
+          "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
+          "জি সোনা! শুনছি, ঝটপট বলে ফেলো।",
+          "হুম বলো, খুব ব্যস্ত নাকি? 😜"
+        ];
+        return api.sendMessage(nicknames[Math.floor(Math.random() * nicknames.length)], threadID, messageID);
       }
 
+      // ডেভেলপার সংক্রান্ত প্রশ্ন চেক
+      const creatorQueries = ["tmk ke banaiche", "tomake ke banaiche", "tomar admin ke", "ke banaiche", "owner ke", "creator ke", "কে বানিয়েছে"];
+      if (creatorQueries.some(q => bodyLower.includes(q))) {
+        return api.sendMessage("আমাকে কিউট 'Lubna Jannat AkHi' তৈরি করেছেন। সে-ই আমার সব! 😍", threadID, messageID);
+      }
+
+      // প্রম্পট ফিল্টার করা
       let prompt = isReplyToBot ? body : body.slice(matchedKeyword.length).trim();
       if (!prompt) return;
 
@@ -54,25 +60,27 @@ module.exports = {
     }
   },
 
-  // এআই রেসপন্স হ্যান্ডলার
   getGeminiResponse: async function ({ api, event, prompt }) {
     const { threadID, messageID } = event;
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) return console.error("Error: GEMINI_API_KEY missing!");
-
+      // আপনার দেওয়া API Key এখানে বসানো হয়েছে
+      const apiKey = "AIzaSyBbFzulfEGJBL40T-P5kov0WlBL7cM9ip8"; 
       const genAI = new GoogleGenerativeAI(apiKey);
+      
       const model = genAI.getGenerativeModel({ 
         model: "gemini-1.5-flash",
-        systemInstruction: "Your name is Citti. Developed by Lubna Jannat Akhi. Answer in Bengali, English, or Banglish naturally. Keep answers short and friendly."
+        systemInstruction: "Your name is Citti. Developed by Lubna Jannat Akhi. Answer in a mix of Bengali and English (Banglish) with a funny and friendly tone. Keep responses very short."
       });
 
       const result = await model.generateContent(prompt);
       const responseText = result.response.text();
-      if (responseText) api.sendMessage(responseText, threadID, messageID);
+
+      if (responseText) {
+        api.sendMessage(responseText, threadID, messageID);
+      }
     } catch (error) {
-      console.error("Gemini AI Error:", error.message);
+      console.error("Gemini Error:", error.message);
+      // api.sendMessage("সার্ভার একটু বিজি জানু, পরে ট্রাই করো! 🤧", threadID, messageID);
     }
   }
 };
-
