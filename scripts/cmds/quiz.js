@@ -322,68 +322,69 @@ module.exports = {
       ];
 
 const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
-    const { q, options, a: ans } = randomQuiz;
+const { q, options, a: ans } = randomQuiz;
 
-    const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
-      `├‣ প্রশ্ন: ${q}\n` +
-      `│\n` +
-      `├‣ A. ${options[0]}\n` +
-      `├‣ B. ${options[1]}\n` +
-      `├‣ C. ${options[2]}\n` +
-      `├‣ D. ${options[3]}\n` +
-      `╰──────────────◊\n\n` +
-      `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে এই মেসেজে রিপ্লাই দিন।\n` +
-      `⏰ আপনার কাছে ২০ সেকেন্ড সময় আছে।`;
+// সঠিক উত্তরের ইনডেক্স থেকে লেবেল (A, B, C, D) বের করা
+const labels = ["A", "B", "C", "D"];
+const correctOptionLabel = labels[options.indexOf(ans)];
 
-    return api.sendMessage(quizMsg, threadID, (err, info) => {
-      if (err) return;
+const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
+  `├‣ প্রশ্ন: ${q}\n` +
+  `│\n` +
+  `├‣ A. ${options[0]}\n` +
+  `├‣ B. ${options[1]}\n` +
+  `├‣ C. ${options[2]}\n` +
+  `├‣ D. ${options[3]}\n` +
+  `╰──────────────◊\n\n` +
+  `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে এই মেসেজে রিপ্লাই দিন।\n` +
+  `⏰ আপনার কাছে ২০ সেকেন্ড সময় আছে।`;
 
-      // রিপ্লাই হ্যান্ডলার সেট করা
-      global.GoatBot.onReply.set(info.messageID, {
-        commandName: this.config.name,
-        messageID: info.messageID,
-        author: senderID,
-        correctLabel: ans
-      });
+return api.sendMessage(quizMsg, threadID, (err, info) => {
+  if (err) return;
 
-      // ২০ সেকেন্ড পর অটোমেটিক রিপ্লাই ডাটা ডিলিট করা
-      setTimeout(() => {
-        if (global.GoatBot.onReply.has(info.messageID)) {
-          global.GoatBot.onReply.delete(info.messageID);
-        }
-      }, 20000);
-    }, messageID);
-  },
+  global.GoatBot.onReply.set(info.messageID, {
+    commandName: this.config.name,
+    messageID: info.messageID,
+    author: senderID,
+    correctLabel: correctOptionLabel, // এখানে এখন "A" অথবা "B" ইত্যাদি জমা থাকবে
+    actualAnswer: ans // সঠিক উত্তরটি টেক্সট হিসেবে রাখা হলো দেখানোর জন্য
+  });
 
-  onReply: async function ({ api, event, Reply, usersData }) {
-    const { senderID, body, messageID, threadID } = event;
-
-    // ১. চেক করা হচ্ছে যে সঠিক ইউজার উত্তর দিচ্ছে কি না
-    if (senderID !== Reply.author) return;
-
-    const userAnswer = body.trim().toUpperCase();
-    const { correctLabel, messageID: replyMsgID } = Reply;
-
-    // ২. শুধু A, B, C, D চেক
-    if (!["A", "B", "C", "D"].includes(userAnswer)) {
-      return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
+  setTimeout(() => {
+    if (global.GoatBot.onReply.has(info.messageID)) {
+      global.GoatBot.onReply.delete(info.messageID);
     }
+  }, 20000);
+}, messageID);
 
-    const userData = await usersData.get(senderID);
-    let currentMoney = userData.money || 0;
+// ... onReply ফাংশন ...
+onReply: async function ({ api, event, Reply, usersData }) {
+  const { senderID, body, messageID, threadID } = event;
 
-    if (userAnswer === correctLabel) {
-      currentMoney += 500;
-      await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
-    } else {
-      currentMoney -= 200;
-      if (currentMoney < 0) currentMoney = 0;
-      await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel}\n📉 -200 কয়েন কাটা হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
-    }
+  if (senderID !== Reply.author) return;
 
-    // ৩. একবার উত্তর দেওয়ার পর রিপ্লাই হ্যান্ডলার ক্লিয়ার করা
-    global.GoatBot.onReply.delete(Reply.messageID);
+  const userAnswer = body.trim().toUpperCase();
+  const { correctLabel, actualAnswer } = Reply; // correctLabel এখন "A"/"B"/"C"/"D"
+
+  if (!["A", "B", "C", "D"].includes(userAnswer)) {
+    return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
   }
-};
+
+  const userData = await usersData.get(senderID);
+  let currentMoney = userData.money || 0;
+
+  if (userAnswer === correctLabel) {
+    currentMoney += 500;
+    await usersData.set(senderID, { money: currentMoney });
+    api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
+  } else {
+    currentMoney -= 200;
+    if (currentMoney < 0) currentMoney = 0;
+    await usersData.set(senderID, { money: currentMoney });
+    // এখানে correctLabel এবং actualAnswer দুটোই দেখানো হয়েছে স্বচ্ছতার জন্য
+    api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -200 কয়েন কাটা হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
+  }
+
+  global.GoatBot.onReply.delete(Reply.messageID);
+}
+    
