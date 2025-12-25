@@ -2,33 +2,39 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 module.exports = {
   config: {
-    name: "cittichat", 
+    name: "citti", 
     version: "6.5.0",
     author: "AkHi",
     role: 0,
     category: "Chat",
-    guide: "{pn} <msg>",
+    guide: "{pn} <message>",
     countDown: 0,
-    // এটি নিশ্চিত করবে যে ! ছাড়াই কাজ করবে অনেক ফ্রেমওয়ার্কে
-    hasPrefix: false 
+    hasPrefix: false // Prefix ছাড়া কাজ করার জন্য
   },
 
+  // এটি কমান্ড লিস্টে নাম দেখানোর জন্য সাহায্য করবে
+  onStart: async function ({ api, event, args }) {
+    const { threadID, messageID } = event;
+    if (args.length === 0) return api.sendMessage("জি! আমি Citti বলছি। কিছু বলতে চাইলে লিখুন।", threadID, messageID);
+    
+    // কমান্ড হিসেবে ব্যবহার করলে (যেমন: !citti hello)
+    const prompt = args.join(" ");
+    return await this.getGeminiResponse({ api, event, prompt });
+  },
+
+  // এটি নাম ধরে ডাকলে বা রিপ্লাই দিলে কাজ করবে
   onChat: async function ({ api, event }) {
     const { threadID, messageID, body, messageReply, senderID } = event;
-    
-    // মেসেজ না থাকলে বা বটের নিজের মেসেজ হলে থামবে
-    if (!body || !api.getCurrentUserID || senderID == api.getCurrentUserID()) return;
+    if (!body || senderID == api.getCurrentUserID()) return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
     const bodyLower = body.toLowerCase().trim();
     
-    // কি-ওয়ার্ড দিয়ে শুরু হয়েছে কি না অথবা বটের মেসেজে রিপ্লাই দেওয়া হয়েছে কি না
     const matchedKeyword = keywords.find(word => bodyLower.startsWith(word));
     const isReplyToBot = messageReply && messageReply.senderID == api.getCurrentUserID();
 
     if (matchedKeyword || isReplyToBot) {
-      
-      // শুধু নাম ধরে ডাকলে (কোনো প্রশ্ন ছাড়া)
+      // শুধু নাম ধরে ডাকলে
       if (matchedKeyword && bodyLower === matchedKeyword) {
         const nicknames = {
             "citti": "জি! আমি Citti বলছি।",
@@ -41,42 +47,32 @@ module.exports = {
         return api.sendMessage(nicknames[matchedKeyword] || "জি! আমি শুনছি।", threadID, messageID);
       }
 
-      try {
-        // API Key চেক
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-          console.error("Error: GEMINI_API_KEY missing in environment variables!");
-          return;
-        }
+      let prompt = isReplyToBot ? body : body.slice(matchedKeyword.length).trim();
+      if (!prompt) return;
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash",
-          systemInstruction: "Your name is Citti. Developed by Lubna Jannat Akhi. Answer in Bengali if asked in Bengali, in English if asked in English, or in Banglish. Keep answers short, friendly and relevant."
-        });
+      return await this.getGeminiResponse({ api, event, prompt });
+    }
+  },
 
-        // প্রম্পট তৈরি: নাম বাদ দিয়ে শুধু প্রশ্নটি নেওয়া
-        let prompt = body;
-        if (matchedKeyword) {
-          prompt = body.slice(matchedKeyword.length).trim();
-        }
-        
-        // যদি নামের পর আর কিছু না থাকে (যেমন শুধু 'citti' রিপ্লাইতে)
-        if (!prompt && isReplyToBot) prompt = body;
-        if (!prompt) return;
+  // এআই রেসপন্স হ্যান্ডলার
+  getGeminiResponse: async function ({ api, event, prompt }) {
+    const { threadID, messageID } = event;
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return console.error("Error: GEMINI_API_KEY missing!");
 
-        // এআই রেসপন্স জেনারেট
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-1.5-flash",
+        systemInstruction: "Your name is Citti. Developed by Lubna Jannat Akhi. Answer in Bengali, English, or Banglish naturally. Keep answers short and friendly."
+      });
 
-        if (responseText) {
-          api.sendMessage(responseText, threadID, messageID);
-        }
-
-      } catch (error) {
-        console.error("Gemini AI Error:", error.message);
-      }
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      if (responseText) api.sendMessage(responseText, threadID, messageID);
+    } catch (error) {
+      console.error("Gemini AI Error:", error.message);
     }
   }
 };
-      
+
