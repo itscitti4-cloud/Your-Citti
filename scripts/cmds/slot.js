@@ -3,34 +3,23 @@ module.exports = {
     name: "slot",
     version: "2.0",
     author: "AkHi",
-    description: {
-      role: 0,
-      en: "Playing slot game with real win-rate statistics",
-    },
+    role: 0,
+    description: "Playing slot game with real win-rate statistics",
     category: "Game",
   },
 
-  langs: {
-    en: {
-      invalid_amount: "Enter a valid amount of money to play",
-      not_enough_money: "Check your balance if you have that amount",
-      win_message: "𝚢𝚘𝚞 𝚠𝚘𝚗",
-      lose_message: "𝚢𝚘𝚞 𝚕𝚘𝚜𝚝",
-      jackpot_message: "𝙹𝙰𝙲𝙺𝙿𝙾𝚃!! 𝚢𝚘𝚞 𝚠𝚘𝚗",
-    },
-  },
-
-  onStart: async function ({ args, message, event, usersData, getLang }) {
+  onStart: async function ({ args, message, event, usersData }) {
     const { senderID } = event;
     const userData = await usersData.get(senderID);
     const userName = userData.name;
     
-    // ডাটাবেস থেকে স্ট্যাটাস নেওয়া বা নতুন করে শুরু করা
+    // ডাটাবেস থেকে স্ট্যাটাস নেওয়া
     let stats = userData.data.slotStats || { totalPlays: 0, totalWins: 0 };
     
     let amountStr = args[0] ? args[0].toLowerCase() : "";
     let amount = 0;
 
+    // সংখ্যা হ্যান্ডলিং (k, m, b, t)
     if (amountStr.endsWith('k')) amount = parseFloat(amountStr) * 1000;
     else if (amountStr.endsWith('m')) amount = parseFloat(amountStr) * 1000000;
     else if (amountStr.endsWith('b')) amount = parseFloat(amountStr) * 1000000000;
@@ -38,11 +27,11 @@ module.exports = {
     else amount = parseInt(amountStr);
 
     if (isNaN(amount) || amount <= 0) {
-      return message.reply(getLang("invalid_amount"));
+      return message.reply("Enter a valid amount of money to play");
     }
 
     if (amount > userData.money) {
-      return message.reply(getLang("not_enough_money"));
+      return message.reply("Check your balance if you have that amount");
     }
 
     const slots = ["💚", "🧡", "❤️", "💜", "💙", "💛"];
@@ -50,17 +39,17 @@ module.exports = {
 
     const winnings = calculateWinnings(s, amount);
 
-    // স্ট্যাটিস্টিকস আপডেট করা
+    // স্ট্যাটিস্টিকস আপডেট
     stats.totalPlays += 1;
     if (winnings > 0) stats.totalWins += 1;
 
-    // ডাটাবেসে সেভ করা
+    // ডাটাবেসে সেভ
     await usersData.set(senderID, {
       money: userData.money + winnings,
       data: { ...userData.data, slotStats: stats }
     });
 
-    const msg = formatResult(userName, s, winnings, stats, getLang);
+    const msg = formatResult(userName, s, winnings, stats);
     return message.reply(msg);
   },
 };
@@ -78,10 +67,13 @@ function formatNumber(num) {
 }
 
 function calculateWinnings(s, bet) {
+  // যদি সব কয়টি ইমোজি মিলে যায় (Jackpot)
   if (s.every(val => val === s[0])) {
     const multipliers = { "💚": 20, "💛": 15, "💙": 10 };
     return bet * (multipliers[s[0]] || 7);
   }
+  
+  // সাধারণ জয়ের সম্ভাবনা (৪০%)
   const isWin = Math.random() < 0.40;
   if (isWin) {
     const uniqueCount = new Set(s).size;
@@ -91,18 +83,18 @@ function calculateWinnings(s, bet) {
   return -bet;
 }
 
-function formatResult(name, s, winnings, stats, getLang) {
+function formatResult(name, s, winnings, stats) {
   const formattedWinnings = formatNumber(Math.abs(winnings));
   const isJackpot = s.every(val => val === s[0]);
   
   const toBoldNum = (num) => {
-    const dict = { '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒', '5': '𝟓', '6': '𝟔', '7': '𝟕', '8': '𝟖', '9': '𝟗', '.': '.', '%': '%' };
+    const dict = { '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒', '5': '𝟓', '6': '𝟔', '7': '𝟕', '8': '𝟖', '9': '𝟗', '.': '.', '%': '%', '/': '/' };
     return String(num).split('').map(c => dict[c] || c).join('');
   };
 
   let statusText = winnings > 0 
-    ? (isJackpot ? getLang("jackpot_message") : getLang("win_message")) 
-    : getLang("lose_message");
+    ? (isJackpot ? "𝙹𝙰𝙲𝙺𝙿𝙾𝚃!! 𝚢𝚘𝚞 𝚠𝚘𝚗" : "𝚢𝚘𝚞 𝚠𝚘𝚗") 
+    : "𝚢𝚘𝚞 𝚕𝚘𝚜𝚝";
 
   // উইন রেট ক্যালকুলেশন
   const winPercent = ((stats.totalWins / stats.totalPlays) * 100).toFixed(1);
@@ -114,5 +106,4 @@ function formatResult(name, s, winnings, stats, getLang) {
   const winRateLine = `🎯 𝚆𝚒𝚗 𝚁𝚊𝚝𝚎: ${ratePercent} (${rateRatio})`;
 
   return `${resultLine}\n${slotLine}\n${winRateLine}`;
-      }
-      
+}
