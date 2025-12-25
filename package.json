@@ -9,7 +9,7 @@
         },
         "dependencies": {
 			    "@google/generative-ai": "^0.21.0",
-			    "fca-project-orub": "^1.1.8",
+			    "fca-neokex": "^1.0.1",
                 "@distube/ytdl-core": "^4.13.3",
                 "axios": "^1.4.0",
                 "bcrypt": "^5.0.1",
