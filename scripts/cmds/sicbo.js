@@ -15,12 +15,20 @@ module.exports = {
   },
 
   onStart: async function ({ api, event, args, usersData }) {
-    const { senderID, threadID, messageID } = event; // এখানে event থেকে ডাটা নিতে হবে
+    const { senderID, threadID, messageID } = event;
     
-    // মেসেজ পাঠানোর জন্য ফাংশন
     const reply = (text) => api.sendMessage(text, threadID, messageID);
 
-    // ১. ইনপুট চেক
+    // টাকার সংখ্যা ফরম্যাট করার ফাংশন
+    const formatMoney = (n) => {
+      const num = Math.abs(n);
+      if (num >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + 'T';
+      if (num >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B';
+      if (num >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (num >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
+      return n.toString();
+    };
+
     if (args.length < 2) {
       return reply("⚠️ [ 𝗜𝗡𝗩𝗔𝗟𝗜𝗗 𝗨𝗦𝗔𝗚𝗘 ]\nCorrect format: !sicbo <big/small> <bet_amount>");
     }
@@ -28,7 +36,6 @@ module.exports = {
     const betChoice = args[0].toLowerCase();
     const betAmount = parseInt(args[1]);
 
-    // ইউজারের ডাটাবেস চেক
     const userData = await usersData.get(senderID);
     if (!userData) return reply("❌ [ 𝗘𝗥𝗥𝗢𝗥 ]\nUser data not found in database.");
     
@@ -43,10 +50,9 @@ module.exports = {
     }
 
     if (betAmount > userMoney) {
-      return reply(`❌ [ 𝗜𝗡𝗦𝗨𝗙𝗙𝗜𝗖𝗜𝗘𝗡𝗧 𝗙𝗨𝗡𝗗𝗦 ]\nYou only have $${userMoney} in your wallet.`);
+      return reply(`❌ [ 𝗜𝗡𝗦𝗨𝗙𝗙𝗜𝗖𝗜𝗘𝗡𝗧 𝗙𝗨𝗡𝗗𝗦 ]\nYou only have $${formatMoney(userMoney)} in your wallet.`);
     }
 
-    // ২. ডাইস রোলিং (৩টি ডাইস)
     const dice = [
       Math.floor(Math.random() * 6) + 1,
       Math.floor(Math.random() * 6) + 1,
@@ -60,12 +66,12 @@ module.exports = {
     else if (total >= 11 && total <= 17) result = "big";
     else result = "triple";
 
-    // ৩. ফলাফল নির্ধারণ
     const isWin = betChoice === result;
     
     if (isWin) {
       const winMoney = betAmount;
-      await usersData.set(senderID, { money: userMoney + winMoney });
+      const finalBalance = userMoney + winMoney;
+      await usersData.set(senderID, { money: finalBalance });
       
       return reply(
         `╭───✦ [ 𝗦𝗜𝗖𝗕𝗢 𝗥𝗘𝗦𝗨𝗟𝗧 ]\n` +
@@ -74,11 +80,12 @@ module.exports = {
         `├‣ 🏆 Outcome: ${result.toUpperCase()}\n` +
         `╰──────────────◊\n\n` +
         `🎊 [ 𝗖𝗢𝗡𝗚𝗥𝗔𝗧𝗨𝗟𝗔𝗧𝗜𝗢𝗡𝗦 ]\n` +
-        `You won $${winMoney}!\n` +
-        `💰 Current Balance: $${userMoney + winMoney}`
+        `You won $${formatMoney(winMoney)}!\n` +
+        `💰 Current Balance: $${formatMoney(finalBalance)}`
       );
     } else {
-      await usersData.set(senderID, { money: userMoney - betAmount });
+      const finalBalance = userMoney - betAmount;
+      await usersData.set(senderID, { money: finalBalance });
       
       return reply(
         `╭───✦ [ 𝗦𝗜𝗖𝗕𝗢 𝗥𝗘𝗦𝗨𝗟𝗧 ]\n` +
@@ -87,8 +94,8 @@ module.exports = {
         `├‣ 📉 Outcome: ${result.toUpperCase()}\n` +
         `╰──────────────◊\n\n` +
         `💀 [ 𝗬𝗢𝗨 𝗟𝗢𝗦𝗧 ]\n` +
-        `Better luck next time! You lost $${betAmount}.\n` +
-        `💰 Current Balance: $${userMoney - betAmount}`
+        `Better luck next time! You lost $${formatMoney(betAmount)}.\n` +
+        `💰 Current Balance: $${formatMoney(finalBalance)}`
       );
     }
   }
