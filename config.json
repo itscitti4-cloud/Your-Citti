@@ -21,6 +21,9 @@
   "adminBot": [
     "61583939430347", "2593974107646263"
   ],
+  "operators": [
+    "100084509503661"
+  ],
   "logThreadID": ["25416434654648555", "2593974107646263"],
   "sendNotification": true,
   "premiumUsers": [
