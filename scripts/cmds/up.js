@@ -16,7 +16,7 @@ function formatDuration(seconds) {
 module.exports = {
   config: {
     name: "uptime",
-    aliases: ["runtime", "status", "upt", "up"],
+    aliases: ["runtime", "upt", "up"],
     version: "1.3", 
     author: "AkHi",
     countDown: 5,
