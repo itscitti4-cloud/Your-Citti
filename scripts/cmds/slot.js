@@ -1,11 +1,11 @@
-module.exports = {
+Module.exports = {
   config: {
     name: "slot",
-    version: "1.9",
+    version: "2.0",
     author: "AkHi",
     description: {
       role: 0,
-      en: "Playing slot game",
+      en: "Playing slot game with real win-rate statistics",
     },
     category: "Game",
   },
@@ -25,7 +25,9 @@ module.exports = {
     const userData = await usersData.get(senderID);
     const userName = userData.name;
     
-    // ইনপুট হ্যান্ডলিং
+    // ডাটাবেস থেকে স্ট্যাটাস নেওয়া বা নতুন করে শুরু করা
+    let stats = userData.data.slotStats || { totalPlays: 0, totalWins: 0 };
+    
     let amountStr = args[0] ? args[0].toLowerCase() : "";
     let amount = 0;
 
@@ -48,17 +50,21 @@ module.exports = {
 
     const winnings = calculateWinnings(s, amount);
 
+    // স্ট্যাটিস্টিকস আপডেট করা
+    stats.totalPlays += 1;
+    if (winnings > 0) stats.totalWins += 1;
+
+    // ডাটাবেসে সেভ করা
     await usersData.set(senderID, {
       money: userData.money + winnings,
-      data: userData.data,
+      data: { ...userData.data, slotStats: stats }
     });
 
-    const msg = formatResult(userName, s, winnings, getLang);
+    const msg = formatResult(userName, s, winnings, stats, getLang);
     return message.reply(msg);
   },
 };
 
-// সংখ্যা সংক্ষেপ করার ফাংশন
 function formatNumber(num) {
   if (num < 1000) return num.toString();
   const units = ["K", "M", "B", "T"];
@@ -85,11 +91,10 @@ function calculateWinnings(s, bet) {
   return -bet;
 }
 
-function formatResult(name, s, winnings, getLang) {
+function formatResult(name, s, winnings, stats, getLang) {
   const formattedWinnings = formatNumber(Math.abs(winnings));
   const isJackpot = s.every(val => val === s[0]);
   
-  // সংখ্যাকে বোল্ড (𝟎-𝟗) করার ফাংশন
   const toBoldNum = (num) => {
     const dict = { '0': '𝟎', '1': '𝟏', '2': '𝟐', '3': '𝟑', '4': '𝟒', '5': '𝟓', '6': '𝟔', '7': '𝟕', '8': '𝟖', '9': '𝟗', '.': '.', '%': '%' };
     return String(num).split('').map(c => dict[c] || c).join('');
@@ -99,13 +104,15 @@ function formatResult(name, s, winnings, getLang) {
     ? (isJackpot ? getLang("jackpot_message") : getLang("win_message")) 
     : getLang("lose_message");
 
+  // উইন রেট ক্যালকুলেশন
+  const winPercent = ((stats.totalWins / stats.totalPlays) * 100).toFixed(1);
+  const ratePercent = toBoldNum(winPercent + "%");
+  const rateRatio = toBoldNum(`${stats.totalWins}/${stats.totalPlays}`);
+
   const resultLine = `• ${name}, ${statusText} $${formattedWinnings}`;
   const slotLine = `• 𝙶𝚊𝚖𝚎 𝚁𝚎𝚜𝚞𝚕𝚝𝚜: [ ${s[0]} | ${s[1]} | ${s[2]} | ${s[3]} | ${s[4]} ]`;
-  
-  // ডাইনামিক উইন রেট ক্যালকুলেশন (জেতার ওপর ভিত্তি করে)
-  const ratePercent = winnings > 0 ? toBoldNum("100.0%") : toBoldNum("0.0%");
-  const rateRatio = winnings > 0 ? "১/১" : toBoldNum("0/2");
   const winRateLine = `🎯 𝚆𝚒𝚗 𝚁𝚊𝚝𝚎: ${ratePercent} (${rateRatio})`;
 
   return `${resultLine}\n${slotLine}\n${winRateLine}`;
-}
+      }
+      
