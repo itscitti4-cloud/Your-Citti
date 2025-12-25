@@ -46,7 +46,7 @@ module.exports = {
       ];
       
       if (creatorQueries.some(q => bodyLower.includes(q))) {
-        return api.sendMessage("আমাকে 'Lubna Jannat AkHi Ma'am' তৈরি করেছেন। সে-ই আমার সব! 😍", threadID, messageID);
+        return api.sendMessage("আমাকে 'Lubna Jannat AkHi Ma'am' তৈরি করেছে 😍", threadID, messageID);
       }
 
       // এআই রেসপন্স
@@ -62,7 +62,7 @@ module.exports = {
         
         // সেফটি ফিল্টার: যদি এআই ভুল করে মেটা এআই এর কথা বলে ফেলে
         if (aiMessage.toLowerCase().includes("meta") || aiMessage.toLowerCase().includes("facebook")) {
-            aiMessage = "আমি Lubna Jannat AkHi Ma'am এর তৈরি করা একটি কিউট বট! 😉";
+            aiMessage = "আমি Lubna Jannat AkHi Ma'am এর তৈরি করা একটি কিউট বট! আমার নাম citti😉";
         }
 
         if (aiMessage) {
