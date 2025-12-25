@@ -4,7 +4,7 @@ module.exports = {
     version: "1.6",
     author: "AkHi",
     description: {
-      role: 2,
+      role: 0,
       en: "Playing slot game with short number formatting",
     },
     category: "Game",
