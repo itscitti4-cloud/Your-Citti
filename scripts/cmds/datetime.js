@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "clock",
     aliases: ["datetime", "time"],
-    version: "8.0",
+    version: "9.0",
     author: "AkHi",
     category: "utility"
   },
@@ -13,6 +13,9 @@ module.exports = {
     try {
       const timezone = "Asia/Dhaka";
       const now = moment().tz(timezone).locale('en');
+
+      // সংখ্যাকে বাংলা অক্ষরে রূপান্তর করার ফাংশন
+      const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
 
       // ১. ইংরেজি সময়, বার ও তারিখ
       const timeStr = now.format("hh:mm A");
@@ -33,37 +36,36 @@ module.exports = {
         if (totalDays < 0) totalDays = Math.floor((d - new Date(year - 1, 3, 14)) / (24 * 60 * 60 * 1000));
         let mIndex = 0;
         while (totalDays >= monthDays[mIndex]) { totalDays -= monthDays[mIndex]; mIndex++; }
-        const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
         return `${toBn(totalDays + 1)} ${months[mIndex]}, ${toBn(bYear)}`;
       };
 
-      // ৩. হিজরী তারিখ ক্যালকুলেশন (আপনার কাঙ্ক্ষিত ০৬ জমাদিউস সানি অনুযায়ী সংশোধিত)
+      // ৩. হিজরি তারিখ ক্যালকুলেশন (সঠিক ০৬ জমাদিউস সানি এর জন্য সংশোধিত)
       const getHijriDate = (date) => {
         const d = date.getDate();
         const m = date.getMonth() + 1;
         const y = date.getFullYear();
 
-        // জুলিয়ান ডে এবং হিজরী রূপান্তর লজিক
         let jd = Math.floor(367 * y - (7 * (y + Math.floor((m + 9) / 12))) / 4 + Math.floor((275 * m) / 9) + d + 1721013.5);
-        let l = jd - 1948440 + 10632;
+        
+        // অ্যাডজাস্টমেন্ট: এখানে ১০৬৩৩ ব্যবহার করা হয়েছে যাতে তারিখ ১ দিন বেড়ে ০৬ হয়
+        let l = jd - 1948440 + 10633; 
         let n = Math.floor((l - 1) / 10631);
         l = l - 10631 * n + 354;
         let j = (Math.floor((10985 - l) / 5316)) * (Math.floor((50 * l) / 17719)) + (Math.floor(l / 5670)) * (Math.floor((43 * l) / 15238));
         l = l - (Math.floor((30 - j) / 20)) * (Math.floor((17719 * j) / 50)) - (Math.floor(j / 21)) * (Math.floor((15238 * j) / 43)) + 29;
         
-        // মাস এবং দিন অ্যাডজাস্টমেন্ট
         let hMonth = Math.floor((24 * l) / 709);
         let hDay = l - Math.floor((709 * hMonth) / 24);
         let hYear = 30 * n + j - 30;
 
-        // আপনার রিকোয়েস্ট অনুযায়ী মাসের নাম
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জমাদিউস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
         
-        // যেহেতু আপনি রজব মাসের পরিবর্তে জমাদিউস সানি চাচ্ছেন, তাই ইনডেক্সিং ম্যানুয়ালি চেক করা হয়েছে
-        const correctedMonth = hijriMonthsBn[5]; // সরাসরি ৬ষ্ঠ মাস (জমাদিউস সানি) সেট করা হলো
-        const dayFormatted = hDay < 10 ? `0${hDay}` : hDay;
-        
-        return `${dayFormatted} ${correctedMonth}, ${hYear}`;
+        // সংখ্যা এবং মাস ফরমেটিং
+        const dayFormatted = hDay < 10 ? `০${toBn(hDay)}` : toBn(hDay);
+        const yearFormatted = toBn(hYear);
+        const monthName = hijriMonthsBn[hMonth - 1];
+
+        return `${dayFormatted} ${monthName}, ${yearFormatted}`;
       };
 
       const bngDate = getBengaliDate(now.toDate());
