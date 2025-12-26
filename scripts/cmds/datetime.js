@@ -1,11 +1,11 @@
 const moment = require('moment-timezone');
-require('moment-hijri');
+const hijri = require('moment-hijri'); // সরাসরি হিজরি মডিউলটি আলাদাভাবে নেওয়া হলো
 
 module.exports = {
   config: {
     name: "datetime",
     aliases: ["date", "time", "clock"],
-    version: "3.6",
+    version: "3.7",
     author: "AkHi",
     countdown: 5,
     role: 0,
@@ -17,7 +17,7 @@ module.exports = {
   onStart: async function ({ message }) {
     try {
       const timezone = "Asia/Dhaka";
-      // locale 'en' নিশ্চিত করবে যাতে সংখ্যার আউটপুট ইংরেজি থাকে
+      // ইংরেজি সংখ্যা নিশ্চিত করতে locale('en')
       const now = moment().tz(timezone).locale('en');
 
       // ১. ইংরেজি সময় ও তারিখ
@@ -55,18 +55,18 @@ module.exports = {
 
       const bngDate = getBengaliDate(now.toDate());
 
-      // ৩. হিজরি তারিখ (সরাসরি iDate, iMonth, iYear ব্যবহার করে)
+      // ৩. হিজরি তারিখ (নিখুঁত করার জন্য iFullYear মেথড ব্যবহার)
       const hijriMonthsBn = {
         0: 'মুহররম', 1: 'সফর', 2: 'রবিউল আউয়াল', 3: 'রবিউস সানি',
         4: 'জুমাদাল উলা', 5: 'জুমাদাস সানি', 6: 'রজব', 7: 'শাবান',
         8: 'রমজান', 9: 'শাওয়াল', 10: 'জিলকদ', 11: 'জিলহজ'
       };
 
-      // moment-hijri এর iDate(), iMonth(), iFullYear() মেথড ব্যবহার
+      // moment-hijri এর ফাংশনগুলো নিরাপদভাবে কল করা
       const hDay = now.iDate(); 
-      const hMonthNum = now.iMonth(); // ০ থেকে ১১ পর্যন্ত ইনডেক্স দেয়
+      const hMonthNum = now.iMonth(); 
       const hYear = now.iFullYear();
-      const hMonthBn = hijriMonthsBn[hMonthNum];
+      const hMonthBn = hijriMonthsBn[hMonthNum] || "অজানা মাস";
       
       const hijriDateFinal = `${hDay} ${hMonthBn}, ${hYear}`;
 
@@ -82,8 +82,9 @@ module.exports = {
       return message.reply(premiumReply);
 
     } catch (error) {
-      console.error(error);
-      message.reply("⚠️ তারিখ প্রদর্শনে সমস্যা হয়েছে।");
+      // কনসোলে চেক করুন ঠিক কোন জায়গায় এরর হচ্ছে
+      console.log("Error Details:", error.message);
+      message.reply("⚠️ সিস্টেম এরর! আপনার মডিউলগুলো (moment-timezone, moment-hijri) ঠিকমতো ইনস্টল করা আছে কি না চেক করুন।");
     }
   }
 };
