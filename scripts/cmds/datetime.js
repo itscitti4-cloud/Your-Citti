@@ -1,16 +1,12 @@
-const moment = require('moment-timezone');
+const moment = require("moment-timezone");
 
 module.exports = {
   config: {
-    name: "datetime",
-    aliases: ["date", "time", "clock"],
-    version: "4.5",
+    name: "clock",
+    aliases: ["datetime", "time"],
+    version: "6.0",
     author: "AkHi",
-    countdown: 5,
-    role: 0,
-    shortDescription: "Shows precise Hijri (Bangla Months) & Bengali calendar.",
-    category: "utility",
-    guide: "{prefix}{name}"
+    category: "utility"
   },
 
   onStart: async function ({ message }) {
@@ -18,12 +14,12 @@ module.exports = {
       const timezone = "Asia/Dhaka";
       const now = moment().tz(timezone).locale('en');
 
-      // ১. ইংরেজি সময় ও তারিখ
+      // ১. ইংরেজি সময়, বার ও তারিখ
       const timeStr = now.format("hh:mm A");
       const dayStr = now.format("dddd");
       const engDate = now.format("DD MMMM, YYYY");
 
-      // ২. বঙ্গাব্দ ক্যালকুলেশন (বৈশাখ-জ্যৈষ্ঠ)
+      // ২. বঙ্গাব্দ ক্যালকুলেশন (বৈশাখ-জ্যৈষ্ঠ মাস অনুযায়ী)
       const getBengaliDate = (date) => {
         const d = new Date(date);
         const day = d.getDate();
@@ -36,15 +32,12 @@ module.exports = {
         let totalDays = Math.floor((d - new Date(year, 3, 14)) / (24 * 60 * 60 * 1000));
         if (totalDays < 0) totalDays = Math.floor((d - new Date(year - 1, 3, 14)) / (24 * 60 * 60 * 1000));
         let mIndex = 0;
-        while (totalDays >= monthDays[mIndex]) {
-          totalDays -= monthDays[mIndex];
-          mIndex++;
-        }
+        while (totalDays >= monthDays[mIndex]) { totalDays -= monthDays[mIndex]; mIndex++; }
         const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
         return `${toBn(totalDays + 1)} ${months[mIndex]}, ${toBn(bYear)}`;
       };
 
-      // ৩. হিজরি তারিখ ক্যালকুলেশন (গাণিতিক ফর্মুলা)
+      // ৩. হিজরী তারিখ ক্যালকুলেশন (Kuwaiti Algorithm)
       const getHijriDate = (date) => {
         let d = date.getDate();
         let m = date.getMonth() + 1;
@@ -55,7 +48,8 @@ module.exports = {
         let b = 2 - a + Math.floor(a / 4);
         let jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + b - 1524.5;
         
-        let z = jd + 1; // চাঁদ দেখার ওপর ভিত্তি করে +১ বা -১ অ্যাডজাস্ট করা যায়
+        // তারিখ অ্যাডজাস্টমেন্ট (চাঁদ দেখা অনুযায়ী +১ দিন যোগ করা হয়েছে)
+        let z = jd + 1; 
         let l = z + 68569;
         let n = Math.floor((4 * l) / 146097);
         l = l - Math.floor((146097 * n + 3) / 4);
@@ -67,11 +61,7 @@ module.exports = {
         m = j + 2 - 12 * l;
         y = 100 * (n - 49) + i + l;
 
-        // হিজরি মাসের বাংলা নাম
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জুমাদাস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
-        
-        // এখানে y, m, d হলো হিজরি বছর, মাস ও দিন
-        // m-1 কারণ অ্যারে ০ থেকে শুরু হয়
         return `${d} ${hijriMonthsBn[m - 1]}, ${y}`;
       };
 
@@ -91,7 +81,8 @@ module.exports = {
 
     } catch (error) {
       console.error(error);
-      message.reply("⚠️ তারিখ প্রসেস করতে সমস্যা হচ্ছে।");
+      message.reply("⚠️ তারিখ প্রদর্শনে সমস্যা হয়েছে।");
     }
   }
 };
+        
