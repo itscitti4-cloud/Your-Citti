@@ -1,128 +1,120 @@
+const fs = require("fs");
 const axios = require("axios");
-const fs = require("fs-extra");
 const path = require("path");
 
 module.exports = {
   config: {
     name: "album",
-    version: "2.2.0",
-    author: "AkHi",
-    countDown: 5,
+    version: "1.7.5",
     role: 0,
-    shortDescription: "Category based video album",
-    longDescription: "Select categories and get specific videos from the list.",
-    category: "entertainment",
-    guide: "{pn}"
+    author: "AkHi", // ⚠️ এটি পরিবর্তন করলে কমান্ড কাজ করবে না
+    countDown: 5,
+    category: "media",
+    guide: {
+      en: "{p}{n} [cartoon/sad/islamic/funny/anime/...]",
+    },
   },
 
-  onStart: async function ({ api, event }) {
-    const { threadID, messageID } = event;
-    
-    // অটোমেটিক 'cache' ফোল্ডার তৈরি করার ফাংশন
-    const cachePath = path.join(__dirname, "cache");
-    if (!fs.existsSync(cachePath)) {
-      fs.mkdirSync(cachePath, { recursive: true });
+  onStart: async function ({ api, event, args }) {
+    // --- Author Lock System ---
+    const requiredAuthor = "AkHi"; 
+    if (this.config.author !== requiredAuthor) {
+      return api.sendMessage(
+        `❌ [ AUTHOR LOCK ] ❌\n--------------------------\nWarning: You have changed the author name! Please set it back to "${requiredAuthor}" to use this command.`,
+        event.threadID,
+        event.messageID
+      );
     }
+    // ---------------------------
 
-    const videoDataUrl = "https://raw.githubusercontent.com/Aks-Sarkar/Video-Api/main/video_v2.json";
+    if (!args[0]) {
+      api.setMessageReaction("😽", event.messageID, (err) => {}, true);
 
-    try {
-      const res = await axios.get(videoDataUrl);
-      const categories = Object.keys(res.data);
+      const albumOptions = [
+        "𝐅𝐮𝐧𝐧𝐲 𝐕𝐢𝐝𝐞𝐨 📔", "𝐈𝐬𝐥𝐚𝐦𝐢𝐜 𝐕𝐢𝐝𝐞𝐨 📔", "𝐒𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 📔", "𝐀𝐧𝐢𝐦𝐞 𝐕𝐢𝐝𝐞𝐨 📔",
+        "𝐂𝐚𝐫𝐭𝐨𝐨𝐧 𝐕𝐢𝐝𝐞𝐨 📔", "𝐋𝐨𝐅𝐢 𝐕𝐢𝐝𝐞𝐨 📔", "𝐂𝐨𝐮𝐩𝐥𝐞 𝐕𝐢𝐝𝐞𝐨 📔", "𝐅𝐥𝐨𝐰𝐞𝐫 𝐕𝐢𝐝𝐞𝐨 📔",
+        "𝐀𝐞𝐬𝐭𝐡𝐞𝐭𝐢𝐜 𝐕𝐢𝐝𝐞𝐨 📔", "𝐒𝐢𝐠𝐦𝐚 𝐑𝐮𝐥𝐞 𝐕𝐢𝐝𝐞𝐨 📔", "𝐋𝐲𝐫𝐢𝐜𝐬 𝐕𝐢𝐝𝐞𝐨 📔", "𝐂𝐚𝐭 𝐕𝐢𝐝𝐞𝐨 📔",
+        "𝐅𝐫𝐞𝐞 𝐅𝐢𝐫𝐞 𝐕𝐢𝐝𝐞𝐨 📔", "𝐅𝐨𝐨𝐭𝐛𝐚𝐥𝐥 𝐕𝐢𝐝𝐞𝐨 📔", "𝐆𝐢𝐫𝐥 𝐕𝐢𝐝𝐞𝐨 📔", "𝐅𝐫𝐢𝐞𝐧𝐝𝐬 𝐕𝐢𝐝𝐞𝐨 📔",
+      ];
 
-      let msg = "✨ [ Video Album Categories ] ✨\n--------------------------\n";
-      categories.forEach((cat, index) => {
-        msg += `${index + 1}. ${cat.toUpperCase()}\n`;
-      });
-      msg += "--------------------------\nReply with category number.";
+      const message =
+        "𝐇𝐞𝐫𝐞 𝐢𝐬 𝐲𝐨𝐮𝐫 𝐚𝐯𝐚𝐢𝐥𝐚𝐛𝐥𝐞 𝐚𝐥𝐛𝐮𝐦 𝐯𝐢𝐝𝐞𝐨 𝐥𝐢𝐬𝐭 📔\n" +
+        "━━━━━━━━━━━━━━━━━━━━━\n" +
+        albumOptions.map((option, index) => `${index + 1}. ${option}`).join("\n") +
+        "\n━━━━━━━━━━━━━━━━━━━━━";
 
-      return api.sendMessage(msg, threadID, (err, info) => {
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName: this.config.name,
-          messageID: info.messageID,
-          author: event.senderID,
-          allData: res.data,
-          type: "category"
-        });
-      }, messageID);
-    } catch (e) {
-      return api.sendMessage("❌ Could not load categories. API might be down.", threadID, messageID);
+      await api.sendMessage(
+        message,
+        event.threadID,
+        (error, info) => {
+          global.GoatBot.onReply.set(info.messageID, {
+            commandName: this.config.name,
+            type: "reply",
+            messageID: info.messageID,
+            author: event.senderID,
+            link: albumOptions,
+          });
+        },
+        event.messageID
+      );
     }
   },
 
   onReply: async function ({ api, event, Reply }) {
-    const { threadID, messageID, body, senderID } = event;
-    if (Reply.author !== senderID) return;
+    // রিপ্লাই আসলে চেক করবে অথর ঠিক আছে কি না (Double Security)
+    if (this.config.author !== "AkHi") return;
 
-    const { allData, type, commandName } = Reply;
-    const choice = parseInt(body);
+    api.unsendMessage(Reply.messageID);
 
-    if (type === "category") {
-      const categories = Object.keys(allData);
-      if (isNaN(choice) || choice < 1 || choice > categories.length) return;
+    const categories = [
+      "funny", "islamic", "sad", "anime", "cartoon", "lofi", 
+      "couple", "flower", "aesthetic", "sigma", "lyrics", 
+      "cat", "freefire", "football", "girl", "friends"
+    ];
 
-      const selectedCategory = categories[choice - 1];
-      const videos = allData[selectedCategory];
+    const captions = [
+      "❰ 𝐅𝐮𝐧𝐧𝐲 𝐕𝐢𝐝𝐞𝐨 <😹 ❱", "❰ 𝐈𝐬𝐥𝐚𝐦𝐢𝐜 𝐕𝐢𝐝𝐞𝐨 <🕋 ❱", "❰ 𝐒𝐚𝐝 𝐕𝐢𝐝𝐞𝐨 <😿 ❱",
+      "❰ 𝐀𝐧𝐢𝐦𝐞 𝐕𝐢𝐝𝐞𝐨 <🥱 ❱", "❰ 𝐂𝐚𝐫𝐭𝐨𝐨𝐧 𝐕𝐢𝐝𝐞𝐨 <❤️‍🩹 ❱", "❰ 𝐋𝐨𝐅𝐢 𝐕𝐢𝐝𝐞𝐨 <🌆 ❱",
+      "❰ 𝐂𝐨𝐮𝐩𝐥𝐞 𝐕𝐢𝐝𝐞𝐨 <💑 ❱", "❰ 𝐅𝐥𝐨𝐰𝐞𝐫 𝐕𝐢𝐝𝐞𝐨 <🌸 ❱", "❰ 𝐀𝐞𝐬𝐭𝐡𝐞𝐭𝐢𝐜 𝐕𝐢𝐝𝐞𝐨 <🎨 ❱",
+      "❰ 𝐒𝐢𝐠𝐦𝐚 𝐕𝐢𝐝𝐞𝐨 <🗿 ❱", "❰ 𝐋𝐲𝐫𝐢𝐜𝐬 𝐕𝐢𝐝𝐞𝐨 <🎵 ❱", "❰ 𝐂𝐚𝐭 𝐕𝐢𝐝𝐞𝐨 <🐱 ❱",
+      "❰ 𝐅𝐫𝐞𝐞 𝐅𝐢𝐫𝐞 𝐕𝐢𝐝𝐞𝐨 <🔥 ❱", "❰ 𝐅𝐨𝐨𝐭𝐛𝐚𝐥𝐥 𝐕𝐢𝐝𝐞𝐨 <⚽ ❱", "❰ 𝐆𝐢𝐫𝐥 𝐕𝐢𝐝𝐞𝐨 <💃 ❱",
+      "❰ 𝐅𝐫𝐢𝐞𝐧𝐝𝐬 𝐕𝐢𝐝𝐞𝐨 <👫🏼 ❱"
+    ];
 
-      let msg = `🎥 [ ${selectedCategory.toUpperCase()} ]\n--------------------------\n`;
-      videos.forEach((vid, index) => { msg += `${index + 1}. Video ${index + 1}\n`; });
-      msg += "--------------------------\nReply with video number.";
-
-      api.unsendMessage(Reply.messageID);
-      return api.sendMessage(msg, threadID, (err, info) => {
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName: commandName,
-          author: senderID,
-          videoList: videos,
-          type: "video"
-        });
-      }, messageID);
-
-    } else if (type === "video") {
-      const { videoList } = Reply;
-      if (isNaN(choice) || choice < 1 || choice > videoList.length) return;
-
-      const videoUrl = videoList[choice - 1];
-      api.unsendMessage(Reply.messageID);
-      
-      const cachePath = path.join(__dirname, "cache");
-      // ভিডিও ডাউনলোডের আগেও একবার চেক করে নেওয়া নিরাপদ
-      if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath, { recursive: true });
-
-      const videoPath = path.join(cachePath, `album_${Date.now()}.mp4`);
-      api.sendMessage("⏳ Sending video, please wait...", threadID);
-
-      try {
-        const response = await axios({
-          url: videoUrl,
-          method: 'GET',
-          responseType: 'stream',
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-
-        const writer = fs.createWriteStream(videoPath);
-        response.data.pipe(writer);
-
-        writer.on('finish', () => {
-          api.sendMessage({
-            body: "🎥 Enjoy your video!",
-            attachment: fs.createReadStream(videoPath)
-          }, threadID, () => {
-            // ভিডিও পাঠানোর পর ফাইল ডিলিট করা
-            if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
-          }, messageID);
-        });
-
-        writer.on('error', (err) => {
-          console.error(err);
-          api.sendMessage("Error saving video file.", threadID);
-        });
-
-      } catch (e) {
-        console.error(e);
-        return api.sendMessage("❌ Error: Video link is dead or server refused connection.", threadID, messageID);
-      }
+    const replyIndex = parseInt(event.body);
+    if (isNaN(replyIndex) || replyIndex < 1 || replyIndex > categories.length) {
+      return api.sendMessage("⚠️ Please reply with a valid number from the list!", event.threadID);
     }
-  }
+
+    let query = categories[replyIndex - 1];
+    let cp = captions[replyIndex - 1];
+
+    try {
+      const response = await axios.get(`https://mahabub-video-api-we90.onrender.com/mahabub/${query}`);
+      const videoUrl = response.data.data;
+
+      if (!videoUrl) {
+        return api.sendMessage("❌ No video found for this category!", event.threadID);
+      }
+
+      const filePath = path.join(__dirname, `album_${Date.now()}.mp4`);
+      
+      const res = await axios({ url: videoUrl, method: "GET", responseType: "stream" });
+      const writer = fs.createWriteStream(filePath);
+      res.data.pipe(writer);
+
+      writer.on("finish", () => {
+        api.sendMessage({ 
+          body: cp, 
+          attachment: fs.createReadStream(filePath) 
+        }, event.threadID, () => {
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        }, event.messageID);
+      });
+
+    } catch (error) {
+      api.sendMessage("❌ Failed to fetch or download the video.", event.threadID);
+    }
+  },
 };
-  
+    
