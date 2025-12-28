@@ -1,6 +1,5 @@
 const os = require('os');
 
-// সময় ফরম্যাট করার ফাংশন
 function formatDuration(seconds) {
     const d = Math.floor(seconds / (3600 * 24));
     const h = Math.floor(seconds % (3600 * 24) / 3600);
@@ -28,20 +27,24 @@ module.exports = {
     guide: { en: "{pn}" }
   },
 
-  onStart: async function({ api, message, event }) {
+  onStart: async function({ api, message, event, threadsData, usersData }) {
     try {
-      // আপটাইম ক্যালকুলেশন
+      // সিস্টেম ও প্রসেস আপটাইম
       const systemUptime = formatDuration(os.uptime());
       const processUptime = formatDuration(process.uptime());
 
-      // মেমোরি ক্যালকুলেশন (GB-তে)
+      // মেমোরি ক্যালকুলেশন
       const totalMemory = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2);
       const freeMemory = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2);
       const usedMemory = (totalMemory - freeMemory).toFixed(2);
 
-      // ইউজার ও থ্রেড ডাটা চেক (GoatBot এর জন্য)
-      const totalUsers = (global.data && global.data.allUserID) ? global.data.allUserID.length : "𝟳𝟰𝟭𝟰𝟵"; 
-      const totalThreads = (global.data && global.data.allThreadID) ? global.data.allThreadID.length : "𝟯𝟱𝟲𝟴";
+      // ইউজার এবং থ্রেড সংখ্যা লাইভ ডাটাবেস থেকে সংগ্রহ
+      // GoatBot এ সব ইউজার এবং থ্রেড এর ID পেতে getAll ব্যবহার করা হয়
+      const allUsers = await usersData.getAll();
+      const allThreads = await threadsData.getAll();
+
+      const totalUsers = allUsers.length.toString(); 
+      const totalThreads = allThreads.length.toString();
 
       const msg = 
         `╭──✦ [ 𝗨𝗽𝘁𝗶𝗺𝗲 𝗜𝗻𝗳𝗼𝗿𝗺𝗮𝘁𝗶𝗼𝗻 ]\n` +
@@ -62,7 +65,7 @@ module.exports = {
       return message.reply(msg);
     } catch (e) {
       console.log(e);
-      return message.reply("কমান্ডটি চালানোর সময় একটি ত্রুটি হয়েছে।");
+      return message.reply("কমান্ডটি চালানোর সময় ডাটাবেস সংযোগে সমস্যা হয়েছে।");
     }
   }
 };
