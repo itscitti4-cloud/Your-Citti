@@ -5,7 +5,7 @@ const path = require("path");
 module.exports = {
   config: {
     name: "album",
-    version: "2.1.0",
+    version: "2.2.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -17,6 +17,13 @@ module.exports = {
 
   onStart: async function ({ api, event }) {
     const { threadID, messageID } = event;
+    
+    // অটোমেটিক 'cache' ফোল্ডার তৈরি করার ফাংশন
+    const cachePath = path.join(__dirname, "cache");
+    if (!fs.existsSync(cachePath)) {
+      fs.mkdirSync(cachePath, { recursive: true });
+    }
+
     const videoDataUrl = "https://raw.githubusercontent.com/Aks-Sarkar/Video-Api/main/video_v2.json";
 
     try {
@@ -78,9 +85,9 @@ module.exports = {
       const videoUrl = videoList[choice - 1];
       api.unsendMessage(Reply.messageID);
       
-      // cache ফোল্ডার চেক করা
       const cachePath = path.join(__dirname, "cache");
-      if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath);
+      // ভিডিও ডাউনলোডের আগেও একবার চেক করে নেওয়া নিরাপদ
+      if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath, { recursive: true });
 
       const videoPath = path.join(cachePath, `album_${Date.now()}.mp4`);
       api.sendMessage("⏳ Sending video, please wait...", threadID);
@@ -90,7 +97,7 @@ module.exports = {
           url: videoUrl,
           method: 'GET',
           responseType: 'stream',
-          headers: { 'User-Agent': 'Mozilla/5.0' } // অনেক সময় ইউজার এজেন্ট ছাড়া ডাউনলোড ব্লক হয়
+          headers: { 'User-Agent': 'Mozilla/5.0' }
         });
 
         const writer = fs.createWriteStream(videoPath);
@@ -101,11 +108,15 @@ module.exports = {
             body: "🎥 Enjoy your video!",
             attachment: fs.createReadStream(videoPath)
           }, threadID, () => {
+            // ভিডিও পাঠানোর পর ফাইল ডিলিট করা
             if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
           }, messageID);
         });
 
-        writer.on('error', () => api.sendMessage("Error saving video file.", threadID));
+        writer.on('error', (err) => {
+          console.error(err);
+          api.sendMessage("Error saving video file.", threadID);
+        });
 
       } catch (e) {
         console.error(e);
@@ -114,3 +125,4 @@ module.exports = {
     }
   }
 };
+  
