@@ -1,18 +1,16 @@
-const fs = require("fs");
+const fs = require("fs-extra");
 const axios = require("axios");
 const path = require("path");
 
 module.exports = {
   config: {
     name: "album",
-    version: "1.7.5",
+    version: "1.8.0",
     role: 0,
     author: "AkHi", // ⚠️ এটি পরিবর্তন করলে কমান্ড কাজ করবে না
     countDown: 5,
     category: "media",
-    guide: {
-      en: "{p}{n} [cartoon/sad/islamic/funny/anime/...]",
-    },
+    guide: "{p}{n}"
   },
 
   onStart: async function ({ api, event, args }) {
@@ -25,7 +23,6 @@ module.exports = {
         event.messageID
       );
     }
-    // ---------------------------
 
     if (!args[0]) {
       api.setMessageReaction("😽", event.messageID, (err) => {}, true);
@@ -41,7 +38,7 @@ module.exports = {
         "𝐇𝐞𝐫𝐞 𝐢𝐬 𝐲𝐨𝐮𝐫 𝐚𝐯𝐚𝐢𝐥𝐚𝐛𝐥𝐞 𝐚𝐥𝐛𝐮𝐦 𝐯𝐢𝐝𝐞𝐨 𝐥𝐢𝐬𝐭 📔\n" +
         "━━━━━━━━━━━━━━━━━━━━━\n" +
         albumOptions.map((option, index) => `${index + 1}. ${option}`).join("\n") +
-        "\n━━━━━━━━━━━━━━━━━━━━━";
+        "\n━━━━━━━━━━━━━━━━━━━━━\nReply with a number to get the video!";
 
       await api.sendMessage(
         message,
@@ -52,7 +49,6 @@ module.exports = {
             type: "reply",
             messageID: info.messageID,
             author: event.senderID,
-            link: albumOptions,
           });
         },
         event.messageID
@@ -61,8 +57,9 @@ module.exports = {
   },
 
   onReply: async function ({ api, event, Reply }) {
-    // রিপ্লাই আসলে চেক করবে অথর ঠিক আছে কি না (Double Security)
     if (this.config.author !== "AkHi") return;
+    const { threadID, messageID, body, senderID } = event;
+    if (Reply.author !== senderID) return;
 
     api.unsendMessage(Reply.messageID);
 
@@ -81,40 +78,59 @@ module.exports = {
       "❰ 𝐅𝐫𝐢𝐞𝐧𝐝𝐬 𝐕𝐢𝐝𝐞𝐨 <👫🏼 ❱"
     ];
 
-    const replyIndex = parseInt(event.body);
+    const replyIndex = parseInt(body);
     if (isNaN(replyIndex) || replyIndex < 1 || replyIndex > categories.length) {
-      return api.sendMessage("⚠️ Please reply with a valid number from the list!", event.threadID);
+      return api.sendMessage("⚠️ Invalid number! Please pick from the list.", threadID, messageID);
     }
 
     let query = categories[replyIndex - 1];
     let cp = captions[replyIndex - 1];
 
+    api.sendMessage(`⏳ Sending ${query} video, please wait...`, threadID, messageID);
+
     try {
-      const response = await axios.get(`https://mahabub-video-api-we90.onrender.com/mahabub/${query}`);
-      const videoUrl = response.data.data;
+      // API থেকে তথ্য আনা
+      const resData = await axios.get(`https://mahabub-video-api-we90.onrender.com/mahabub/${query}`);
+      const videoUrl = resData.data.data;
 
       if (!videoUrl) {
-        return api.sendMessage("❌ No video found for this category!", event.threadID);
+        return api.sendMessage("❌ API didn't return a video link. Try again later.", threadID, messageID);
       }
 
-      const filePath = path.join(__dirname, `album_${Date.now()}.mp4`);
-      
-      const res = await axios({ url: videoUrl, method: "GET", responseType: "stream" });
+      // cache ফোল্ডার তৈরি নিশ্চিত করা
+      const cacheDir = path.join(__dirname, "cache");
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+
+      const filePath = path.join(cacheDir, `album_${Date.now()}.mp4`);
+
+      // ভিডিও ডাউনলোড করা
+      const response = await axios({
+        url: videoUrl,
+        method: 'GET',
+        responseType: 'stream',
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+
       const writer = fs.createWriteStream(filePath);
-      res.data.pipe(writer);
+      response.data.pipe(writer);
 
       writer.on("finish", () => {
         api.sendMessage({ 
           body: cp, 
           attachment: fs.createReadStream(filePath) 
-        }, event.threadID, () => {
+        }, threadID, () => {
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        }, event.messageID);
+        }, messageID);
+      });
+
+      writer.on("error", (e) => {
+        api.sendMessage("❌ Error writing video file.", threadID, messageID);
       });
 
     } catch (error) {
-      api.sendMessage("❌ Failed to fetch or download the video.", event.threadID);
+      console.error(error);
+      api.sendMessage("❌ API is currently down or the video link is broken. Please try again later.", threadID, messageID);
     }
   },
 };
-    
+                                                                                             
