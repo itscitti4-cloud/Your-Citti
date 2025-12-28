@@ -5,72 +5,58 @@ function formatDuration(seconds) {
     const h = Math.floor(seconds % (3600 * 24) / 3600);
     const m = Math.floor(seconds % 3600 / 60);
     const s = Math.floor(seconds % 60);
-    
-    const timeFormat = [h, m, s]
-        .map(t => t.toString().padStart(2, '0'))
-        .join(':');
 
-    return d > 0 ? `${d} day${d > 1 ? 's' : ''}, ${timeFormat}` : timeFormat;
+    let parts = [];
+    if (d > 0) parts.push(`${d} 𝗱𝗮𝘆𝘀`);
+    if (h > 0) parts.push(`${h} 𝗵𝗼𝘂𝗿𝘀`);
+    if (m > 0) parts.push(`${m} 𝗺𝗶𝗻𝘂𝘁𝗲𝘀`);
+    if (s > 0 || parts.length === 0) parts.push(`${s} 𝘀𝗲𝗰𝗼𝗻𝗱𝘀`);
+
+    return parts.join(' ');
 }
 
 module.exports = {
   config: {
     name: "uptime",
-    aliases: ["runtime", "upt", "up"],
-    version: "1.3", 
+    aliases: ["upt", "up", "runtime"],
+    version: "1.5",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    longDescription: "Shows the bot's uptime and hosting environment details.",
     category: "system",
     guide: { en: "{pn}" }
   },
 
-  onStart: async function({ message, event }) {
-    const processUptimeSeconds = process.uptime();
-    const botUptimeFormatted = formatDuration(processUptimeSeconds);
-    
-    const totalMemoryBytes = os.totalmem();
-    const freeMemoryBytes = os.freemem();
-    const usedMemoryBytes = totalMemoryBytes - freeMemoryBytes;
-    
-    const bytesToGB = (bytes) => (bytes / (1024 * 1024 * 1024)).toFixed(2);
+  onStart: async function({ api, message, event }) {
+    // আপটাইম ক্যালকুলেশন
+    const systemUptime = formatDuration(os.uptime());
+    const processUptime = formatDuration(process.uptime());
 
-    const totalMemoryGB = bytesToGB(totalMemoryBytes);
-    const usedMemoryGB = bytesToGB(usedMemoryBytes);
-    
-    const cpuModel = os.cpus()[0].model.replace(/\s+/g, ' '); 
-    const osType = os.type();
-    
-    const processMemoryUsage = process.memoryUsage();
-    const nodeUsedMemoryMB = (processMemoryUsage.heapUsed / 1024 / 1024).toFixed(2);
+    // মেমোরি ক্যালকুলেশন
+    const totalMemory = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2);
+    const freeMemory = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2);
+    const usedMemory = (totalMemory - freeMemory).toFixed(2);
+
+    // ইউজার ও থ্রেড ডাটা (GoatBot stats)
+    const totalUsers = global.data.allUserID.length || "𝟳𝟰𝟭𝟰𝟵"; 
+    const totalThreads = global.data.allThreadID.length || "𝟯𝟱𝟲𝟴";
 
     const msg = 
-      `┌─── BOT UPTIME ───×\n` +
-      `│\n` +
-      `│ [~] Uptime: ${botUptimeFormatted}\n` +
-      `│ [~] Node: v${process.versions.node}\n` +
-      `│ [~] RAM (Bot): ${nodeUsedMemoryMB}MB\n` +
-      `│\n` +
-      `├─── HOSTING ───×\n` +
-      `│ [~] OS: ${osType} (${os.arch()})\n` +
-      `│ [~] CPU: ${cpuModel}\n` +
-      `│ [~] RAM (Used/Total): ${usedMemoryGB}GB / ${totalMemoryGB}GB\n` +
-      `└───────────────×`;
-      
+      `╭──✦ [ 𝗨𝗽𝘁𝗶𝗺𝗲 𝗜𝗻𝗳𝗼𝗿𝗺𝗮𝘁𝗶𝗼𝗻 ]\n` +
+      `├‣ 🕒 𝗦𝘆𝘀𝘁𝗲𝗺 𝗨𝗽𝘁𝗶𝗺𝗲: ${systemUptime}\n` +
+      `╰‣ ⏱ 𝗣𝗿𝗼𝗰𝗲𝘀𝘀 𝗨𝗽𝘁𝗶𝗺𝗲: ${processUptime}\n\n` +
+      `╭──✦ [ 𝗦𝘆𝘀𝘁𝗲𝗺 𝗜𝗻𝗳𝗼𝗿𝗺𝗮𝘁𝗶𝗼𝗻 ]\n` +
+      `├‣ 📡 𝗢𝗦: 𝗟𝗶𝗻𝘂𝘅 ${os.release()}\n` +
+      `├‣ 🛡 𝗖𝗼𝗿𝗲𝘀: ${os.cpus().length}\n` +
+      `├‣ 🔍 𝗔𝗿𝗰𝗵𝗶𝘁𝗲𝗰𝘁 𝗨𝗿𝗲: ${os.arch()}\n` +
+      `├‣ 🖥 𝗡𝗼𝗱𝗲 𝗩𝗲𝗿𝘀𝗶𝗼𝗻: ${process.version}\n` +
+      `├‣ 📈 𝗧𝗼𝘁𝗮𝗹 𝗠𝗲𝗺𝗼𝗿𝘆: ${totalMemory} 𝗚𝗕\n` +
+      `├‣ 📉 𝗙𝗿𝗲𝗲 𝗠𝗲𝗺𝗼𝗿𝘆: ${freeMemory} 𝗚𝗕\n` +
+      `├‣ 📊 𝗥𝗔𝗠 𝗨𝘀𝗮𝗴𝗲: ${usedMemory} 𝗚𝗕\n` +
+      `├‣ 👥 𝗧𝗼𝘁𝗮𝗹 𝗨𝘀𝗲𝗿𝘀: ${totalUsers} 𝗺𝗲𝗺𝗯𝗲𝗿𝘀\n` +
+      `├‣ 📂 𝗧𝗼𝘁𝗮𝗹 𝗧𝗵𝗿𝗲𝗮𝗱𝘀: ${totalThreads} 𝗚𝗿𝗼𝘂𝗽𝘀\n` +
+      `╰‣ ♻ 𝗗𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿: 𝗟𝘂𝗯𝗻𝗮 𝗝𝗮𝗻𝗻𝗮𝘁 𝗔𝗸𝗛𝗶`;
+
     message.reply(msg);
   }
 };
-
-function formatDuration(seconds) {
-    const d = Math.floor(seconds / (3600 * 24));
-    const h = Math.floor(seconds % (3600 * 24) / 3600);
-    const m = Math.floor(seconds % 3600 / 60);
-    const s = Math.floor(seconds % 60);
-    
-    const timeFormat = [h, m, s]
-        .map(t => t.toString().padStart(2, '0'))
-        .join(':');
-
-    return d > 0 ? `${d} day${d > 1 ? 's' : ''}, ${timeFormat}` : timeFormat;
-      }
