@@ -5,7 +5,7 @@ const path = require("path");
 module.exports = {
   config: {
     name: "album",
-    version: "2.0.0",
+    version: "2.1.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -17,8 +17,6 @@ module.exports = {
 
   onStart: async function ({ api, event }) {
     const { threadID, messageID } = event;
-
-    // Sample API structure with categories
     const videoDataUrl = "https://raw.githubusercontent.com/Aks-Sarkar/Video-Api/main/video_v2.json";
 
     try {
@@ -29,7 +27,7 @@ module.exports = {
       categories.forEach((cat, index) => {
         msg += `${index + 1}. ${cat.toUpperCase()}\n`;
       });
-      msg += "--------------------------\nReply with the category number to see the video list.";
+      msg += "--------------------------\nReply with category number.";
 
       return api.sendMessage(msg, threadID, (err, info) => {
         global.GoatBot.onReply.set(info.messageID, {
@@ -41,7 +39,7 @@ module.exports = {
         });
       }, messageID);
     } catch (e) {
-      return api.sendMessage("Error: Could not load categories.", threadID, messageID);
+      return api.sendMessage("❌ Could not load categories. API might be down.", threadID, messageID);
     }
   },
 
@@ -54,24 +52,19 @@ module.exports = {
 
     if (type === "category") {
       const categories = Object.keys(allData);
-      if (isNaN(choice) || choice < 1 || choice > categories.length) {
-        return api.sendMessage("Invalid choice. Please pick a correct number.", threadID, messageID);
-      }
+      if (isNaN(choice) || choice < 1 || choice > categories.length) return;
 
       const selectedCategory = categories[choice - 1];
       const videos = allData[selectedCategory];
 
-      let msg = `🎥 [ ${selectedCategory.toUpperCase()} Video List ] 🎥\n--------------------------\n`;
-      videos.forEach((vid, index) => {
-        msg += `${index + 1}. Video ${index + 1}\n`;
-      });
-      msg += "--------------------------\nReply with the video number to watch.";
+      let msg = `🎥 [ ${selectedCategory.toUpperCase()} ]\n--------------------------\n`;
+      videos.forEach((vid, index) => { msg += `${index + 1}. Video ${index + 1}\n`; });
+      msg += "--------------------------\nReply with video number.";
 
       api.unsendMessage(Reply.messageID);
       return api.sendMessage(msg, threadID, (err, info) => {
         global.GoatBot.onReply.set(info.messageID, {
           commandName: commandName,
-          messageID: info.messageID,
           author: senderID,
           videoList: videos,
           type: "video"
@@ -80,30 +73,44 @@ module.exports = {
 
     } else if (type === "video") {
       const { videoList } = Reply;
-      if (isNaN(choice) || choice < 1 || choice > videoList.length) {
-        return api.sendMessage("Invalid choice.", threadID, messageID);
-      }
+      if (isNaN(choice) || choice < 1 || choice > videoList.length) return;
 
       const videoUrl = videoList[choice - 1];
       api.unsendMessage(Reply.messageID);
+      
+      // cache ফোল্ডার চেক করা
+      const cachePath = path.join(__dirname, "cache");
+      if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath);
+
+      const videoPath = path.join(cachePath, `album_${Date.now()}.mp4`);
       api.sendMessage("⏳ Sending video, please wait...", threadID);
 
-      const videoPath = path.join(__dirname, "cache", `album_${Date.now()}.mp4`);
       try {
-        const response = await axios({ url: videoUrl, method: 'GET', responseType: 'stream' });
+        const response = await axios({
+          url: videoUrl,
+          method: 'GET',
+          responseType: 'stream',
+          headers: { 'User-Agent': 'Mozilla/5.0' } // অনেক সময় ইউজার এজেন্ট ছাড়া ডাউনলোড ব্লক হয়
+        });
+
         const writer = fs.createWriteStream(videoPath);
         response.data.pipe(writer);
 
         writer.on('finish', () => {
-          return api.sendMessage({
+          api.sendMessage({
             body: "🎥 Enjoy your video!",
             attachment: fs.createReadStream(videoPath)
-          }, threadID, () => fs.unlinkSync(videoPath), messageID);
+          }, threadID, () => {
+            if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+          }, messageID);
         });
+
+        writer.on('error', () => api.sendMessage("Error saving video file.", threadID));
+
       } catch (e) {
-        return api.sendMessage("Error downloading video.", threadID, messageID);
+        console.error(e);
+        return api.sendMessage("❌ Error: Video link is dead or server refused connection.", threadID, messageID);
       }
     }
   }
 };
-                      
