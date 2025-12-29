@@ -5,54 +5,60 @@ const path = require("path");
 module.exports = {
     config: {
         name: "install",
-        version: "1.0.0",
+        version: "1.1.0",
         author: "AkHi",
         countDown: 5,
-        role: 2, // শুধুমাত্র বট এডমিনদের জন্য
+        role: 2, 
         category: "system",
         shortDescription: {
-            en: "Installs a command from a raw URL."
+            en: "Installs a command from a raw URL or direct code."
         },
         guide: {
-            en: "{p}install [fileName] [rawUrl]\nExample: {p}install hello https://raw.github.com/.../hello.js"
+            en: "{p}install [fileName] [rawUrl/code]\nExample 1: {p}install hello https://raw.github.com/...\nExample 2: {p}install hello module.exports = { ... }"
         }
     },
 
     onStart: async function ({ api, event, args }) {
         const { threadID, messageID } = event;
 
-        // ১. ইনপুট চেক
+        // 1. Input Check
         if (args.length < 2) {
-            return api.sendMessage("❌ সঠিক ফরম্যাট ব্যবহার করুন!\nব্যবহার: {p}install [ফাইলের নাম] [Raw URL]", threadID, messageID);
+            return api.sendMessage("❌ Invalid Format!\n\n1. Via URL: {p}install [fileName] [URL]\n2. Via Code: {p}install [fileName] [code]", threadID, messageID);
         }
 
         const fileName = args[0].replace(".js", "").toLowerCase();
-        const rawUrl = args[1];
+        const inputData = args.slice(1).join(" ");
         const filePath = path.join(__dirname, `${fileName}.js`);
+        let code = "";
 
         try {
-            api.sendMessage(`⏳ AkHi Ma'am, '${fileName}.js' ইনস্টল করার চেষ্টা করছি, দয়া করে অপেক্ষা করুন...`, threadID, messageID);
+            api.sendMessage(`⏳ AkHi Ma'am, starting installation for '${fileName}.js'... please wait.`, threadID, messageID);
 
-            // ২. ইউআরএল থেকে কোড ডাউনলোড করা
-            const response = await axios.get(rawUrl);
-            const code = response.data;
-
-            if (typeof code !== "string" || !code.includes("config") || !code.includes("module.exports")) {
-                return api.sendMessage("❌ ডাউনলোড করা কোডটি সঠিক GoatBot কমান্ড ফরম্যাটে নেই।", threadID, messageID);
+            // 2. Data Check (URL or Direct Code)
+            if (inputData.startsWith("http")) {
+                const response = await axios.get(inputData);
+                code = response.data;
+            } else {
+                code = inputData;
             }
 
-            // ৩. ফাইলটি সেভ করা
+            // 3. Code Validation
+            if (typeof code !== "string" || !code.includes("config") || !code.includes("module.exports")) {
+                return api.sendMessage("❌ Error: The provided code is not in the correct GoatBot command format. Make sure it includes 'config' and 'module.exports'.", threadID, messageID);
+            }
+
+            // 4. Save the file
             fs.writeFileSync(filePath, code, "utf8");
 
             return api.sendMessage(
-                `✅ ইনস্টলেশন সফল!\n📂 ফাইলটির নাম: ${fileName}.js\n⚠️ নতুন কমান্ডটি একটিভ করতে বটটি রিস্টার্ট (restart) দিন।`, 
+                `✅ Installation successful!\n📂 File name: ${fileName}.js\n⚠️ Please restart the bot to activate the new command.`, 
                 threadID, 
                 messageID
             );
 
         } catch (error) {
             console.error(error);
-            return api.sendMessage(`⚠️ ইনস্টল করতে সমস্যা হয়েছে।\nএরর: ${error.message}`, threadID, messageID);
+            return api.sendMessage(`⚠️ Installation failed.\nError: ${error.message}`, threadID, messageID);
         }
     }
 };
