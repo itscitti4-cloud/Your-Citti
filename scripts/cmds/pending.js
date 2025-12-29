@@ -77,7 +77,7 @@ module.exports = {
           count++;
         } catch (e) { console.log(`Error approving: ${item.threadID}`); }
       }
-      return api.sendMessage(`✅ মোট ${count} Request Approved Successfully Ma'am`, threadID);
+      return api.sendMessage(`✅ ${count} Request Approved Successfully Ma'am`, threadID);
     }
 
     // ৩. সব রিমুভ (all r)
@@ -91,7 +91,7 @@ module.exports = {
           count++;
         } catch (e) { console.log(`Error deleting: ${item.threadID}`); }
       }
-      return api.sendMessage(`✅ মোট ${count} Request Remove Successfully Ma'am.`, threadID);
+      return api.sendMessage(`✅ ${count} Request Remove Successfully Ma'am.`, threadID);
     }
 
     // ৪. সিঙ্গেল রিমুভ (নাম্বার r)
