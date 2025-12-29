@@ -64,7 +64,7 @@ async function handleChat(input, message, event, api, usersData, commandName, ol
   const userId = event.senderID;
   const session = oldSession || `pi-${userId}`;
   
-  api.setMessageReaction("⌛", event.messageID, () => {}, true);
+  api.setMessageReaction("😊", "🌸", "😄", "😩", "🫡", " 😌", "🙂", "😀", "🥳", "😚", "😍", "🥹", "😐", "😕", "💝", "🐱", "💚", "😾", "🦋", "🥺", "🤫", "🌚", "😶", event.messageID, () => {}, true);
 
   let voiceSetting = await usersData.get(userId, "data.pi_voice") || { voice: false, model: 1 };
 
