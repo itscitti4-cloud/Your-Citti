@@ -3,14 +3,14 @@ const axios = require('axios');
 module.exports = {
   config: {
     name: "citti",
-    version: "1.8",
+    version: "2.0",
     author: "AkHi",
-    countDown: 3,
+    countDown: 5,
     role: 0,
-    description: "Chat with Citti AI with smart language detection and memory.",
+    description: "Chat with Citti.",
     category: "chat",
     guide: {
-      en: "call name and chat based on reply"
+      en: "call 'citti' or reply to its message to chat."
     }
   },
 
@@ -26,7 +26,7 @@ module.exports = {
       const userId = event.senderID;
       const session = `pi-${userId}`;
 
-      // যদি শুধু নাম থাকে, তবে কিউট রিপ্লাই এবং সেশন সেট করা
+      // যদি শুধু কিওয়ার্ড থাকে
       if (messageContent === matchedKeyword) {
         const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
         message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
@@ -47,11 +47,11 @@ module.exports = {
           global.GoatBot.onReply.set(info.messageID, {
             commandName: this.config.name,
             author: userId,
-            messageID: info.messageID,
-            session: session // সেশন পাস করা হয়েছে যাতে রিপ্লাই কাজ করে
+            session: session 
           });
         });
       } else {
+        // কিওয়ার্ডের সাথে প্রশ্ন থাকলে
         return this.handlePiRequest(event.body, message, event, usersData);
       }
     }
@@ -64,11 +64,14 @@ module.exports = {
   },
 
   onReply: async function ({ message, event, Reply, usersData }) {
-    if (event.senderID !== Reply.author) return;
+    // রিপ্লাই দিলে এই সেকশনটি কাজ করবে
+    const { author, session } = Reply;
+    if (event.senderID !== author) return; // যে মেসেজ দিয়েছে শুধু সেই রিপ্লাই দিতে পারবে
+
     const input = event.body?.trim();
     if (!input) return;
 
-    return this.handlePiRequest(input, message, event, usersData, Reply.session);
+    return this.handlePiRequest(input, message, event, usersData, session);
   },
 
   handlePiRequest: async function (input, message, event, usersData, oldSession) {
@@ -79,13 +82,10 @@ module.exports = {
       const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
       message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
-      // মেকার ফিল্টার আগে চেক করা হচ্ছে (API কল করার আগেই রিপ্লাই দিতে পারে বা প্রম্পট মডিফাই করতে পারে)
-      const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
-      const isAskingAboutCreator = creatorKeywords.some(word => input.toLowerCase().includes(word));
-
       let prompt = input;
+      // ভাষা নির্ধারণ
       if (/[\u0980-\u09FF]/.test(input)) {
-          prompt = `Answer in Bengali: ${input}`;
+          prompt = `Answer in Bengali. No English: ${input}`;
       } else if (/([aeiou][a-z]*[aeiou])/gi.test(input) && !/^[a-z\s.,!?]+$/i.test(input)) {
           prompt = `Reply in Banglish: ${input}`;
       }
@@ -95,21 +95,22 @@ module.exports = {
 
       let replyText = res.text;
 
-      // রিপ্লাই টেক্সট ফিল্টার
+      // মেকার ফিল্টার
+      const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
+      const isAskingAboutCreator = creatorKeywords.some(word => input.toLowerCase().includes(word));
+
       if (isAskingAboutCreator) {
           replyText = "I was created and developed by AkHi. She is my master and developer.";
       } else {
           replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
-          replyText = replyText.replace(/The phrase ".*?" translates to ".*?" in English\./gi, "");
-          replyText = replyText.replace(/In Bengali, ".*?" means ".*?"\./gi, "");
       }
 
       return message.reply(replyText.trim(), (err, info) => {
         if (err) return;
+        // সেশন সেভ করা যাতে পরের রিপ্লাই কাজ করে
         global.GoatBot.onReply.set(info.messageID, {
           commandName: this.config.name,
           author: userId,
-          messageID: info.messageID,
           session: session
         });
       });
@@ -128,4 +129,4 @@ async function callPi(query, session) {
   } catch (error) {
     throw new Error("API Connection Error");
   }
-                               }
+}
