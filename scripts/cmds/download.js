@@ -68,10 +68,13 @@ function parseArgs(args) {
   return params;
 }
 
-async function download({ url, params, message, event }) {
+async function download({ url, params, message, event, usersData }) {
   try {
     const domain = getMainDomain(url);
-    
+    const platformName = domain ? domain.split('.')[0].toUpperCase() : "Media";
+    const userData = await usersData.get(event.senderID);
+    const userName = userData.name || "User";
+
     if (!params.cookies) {
       const defaultCookieFile = getDefaultCookie(domain);
       if (defaultCookieFile) {
@@ -98,14 +101,14 @@ async function download({ url, params, message, event }) {
     const data = response.data;
     
     await message.reply({
-      body: `• ${data.title.length > 50 ? data.title.slice(0, 50) + "..." : data.title}\n• Duration: ${data.duration}\n• Upload Date: ${data.upload_date || '--'}\n• Source: ${data.source}\n\n• Stream: ${data.url}`,
+      body: `𝙷𝚎𝚢 ${userName} 𝚑𝚎𝚛𝚎 𝚒𝚜 𝚢𝚘𝚞𝚛 ${platformName} 𝚟𝚒𝚍𝚎𝚘. 𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝙻𝚄𝙱𝙽𝙰 𝙹𝙰𝙽𝙽𝙰𝚃 𝙰𝙺𝙷𝙸.\n\n• Title: ${data.title.length > 50 ? data.title.slice(0, 50) + "..." : data.title}\n• Duration: ${data.duration}\n• Stream: ${data.url}`,
       attachment: await global.utils.getStreamFromUrl(data.url),
     });
     
     message.reaction('✅', event.messageID);
   } catch (error) {
     message.reaction('❌', event.messageID);
-    return { repay: 50 };
+    console.error(error);
   }
 }
 
@@ -113,83 +116,66 @@ module.exports = {
   config: {
     name: 'download',
     aliases: ['downloader', 'megadl', 'fb', 'fbdl', 'facebook', 'insta', 'instadl', 'instagram', 'yt', 'ytdl'],
-    version: '2.3',
+    version: '2.5',
     author: 'AkHi',
     countDown: 5,
     role: 0,
-    longDescription: 'Download videos or audios from supported platforms. Supports parameters for file size, format, and cookies.',
+    longDescription: 'Download videos or audios from supported platforms.',
     category: 'media',
     guide: {
       en: {
-        body: `{pn} [URL] [optional parameters]\n\n
-  # Examples:
-     • {pn} https://facebook.com/video --fs 100 --type audio --c cookies.txt\n
-     • {pn} https://youtube.com/watch?v=abc --maxsize 200 --format video\n
-     • {pn} https://instagram.com/p/xyz\n\n
-  # Parameters:
-     • URL: The video or audio URL from a supported platform.\n
-     • --fs or --maxsize: Maximum file size in MB (default: 25).\n
-     • --type or --format: Download type ('video' or 'audio', optional).\n
-     • --c or --cookie: Path to a cookie file (defaults based on platform).`,
+        body: `{pn} [URL]`,
       },
     },
   },
   
-  onStart: async function({ message, args, event, threadsData, role }) {
-    if (args[0] === 'chat' && (args[1] === 'on' || args[1] === 'off') || args[0] === 'on' || args[0] === 'off') {
-      if (role < 1) {
-        return message.reply('You do not have permission to change auto-download settings.');
-      }
-      const choice = args[0] === 'on' || args[1] === 'on';
+  onStart: async function({ message, args, event, threadsData, usersData, role }) {
+    if (args[0] === 'on' || args[0] === 'off') {
+      if (role < 1) return message.reply('You do not have permission.');
+      const choice = args[0] === 'on';
       const gcData = await threadsData.get(event.threadID, "data");
       await threadsData.set(event.threadID, { data: { ...gcData, autoDownload: choice } });
       return message.reply(`Auto-download has been turned ${choice ? 'on' : 'off'} for this group.`);
     }
     
     const url = args.find(arg => /^https?:\/\//.test(arg));
-    if (!url) {
-      return message.reply('Please provide a valid URL to download.');
-    }
+    if (!url) return message.reply('Please provide a valid URL.');
     
     const domain = getMainDomain(url);
-    const isSupported = supportedDomains.some(entry => entry.domain === domain);
-    if (!isSupported) {
-      return message.reply('This platform is not enabled/supported. Please ask Admin to request support of this platform.');
+    if (!supportedDomains.some(entry => entry.domain === domain)) {
+      return message.reply('This platform is not supported.');
     }
     
-    const paramArgs = args.filter(arg => arg !== url);
-    const params = parseArgs(paramArgs);
-    
+    const params = parseArgs(args.filter(arg => arg !== url));
     message.reaction('⏳', event.messageID);
-    await download({ url, params, message, event });
+    await download({ url, params, message, event, usersData });
   },
   
-  onChat: async function({ event, message, threadsData }) {
+  onChat: async function({ event, message, threadsData, usersData }) {
+    if (event.senderID === global.botID) return;
     const threadData = await threadsData.get(event.threadID);
-    if (!threadData.data.autoDownload || threadData.data.autoDownload === false || event.senderID === global.botID) {
-      return;
-    }
+    
+    // Default ON করার জন্য এই লাইনটি আপডেট করা হয়েছে
+    if (threadData.data && threadData.data.autoDownload === false) return;
     
     try {
-      const urlRegex = /https:\/\/[^\s]+/;
+      const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
       const match = event.body.match(urlRegex);
       if (match) {
         const url = match[0];
         const domain = getMainDomain(url);
-        
-        const isSupported = supportedDomains.some(entry => entry.domain === domain);
-        if (isSupported) {
+        if (supportedDomains.some(entry => entry.domain === domain)) {
+          // কাস্টম মেসেজ বা প্রিফিক্স থাকলে ডাউনলোড এড়িয়ে চলবে
           const prefix = await global.utils.getPrefix(event.threadID);
           if (event.body.startsWith(prefix)) return;
-          
+
           message.reaction('⏳', event.messageID);
-          const params = {};
-          await download({ url, params, message, event });
+          await download({ url, params: {}, message, event, usersData });
         }
       }
     } catch (error) {
-      message.reaction('', event.messageID);
       console.error('onChat Error:', error);
     }
   },
 };
+                          
