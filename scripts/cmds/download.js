@@ -101,7 +101,7 @@ async function download({ url, params, message, event, usersData }) {
     const data = response.data;
     
     await message.reply({
-      body: `𝙷𝚎𝚢 ${userName} 𝚑𝚎𝚛𝚎 𝚒𝚜 𝚢𝚘𝚞𝚛 ${platformName} 𝚟𝚒𝚍𝚎𝚘. 𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝙻𝚄𝙱𝙽𝙰 𝙹𝙰𝙽𝙽𝙰𝚃 𝙰𝙺𝙷𝙸.\n\n• Title: ${data.title.length > 50 ? data.title.slice(0, 50) + "..." : data.title}\n• Duration: ${data.duration}\n• Stream: ${data.url}`,
+      body: `𝙷𝚎𝚢 ${userName} 𝚑𝚎𝚛𝚎 𝚒𝚜 𝚢𝚘𝚞𝚛 ${platformName} 𝚟𝚒𝚍𝚎𝚘. 𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝙻𝚄𝙱𝙽𝙰 𝙹𝙰𝙽𝙽𝙰𝚃 𝙰𝙺𝙷𝙸.`,
       attachment: await global.utils.getStreamFromUrl(data.url),
     });
     
