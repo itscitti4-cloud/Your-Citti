@@ -2,74 +2,114 @@ const axios = require('axios');
 
 module.exports = {
   config: {
-    name: "bby",
-    version: "3.0.0",
-    role: 0,
+    name: "pi",
+    version: "1.5",
     author: "AkHi",
-    description: "Chat with Pi AI (Short, Funny & Contextual)",
+    countDown: 5,
+    role: 0,
+    description: "নাম ধরে ডাকলে কিউট রিপ্লাই দেবে এবং ফিল্টার সহ চ্যাট করবে।",
     category: "chat",
-    usages: "[message]",
-    cooldowns: 0,
-  },
-
-  onChat: async function ({ api, event }) {
-    const { threadID, messageID, body, senderID, messageReply } = event;
-    if (!body || senderID == api.getCurrentUserID()) return;
-
-    const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
-    const bodyLower = body.toLowerCase();
-    
-    const matchedKeyword = keywords.find(word => bodyLower.startsWith(word));
-    const isReplyToThisBot = messageReply && 
-                             messageReply.senderID == api.getCurrentUserID();
-
-    if (matchedKeyword || isReplyToThisBot) {
-      let query = matchedKeyword ? body.slice(matchedKeyword.length).trim() : body.trim();
-
-      // শুধু নাম ধরে ডাকলে ফানি রিপ্লাই
-      if (matchedKeyword && !query) {
-        const nicknames = [
-          "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
-          "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
-          "জি সোনা! শুনছি, ঝটপট বলে ফেলো।",
-          "হুম বলো, খুব ব্যস্ত নাকি? 😜"
-        ];
-        return api.sendMessage(nicknames[Math.floor(Math.random() * nicknames.length)], threadID, messageID);
-      }
-
-      // ডেভেলপার/ওনার সংক্রান্ত প্রশ্ন চেক
-      const creatorQueries = ["tmk ke banaiche", "tomake ke banaiche", "tomar admin ke", "tmr admin ke", "tmr developer ke", "tomar developer ke", "কে বানিয়েছে", "owner ke", "creator ke", "who made you", "who is your boss"];
-      
-      if (creatorQueries.some(q => bodyLower.includes(q))) {
-        return api.sendMessage("আমাকে 'Lubna Jannat (AkHi Ma'am)' তৈরি করেছে 😍", threadID, messageID);
-      }
-
-      try {
-        // নতুন Pi AI API এন্ডপয়েন্ট
-        const res = await axios.get(`https://api.sandipbaruwal.com.np/pi?prompt=${encodeURIComponent(query)}`);
-        let aiMessage = res.data.answer;
-
-        // ইনস্ট্রাকশন অনুযায়ী ছোট এবং ফানি ফিল্টার (যদি এপিআই থেকে বড় উত্তর আসে)
-        if (aiMessage.toLowerCase().includes("meta") || aiMessage.toLowerCase().includes("facebook")) {
-            aiMessage = "আমি Lubna Jannat AkHi Ma'am এর তৈরি করা Pi AI! আমার নাম citti😉";
-        }
-
-        return api.sendMessage(aiMessage, threadID, messageID);
-      } catch (error) {
-        console.error("Pi AI Error:", error.message);
-      }
+    guide: {
+      en: "নামগুলো: citti, চিট্টি, বেবি, হিনাতা, বট, bby, baby, hinata, bot"
     }
   },
 
-  onStart: async function ({ api, event, args }) {
-      const query = args.join(" ");
-      if (!query) return api.sendMessage("জি জানু! কিছু তো বলো। শুধু শুধু ডাকলে হবে? 🙄", event.threadID, event.messageID);
+  onChat: async function ({ message, event }) {
+    if (!event.body) return;
+
+    const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
+    const messageContent = event.body.toLowerCase();
+    const hasKeyword = keywords.some(word => messageContent.includes(word.toLowerCase()));
+
+    if (hasKeyword) {
+      const cuteReplies = [
+        "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
+        "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
+        "জি সোনা! শুনছি, ঝটপট বলে ফেলো।",
+        "হুম বলো, খুব ব্যস্ত নাকি? 😜",
+        "আমি চিট্টি বলছি, কিভাবে তোমাকে সাহায্য করতে পারি?",
+        "Hlw I'm Citti, how can i help you?"
+      ];
+
+      const randomReply = cuteReplies[Math.floor(Math.random() * cuteReplies.length)];
+      const userId = event.senderID;
+      const session = `pi-${userId}`;
+
+      return message.reply(randomReply, (err, info) => {
+        if (err) return;
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName: this.config.name,
+          author: userId,
+          messageID: info.messageID,
+          session
+        });
+      });
+    }
+  },
+
+  onStart: async function ({ message, args, event, usersData }) {
+    const input = args.join(" ").trim();
+    if (!input) return message.reply("❌ আপনি কিছু লেখেননি।");
+    return this.handlePiRequest(input, message, event, usersData);
+  },
+
+  onReply: async function ({ message, event, Reply, usersData }) {
+    const userId = event.senderID;
+    if (userId !== Reply.author) return;
+
+    const input = event.body?.trim();
+    if (!input) return;
+
+    return this.handlePiRequest(input, message, event, usersData, Reply.session);
+  },
+
+  handlePiRequest: async function (input, message, event, usersData, oldSession) {
+    const userId = event.senderID;
+    const session = oldSession || `pi-${userId}`;
+
+    try {
+      const res = await callPi(input, session);
       
-      try {
-        const res = await axios.get(`https://api.sandipbaruwal.com.np/pi?prompt=${encodeURIComponent(query)}`);
-        return api.sendMessage(res.data.answer, event.threadID, event.messageID);
-      } catch (e) {
-          return api.sendMessage("সার্ভার একটু বিজি, পরে ট্রাই করো সুইটহার্ট! 🤧", event.threadID);
+      const currentCount = await usersData.get(userId, "data.pi_usageCount") || 0;
+      await usersData.set(userId, currentCount + 1, "data.pi_usageCount");
+
+      if (!res?.text) return;
+
+      let replyText = res.text;
+
+      // --- ফিল্টার সেকশন শুরু ---
+      // ১. নাম পরিবর্তন
+      replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
+
+      // ২. মেকার/ডেভেলপার প্রশ্নের ফিল্টার
+      const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে/gi;
+      if (creatorRegex.test(input.toLowerCase()) || creatorRegex.test(replyText.toLowerCase())) {
+          replyText = "I was created and developed by Lubna Jannat AkHi. She is my master and developer.";
       }
+      // --- ফিল্টার সেকশন শেষ ---
+
+      return message.reply(replyText, (err, info) => {
+        if (err) return;
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName: this.config.name,
+          author: userId,
+          messageID: info.messageID,
+          session
+        });
+      });
+
+    } catch (err) {
+      console.error("Pi AI Error: " + err.message);
+    }
   }
 };
+
+async function callPi(query, session) {
+  try {
+    const { data: { public: baseUrl } } = await axios.get("https://raw.githubusercontent.com/Tanvir0999/stuffs/refs/heads/main/raw/addresses.json");
+    const { data } = await axios.get(`${baseUrl}/pi?query=${encodeURIComponent(query)}&session=${encodeURIComponent(session)}&voice=false`);
+    return data.data;
+  } catch (error) {
+    throw new Error("API Connection Error");
+  }
+}
