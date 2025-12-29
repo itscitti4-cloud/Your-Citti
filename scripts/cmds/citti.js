@@ -7,25 +7,25 @@ module.exports = {
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Multi-language (BN/EN/Banglish) support with auto-reaction.",
+    description: "chat with citti like a Artificial Intelligence.",
     category: "chat",
     guide: {
-      en: " no prefix just call citti. chat with citti based on reply."
+      en: "call name without prefix and chat."
     }
   },
 
-  onChat: async function ({ message, event }) {
+  onChat: async function ({ message, event, usersData }) {
     if (!event.body) return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
     const messageContent = event.body.toLowerCase();
-    const hasKeyword = keywords.some(word => messageContent.includes(word.toLowerCase()));
+    const hasKeyword = keywords.some(word => messageContent.includes(word));
 
     if (hasKeyword) {
-      // ২০টি র‍্যান্ডম রিঅ্যাকশন লিস্ট
-      const reactions = ["❤️", "💖", "😘", "😊", "✨", "🌸", "🙈", "🔥", "🌈", "🦋", "🍭", "🎀", "🥰", "💌", "🧡", "💎", "🧸", "🎈", "🍫", "🌹"];
+      // ২০টি র‍্যান্ডম রিঅ্যাক্ট
+      const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
       const randomReact = reactions[Math.floor(Math.random() * reactions.length)];
-      message.react(randomReact);
+      message.reaction(randomReact, event.messageID);
 
       const cuteReplies = [
         "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
@@ -73,10 +73,20 @@ module.exports = {
     const session = oldSession || `pi-${userId}`;
 
     try {
-      // ভাষা বজায় রাখার জন্য প্রম্পট ইঞ্জিনিয়ারিং
-      const customPrompt = `User said: "${input}". Please respond naturally in the same language or style (Bengali, English, or Banglish) used by the user. Do not translate into English if not asked.`;
-      
-      const res = await callPi(customPrompt, session);
+      // রিঅ্যাক্ট দেওয়া
+      const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
+      message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
+
+      // ভাষার জন্য কাস্টম প্রম্পট সেট করা
+      let prompt = input;
+      if (/[\u0980-\u09FF]/.test(input)) {
+          prompt = `Reply in Bengali: ${input}. Do not show any English translation.`;
+      } else if (/([aeiou][a-z]*[aeiou])/gi.test(input) && !/^[a-z]+$/i.test(input)) {
+          // এটি বাংলিশ ডিটেক্ট করার জন্য একটি সাধারণ লজিক
+          prompt = `Reply in Banglish (Bengali written in English letters): ${input}`;
+      }
+
+      const res = await callPi(prompt, session);
       
       const currentCount = await usersData.get(userId, "data.pi_usageCount") || 0;
       await usersData.set(userId, currentCount + 1, "data.pi_usageCount");
@@ -86,14 +96,14 @@ module.exports = {
       let replyText = res.text;
 
       // ফিল্টার: নাম এবং মেকার পরিবর্তন
-      replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
-      
-      // অপ্রয়োজনীয় ট্রান্সলেশন লাইন রিমুভ করা
-      replyText = replyText.replace(/The phrase ".*?" translates to ".*?" in English\./gi, "");
-
       const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে|ডেভেলপার/gi;
       if (creatorRegex.test(input.toLowerCase())) {
           replyText = "I was created and developed by Lubna Jannat AkHi. She is my master and developer.";
+      } else {
+          replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
+          // স্ক্রিনশটে আসা ফালতু অনুবাদের লাইন রিমুভ করার জন্য
+          replyText = replyText.replace(/The phrase ".*?" translates to ".*?" in English\./gi, "");
+          replyText = replyText.replace(/In Bengali, ".*?" means ".*?"\./gi, "");
       }
 
       return message.reply(replyText.trim(), (err, info) => {
@@ -120,4 +130,4 @@ async function callPi(query, session) {
   } catch (error) {
     throw new Error("API Connection Error");
   }
-}
+                 }
