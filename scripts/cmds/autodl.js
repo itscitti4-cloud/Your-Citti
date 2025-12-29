@@ -4,14 +4,14 @@ const path = require("path");
 
 const config = {
   name: "autodl",
-  version: "4.0.0",
+  version: "5.0.0",
   author: "AkHi",
   countDown: 5,
   role: 0,
-  description: "Auto download media from TikTok, FB, IG, YT without watermark using Cobalt API.",
+  description: "Advanced Auto Downloader for TikTok, FB, IG, YT (No Watermark).",
   category: "media",
   guide: {
-    en: "Just send any social media link."
+    en: "Simply send the link in the chat."
   }
 };
 
@@ -26,46 +26,35 @@ const onChat = async ({ api, event }) => {
 
   if (urlPatterns.some(p => body.includes(p))) {
     try {
-      // ⌛ Reaction
+      // ⌛ Status Reaction
       await api.setMessageReaction("⌛", messageID, () => {}, true);
-      const waitingMsg = await api.sendMessage("Downloading your media, please wait... 😘", threadID);
+      const waitingMsg = await api.sendMessage("Checking link and fetching media... 😘", threadID);
 
-      // Using a stable Cobalt instance API
-      // Note: If this instance fails, you can replace the URL with another Cobalt worker.
-      const response = await axios.post('https://cobalt.lucasvtiradentes.com/api/json', {
-        url: body,
-        vQuality: "720",
-        isAudioOnly: false,
-        removeWatermark: true
-      }, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = response.data;
-
-      if (data.status === "error") {
-        throw new Error(data.text || "Unknown error occurred.");
-      }
-
-      // If multiple files (like Instagram slide), we take the first one or handle accordingly
-      const mediaUrl = data.url || (data.picker && data.picker[0].url);
+      // Using a very stable and multi-purpose API endpoint
+      const response = await axios.get(`https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(body)}`);
       
-      if (!mediaUrl) {
-        throw new Error("Could not extract media URL.");
+      let mediaUrl;
+      let title = "No Title";
+
+      // TikTok No Watermark Logic
+      if (body.includes("tiktok.com")) {
+        mediaUrl = response.data.video?.noWatermark || response.data.video?.url;
+        title = response.data.title || "TikTok Video";
+      } else {
+        // Fallback for other platforms using another stable API
+        const altRes = await axios.get(`https://api.botcahx.eu.org/api/dowloader/alldl?url=${encodeURIComponent(body)}&apikey=akhi123`);
+        mediaUrl = altRes.data.result?.url || altRes.data.result;
       }
+
+      if (!mediaUrl) throw new Error("Could not find a working download link.");
 
       const ext = mediaUrl.includes(".jpg") || mediaUrl.includes(".png") ? ".jpg" : ".mp4";
-      const fileName = `autodl_${Date.now()}${ext}`;
-      const filePath = path.join(__dirname, 'cache', fileName);
+      const filePath = path.join(__dirname, 'cache', `autodl_${Date.now()}${ext}`);
 
       if (!fs.existsSync(path.join(__dirname, 'cache'))) {
         fs.mkdirSync(path.join(__dirname, 'cache'));
       }
 
-      // Download the file
       const fileData = await axios.get(mediaUrl, { responseType: "arraybuffer" });
       fs.writeFileSync(filePath, Buffer.from(fileData.data, "binary"));
 
@@ -74,7 +63,7 @@ const onChat = async ({ api, event }) => {
       await api.unsendMessage(waitingMsg.messageID);
 
       await api.sendMessage({
-        body: `✅ | Successfully downloaded!\n\nEnjoy your video without watermark <😘`,
+        body: `✅ | Success!\n\nTitle: ${title}\nDownloaded without watermark. Enjoy! <😘`,
         attachment: fs.createReadStream(filePath)
       }, threadID, () => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -84,7 +73,7 @@ const onChat = async ({ api, event }) => {
       // ❌ Error Reaction
       await api.setMessageReaction("❌", messageID, () => {}, true);
       console.error(err);
-      api.sendMessage(`❌ | Error: ${err.response?.data?.text || err.message || "Failed to process request."}`, threadID, messageID);
+      api.sendMessage(`❌ | Server Busy or Link Private!\n\nPlease try again later or use a different link.`, threadID, messageID);
     }
   }
 };
