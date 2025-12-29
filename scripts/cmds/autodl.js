@@ -1,85 +1,80 @@
 const axios = require("axios");
 const fs = require("fs-extra");
-//const tinyurl = require("tinyurl");
-const baseApiUrl = async () => {
-  const base = await axios.get(`https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json`);
-  return base.data.api;
-};
+const path = require("path");
 
 const config = {
   name: "autodl",
-  version: "2.0",
+  version: "3.0.0",
   author: "AkHi",
-  credits: "AkHi",
-  description: "Auto download video from tiktok, facebook, Instagram, YouTube, and more",
+  countDown: 5,
+  role: 0,
+  description: "Auto download video/photo from TikTok, FB, IG, YT, Twitter, and more without watermark.",
   category: "media",
-  commandCategory: "media",
-  usePrefix: true,
-  prefix: true,
-  dependencies: {
-   // "tinyurl": "",
-    "fs-extra": "",
-  },
+  guide: {
+    en: "Just paste the link, and the bot will automatically download the media."
+  }
 };
 
-const onStart = () => {};
-const onChat = async ({ api, event }) => {
-  let dipto = event.body ? event.body : "", ex, cp;
-  try {
-    if (
-      dipto.startsWith("https://vt.tiktok.com") ||
-      dipto.startsWith("https://www.tiktok.com/") ||
-      dipto.startsWith("https://www.facebook.com") ||
-      dipto.startsWith("https://www.instagram.com/") ||
-      dipto.startsWith("https://youtu.be/") ||
-      dipto.startsWith("https://youtube.com/") ||
-      dipto.startsWith("https://x.com/") ||
-      dipto.startsWith("https://youtube.com/")
-|| dipto.startsWith("https://www.instagram.com/p/") ||
-      dipto.startsWith("https://pin.it/") ||
-      dipto.startsWith("https://twitter.com/") ||
-      dipto.startsWith("https://vm.tiktok.com") ||
-      dipto.startsWith("https://fb.watch")
-    ) {
-      api.setMessageReaction("⌛", event.messageID, {}, true);
-      const w = await api.sendMessage("Wait Bby <😘", event.threadID);
-      const response = await axios.get(`${await baseApiUrl()}/alldl?url=${encodeURIComponent(dipto)}`);
-      const d = response.data;
-      if (d.result.includes(".jpg")) {
-        ex = ".jpg";
-        cp = "Here's your Photo <😘";
-      } else if (d.result.includes(".png")) {
-        ex = ".png";
-        cp = "Here's your Photo <😘";
-      } else if (d.result.includes(".jpeg")) {
-        ex = ".jpeg";
-        cp = "Here's your Photo <😘";
-      } else {
-        ex = ".mp4";
-        cp = d.cp;
+const onChat = async ({ api, event, threadsData }) => {
+  const { body, threadID, messageID } = event;
+  if (!body) return;
+
+  const urlPatterns = [
+    "tiktok.com", "facebook.com", "instagram.com", "youtu.be", "youtube.com",
+    "twitter.com", "x.com", "pin.it", "fb.watch", "reel"
+  ];
+
+  if (urlPatterns.some(p => body.includes(p))) {
+    try {
+      // ⌛ React while processing
+      await api.setMessageReaction("⌛", messageID, () => {}, true);
+      
+      const waitingMsg = await api.sendMessage("Please wait, I'm fetching your media... 📥", threadID);
+
+      // Using a high-quality all-in-one downloader API
+      const res = await axios.get(`https://api.diptos.me/alldl?url=${encodeURIComponent(body)}`);
+      const data = res.data;
+
+      if (!data.result) {
+        throw new Error("Could not find a valid download link.");
       }
-      const path = __dirname + `/cache/video${ex}`;
-      fs.writeFileSync(path, Buffer.from((await axios.get(d.result, { responseType: "arraybuffer" })).data, "binary"));
-      const tinyUrlResponse = await axios.get(`https://tinyurl.com/api-create.php?url=${d.result}`);
-      api.setMessageReaction("✅", event.messageID, {}, true);
-      api.unsendMessage(w.messageID);
+
+      const mediaUrl = data.result;
+      const isVideo = !mediaUrl.match(/\.(jpg|jpeg|png)$/i);
+      const ext = isVideo ? ".mp4" : ".jpg";
+      const fileName = `autodl_${Date.now()}${ext}`;
+      const filePath = path.join(__dirname, 'cache', fileName);
+
+      if (!fs.existsSync(path.join(__dirname, 'cache'))) {
+        fs.mkdirSync(path.join(__dirname, 'cache'));
+      }
+
+      // Download file
+      const fileStream = await axios.get(mediaUrl, { responseType: "arraybuffer" });
+      fs.writeFileSync(filePath, Buffer.from(fileStream.data, "binary"));
+
+      // ✅ React when download starts sending
+      await api.setMessageReaction("✅", messageID, () => {}, true);
+      await api.unsendMessage(waitingMsg.messageID);
+
       await api.sendMessage({
-          body: `${d.cp || null}\n✅ | Link: ${tinyUrlResponse.data || null}`,
-          attachment: fs.createReadStream(path),
-        }, event.threadID, () => fs.unlinkSync(path), event.messageID
-      )
+        body: `✅ | Downloaded Successfully!\n\n${data.cp || "Here is your requested media."}`,
+        attachment: fs.createReadStream(filePath)
+      }, threadID, () => fs.unlinkSync(filePath), messageID);
+
+    } catch (err) {
+      // ❌ React on error
+      await api.setMessageReaction("❌", messageID, () => {}, true);
+      console.error(err);
+      api.sendMessage(`❌ | Error: ${err.message || "Failed to download media. The link might be private or unsupported."}`, threadID, messageID);
     }
-  } catch (err) {
-    api.setMessageReaction("❌", event.messageID, {}, true);
-    console.log(err);
-    api.sendMessage(`Error: ${err.message}`, event.threadID, event.messageID);
   }
 };
 
 module.exports = {
   config,
   onChat,
-  onStart,
-  run: onStart,
+  onStart: () => {},
   handleEvent: onChat,
+  run: () => {}
 };
