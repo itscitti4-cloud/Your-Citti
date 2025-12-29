@@ -11,14 +11,7 @@ module.exports = {
 								description: "Thay đổi dấu lệnh của bot trong box chat của bạn hoặc cả hệ thống bot (chỉ admin bot)",
 								category: "bot",
 								guide: {
-												vi: "   {pn} <new prefix>: thay đổi prefix mới trong box chat của bạn"
-																+ "\n   Ví dụ:"
-																+ "\n    {pn} #"
-																+ "\n\n   {pn} <new prefix> -g: thay đổi prefix mới trong hệ thống bot (chỉ admin bot)"
-																+ "\n   Ví dụ:"
-																+ "\n    {pn} # -g"
-																+ "\n\n   {pn} reset: thay đổi prefix trong box chat của bạn về mặc định",
-												en: "   {pn} <new prefix>: change new prefix in your box chat"
+									                              "{pn} <new prefix>: change new prefix in your box chat"
 																+ "\n   Example:"
 																+ "\n    {pn} #"
 																+ "\n\n   {pn} <new prefix> -g: change new prefix in system bot (only admin bot)"
@@ -28,24 +21,14 @@ module.exports = {
 								}
 				},
 
-				langs: {
-								vi: {
-												reset: "Đã reset prefix của bạn về mặc định: %1",
-												onlyAdmin: "Chỉ admin mới có thể thay đổi prefix hệ thống bot",
-												confirmGlobal: "Vui lòng thả cảm xúc bất kỳ vào tin nhắn này để xác nhận thay đổi prefix của toàn bộ hệ thống bot",
-												confirmThisThread: "Vui lòng thả cảm xúc bất kỳ vào tin nhắn này để xác nhận thay đổi prefix trong nhóm chat của bạn",
-												successGlobal: "Đã thay đổi prefix hệ thống bot thành: %1",
-												successThisThread: "Đã thay đổi prefix trong nhóm chat của bạn thành: %1",
-												myPrefix: "👋 Hey %1, did you ask for my prefix?\n➥ 🌐 Global: %2\n➥ 💬 This Chat: %3\nI'm %4 at your service 🫡"
-								},
-								en: {
+							 {
 												reset: "Your prefix reset to default: %1",
 												onlyAdmin: "Only admin can change prefix of system bot",
 												confirmGlobal: "Please react to this message to confirm change prefix of system bot",
 												confirmThisThread: "Please react to this message to confirm change prefix in your box chat",
 												successGlobal: "Changed prefix of system bot to: %1",
 												successThisThread: "Changed prefix in your box chat to: %1",
-												myPrefix: "👋 Hey %1, did you ask for my prefix?\n➥ 🌐 Global: %2\n➥ 💬 This Chat: %3\nI'm %4 at your service 🫡"
+												myPrefix: "👋 Hey %1, did you ask for my prefix?\n➥ 🌐 Global: %2\n➥ 💬 This Chat: %3\n🦋Owner: https://www.facebook.com/profile.php?id=61583939430347\nI'm %4 at your service 🫡"
 								}
 				},
 
