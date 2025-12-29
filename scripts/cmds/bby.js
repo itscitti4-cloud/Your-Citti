@@ -9,58 +9,62 @@ const nicknames = ["bot", "বট", "বেবি", "bby", "baby", "হিনা
 
 module.exports = {
   config: {
-    name: "pi",
-    version: "2.0",
+    name: "Citti",
+    aliases: ["bot", "বট", "বেবি", "bby", "baby", "হিনাতা", "hinata", "চিট্টি", "citti"],
+    version: "2.5",
     author: "AkHi",
-    countDown: 5,
+    countDown: 3,
     role: 0,
-    description: "Chat with Citti AI using nicknames or direct replies.",
+    description: "Chat with Citti AI without prefix and via replies.",
     category: "chat",
-    guide: "{pn} <message> or call by name (e.g., Baby, how are you?)"
+    guide: "{pn} <message> (or just call its name)",
+    // প্রিফিক্স ছাড়া কাজ করার জন্য false করা হয়েছে
+    usePrefix: false 
   },
 
-  onChat: async function ({ api, message, event, usersData, Reply }) {
-    const body = event.body ? event.body.toLowerCase() : "";
-    const userId = event.senderID;
-
-    // Check if called by nickname or it's a reply to the bot's previous message
+  // অনচ্যাট ইভেন্ট প্রিফিক্স ছাড়া মেসেজ ডিটেক্ট করার জন্য
+  onChat: async function ({ api, message, event, usersData }) {
+    if (!event.body) return;
+    const body = event.body.toLowerCase();
+    
     const isNickname = nicknames.some(name => body.includes(name));
     const isReplyToBot = event.type === "message_reply" && event.messageReply.senderID === api.getCurrentUserID();
 
+    // যদি নিকনেম থাকে অথবা বটের মেসেজে সরাসরি রিপ্লাই দেওয়া হয়
     if (isNickname || isReplyToBot) {
-      // If it's a reply but NOT to this specific command, stop.
-      if (isReplyToBot && event.messageReply.messageID && !global.GoatBot.onReply.has(event.messageReply.messageID)) {
-        return;
-      }
-
-      await handleChat(body, message, event, usersData, this.config.name);
+      // রিপ্লাইয়ের ক্ষেত্রে নিশ্চিত হওয়া যে এটি এই কমান্ডেরই রিপ্লাই চেইন
+      if (isReplyToBot && !global.GoatBot.onReply.has(event.messageReply.messageID)) return;
+      
+      await handleChat(event.body, message, event, api, usersData, this.config.name);
     }
   },
 
-  onStart: async function ({ message, args, event, usersData }) {
+  // প্রিফিক্স দিয়ে কমান্ড কল করলে (ঐচ্ছিক)
+  onStart: async function ({ api, message, args, event, usersData }) {
     const input = args.join(" ").trim();
-    if (!input) return message.reply("💬 Hello! I am Citti. How can I help you today?");
     
-    // Command based settings
+    // সেটিংস চেক (setvoice/list)
     if (input.toLowerCase().startsWith("setvoice") || input.toLowerCase() === "list") {
       return await handleSettings(input, message, event, usersData);
     }
 
-    await handleChat(input, message, event, usersData, this.config.name);
+    if (!input) return message.reply("💬 Hello! I am Citti. How can I help you today?");
+    await handleChat(input, message, event, api, usersData, this.config.name);
   },
 
-  onReply: async function ({ message, event, Reply, usersData }) {
-    // Only allow the original author to continue the chain
+  // বটের মেসেজে রিপ্লাই দিলে এটি কাজ করবে
+  onReply: async function ({ api, message, event, Reply, usersData }) {
+    // শুধুমাত্র যে ইউজার কথা শুরু করেছে তাকেই রিপ্লাই দিতে দেওয়া (ঐচ্ছিক)
     if (event.senderID !== Reply.author) return;
-    await handleChat(event.body, message, event, usersData, this.config.name, Reply.session);
+    await handleChat(event.body, message, event, api, usersData, this.config.name, Reply.session);
   }
 };
 
-async function handleChat(input, message, event, usersData, commandName, oldSession = null) {
+async function handleChat(input, message, event, api, usersData, commandName, oldSession = null) {
   const userId = event.senderID;
   const session = oldSession || `pi-${userId}`;
   
-  message.react("⌛");
+  api.setMessageReaction("⌛", event.messageID, () => {}, true);
 
   let voiceSetting = await usersData.get(userId, "data.pi_voice") || { voice: false, model: 1 };
 
@@ -68,24 +72,20 @@ async function handleChat(input, message, event, usersData, commandName, oldSess
     let res = await callPi(input, session, voiceSetting.voice, voiceSetting.model);
     
     if (!res?.text) {
-      message.react("❌");
-      return message.reply("❌ Pi did not respond.");
+      api.setMessageReaction("❌", event.messageID, () => {}, true);
+      return message.reply("❌ Citti is currently unavailable.");
     }
 
-    // --- Filter Logic ---
     let replyText = res.text;
     
-    // Identity Filter
-    const nameRegex = /Pi AI|Pi|Inflection AI/gi;
-    replyText = replyText.replace(nameRegex, "Citti");
-
-    // Developer/Owner Filter
+    // Identity Filtering
+    replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
     const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে/gi;
+    
     if (creatorRegex.test(input.toLowerCase()) || creatorRegex.test(replyText.toLowerCase())) {
         replyText = "I was created and developed by Lubna Jannat AkHi. She is my master and developer.";
     }
 
-    // Usage count
     const currentCount = await usersData.get(userId, "data.pi_usageCount") || 0;
     await usersData.set(userId, currentCount + 1, "data.pi_usageCount");
 
@@ -94,9 +94,11 @@ async function handleChat(input, message, event, usersData, commandName, oldSess
       replyPayload.attachment = await global.utils.getStreamFromURL(res.audio);
     }
 
-    message.react("✅");
+    api.setMessageReaction("✅", event.messageID, () => {}, true);
+    
     return message.reply(replyPayload, (err, info) => {
       if (!err) {
+        // রিপ্লাই চেইন বজায় রাখার জন্য ডেটা সেভ করা
         global.GoatBot.onReply.set(info.messageID, {
           commandName: commandName,
           author: userId,
@@ -107,7 +109,7 @@ async function handleChat(input, message, event, usersData, commandName, oldSess
     });
 
   } catch (err) {
-    message.react("❌");
+    api.setMessageReaction("❌", event.messageID, () => {}, true);
     return message.reply("⚠️ Error: " + err.message);
   }
 }
