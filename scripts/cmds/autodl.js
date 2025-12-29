@@ -1,85 +1,91 @@
-const fs = require("fs-extra");
 const axios = require("axios");
+const fs = require("fs-extra");
 const path = require("path");
-
-const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
 
 module.exports = {
   config: {
     name: "auto",
-    version: "1.0.0",
+    version: "1.2.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Always active auto video download for any URL",
+    shortDescription: "RapidAPI based auto video downloader",
     category: "media"
   },
 
   onStart: async function ({ api, event }) {
-    return api.sendMessage("✅ AutoLink Is running", event.threadID);
+    return api.sendMessage("✅ AutoDownloader Active! Just send a link.", event.threadID);
   },
 
   onChat: async function ({ api, event }) {
     const { body, threadID, messageID } = event;
     if (!body) return;
 
-    const linkMatch = body.match(/(https?:\/\/[^\s]+)/);
+    // সোশ্যাল মিডিয়া লিংক ডিটেক্ট করার রেজেক্স
+    const linkMatch = body.match(/(https?:\/\/[^\s]+)/gi);
     if (!linkMatch) return;
 
     const url = linkMatch[0];
 
-    try {
-      // API Config Fetch
-      const apiConfig = await axios.get(nix);
-      const apiUrl = apiConfig.data && apiConfig.data.api;
-      if (!apiUrl) return;
+    // রিয়্যাকশন লোডিং বুঝানোর জন্য
+    api.setMessageReaction("⏳", messageID, () => {}, true);
 
-      // Reaction and Processing
-      api.setMessageReaction("⏳", messageID, () => {}, true);
-
-      const res = await axios.get(`${apiUrl}/alldl?url=${encodeURIComponent(url)}`);
-      const data = res.data.data || {};
-      const videoUrl = data.videoUrl || data.high || data.low;
-
-      if (!videoUrl) {
-        api.setMessageReaction("❌", messageID, () => {}, true);
-        return;
+    const options = {
+      method: 'GET',
+      url: 'https://social-download-all-in-one.p.rapidapi.com/v1/social/autolink',
+      params: { url: url },
+      headers: {
+        'x-rapidapi-key': '92f8a720b0mshaff9cbc8f3dfffdp13488fjsn8e426e828a2a',
+        'x-rapidapi-host': 'social-download-all-in-one.p.rapidapi.com'
       }
+    };
 
-      // File Path for Temporary Video
-      const videoPath = path.join(__dirname, `video_${threadID}_${messageID}.mp4`);
+    try {
+      const response = await axios.request(options);
+      
+      // আপনার API রেসপন্স অনুযায়ী ভিডিও লিংক খুঁজে বের করা
+      const medias = response.data.medias;
+      if (!medias || medias.length === 0) return;
 
-      // Download Video using Axios
-      const videoRes = await axios({
+      // ভিডিও ফাইল ফিল্টার করা (mp4)
+      const videoData = medias.find(m => m.extension === "mp4") || medias[0];
+      const videoUrl = videoData.url;
+
+      if (!videoUrl) return;
+
+      const cachePath = path.join(__dirname, "cache");
+      if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath);
+      
+      const filePath = path.join(cachePath, `video_${Date.now()}.mp4`);
+
+      // ভিডিওটি স্ট্রীম করে ডাউনলোড করা
+      const res = await axios({
         method: 'get',
         url: videoUrl,
         responseType: 'stream'
       });
 
-      const writer = fs.createWriteStream(videoPath);
-      videoRes.data.pipe(writer);
+      const writer = fs.createWriteStream(filePath);
+      res.data.pipe(writer);
 
       writer.on('finish', () => {
         api.setMessageReaction("✅", messageID, () => {}, true);
         api.sendMessage({
-          body: "════『 AUTODL 』════\n\n✨ Here's your video! ✨",
-          attachment: fs.createReadStream(videoPath)
+          body: `🎬 Title: ${response.data.title || "Auto Downloaded"}\n⏱️ Duration: ${response.data.duration || "N/A"}`,
+          attachment: fs.createReadStream(filePath)
         }, threadID, () => {
-          // Delete file after sending
-          if (fs.existsSync(videoPath)) {
-            fs.unlinkSync(videoPath);
-          }
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         });
       });
 
-      writer.on('error', (err) => {
-        console.error("Stream Error:", err);
-        api.sendMessage("❌ Error while saving the video.", threadID, messageID);
+      writer.on('error', () => {
+        api.setMessageReaction("❌", messageID, () => {}, true);
       });
 
-    } catch (err) {
-      console.error("AutoDL Error:", err);
+    } catch (error) {
+      console.error(error);
       api.setMessageReaction("❌", messageID, () => {}, true);
     }
   }
 };
+                            
