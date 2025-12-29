@@ -1,120 +1,75 @@
 const axios = require('axios');
 
-const nicknames = ["bot", "বট", "বেবি", "bby", "baby", "হিনাতা", "hinata", "চিট্টি", "citti"];
-
 module.exports = {
   config: {
-    name: "Citti",
-    aliases: ["bot", "বট", "বেবি", "bby", "baby", "হিনাতা", "hinata", "চিট্টি", "citti"],
-    version: "2.8",
-    author: "AkHi",
-    countDown: 3,
+    name: "bby",
+    version: "3.0.0",
     role: 0,
-    description: "Chat with Citti AI without prefix and via replies.",
+    author: "AkHi",
+    description: "Chat with Pi AI (Short, Funny & Contextual)",
     category: "chat",
-    guide: "{pn} <message> (or just call its name)",
-    usePrefix: false
+    usages: "[message]",
+    cooldowns: 0,
   },
 
-  // প্রিফিক্স ছাড়া এবং রিপ্লাই ডিটেক্ট করার জন্য onChat ব্যবহার করা হয়েছে
-  onChat: async function ({ api, message, event, usersData }) {
-    if (!event.body || event.senderID === api.getCurrentUserID()) return;
-    
-    const body = event.body.toLowerCase();
-    
-    // ১. নাম ধরে ডাকলে কি না চেক
-    const isNickname = nicknames.some(name => body.includes(name));
-    
-    // ২. বটের করা মেসেজে রিপ্লাই কি না চেক (রিপ্লাই সিস্টেম)
-    const isReplyToBot = event.type === "message_reply" && event.messageReply.senderID === api.getCurrentUserID();
+  onChat: async function ({ api, event }) {
+    const { threadID, messageID, body, senderID, messageReply } = event;
+    if (!body || senderID == api.getCurrentUserID()) return;
 
-    if (isNickname || isReplyToBot) {
-        // রিপ্লাই দিলে যেন শুধুমাত্র এই কমান্ডেরই রিপ্লাই হয়
-        if (isReplyToBot && !global.GoatBot.onReply.has(event.messageReply.messageID)) return;
-        
-        await handleChat(event.body, message, event, api, usersData, "Citti");
+    const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
+    const bodyLower = body.toLowerCase();
+    
+    const matchedKeyword = keywords.find(word => bodyLower.startsWith(word));
+    const isReplyToThisBot = messageReply && 
+                             messageReply.senderID == api.getCurrentUserID();
+
+    if (matchedKeyword || isReplyToThisBot) {
+      let query = matchedKeyword ? body.slice(matchedKeyword.length).trim() : body.trim();
+
+      // শুধু নাম ধরে ডাকলে ফানি রিপ্লাই
+      if (matchedKeyword && !query) {
+        const nicknames = [
+          "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
+          "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
+          "জি সোনা! শুনছি, ঝটপট বলে ফেলো।",
+          "হুম বলো, খুব ব্যস্ত নাকি? 😜"
+        ];
+        return api.sendMessage(nicknames[Math.floor(Math.random() * nicknames.length)], threadID, messageID);
+      }
+
+      // ডেভেলপার/ওনার সংক্রান্ত প্রশ্ন চেক
+      const creatorQueries = ["tmk ke banaiche", "tomake ke banaiche", "tomar admin ke", "tmr admin ke", "tmr developer ke", "tomar developer ke", "কে বানিয়েছে", "owner ke", "creator ke", "who made you", "who is your boss"];
+      
+      if (creatorQueries.some(q => bodyLower.includes(q))) {
+        return api.sendMessage("আমাকে 'Lubna Jannat (AkHi Ma'am)' তৈরি করেছে 😍", threadID, messageID);
+      }
+
+      try {
+        // নতুন Pi AI API এন্ডপয়েন্ট
+        const res = await axios.get(`https://api.sandipbaruwal.com.np/pi?prompt=${encodeURIComponent(query)}`);
+        let aiMessage = res.data.answer;
+
+        // ইনস্ট্রাকশন অনুযায়ী ছোট এবং ফানি ফিল্টার (যদি এপিআই থেকে বড় উত্তর আসে)
+        if (aiMessage.toLowerCase().includes("meta") || aiMessage.toLowerCase().includes("facebook")) {
+            aiMessage = "আমি Lubna Jannat AkHi Ma'am এর তৈরি করা Pi AI! আমার নাম citti😉";
+        }
+
+        return api.sendMessage(aiMessage, threadID, messageID);
+      } catch (error) {
+        console.error("Pi AI Error:", error.message);
+      }
     }
   },
 
-  // সরাসরি !Citti লিখলে কাজ করার জন্য
-  onStart: async function ({ api, message, args, event, usersData }) {
-    const input = args.join(" ").trim();
-    if (!input) return message.reply("💬 Hello! I am Citti. How can I help you today?");
-    await handleChat(input, message, event, api, usersData, this.config.name);
-  },
-
-  // রিপ্লাই চেইনের মেমোরি ধরে রাখার জন্য
-  onReply: async function ({ api, message, event, Reply, usersData }) {
-    if (event.senderID !== Reply.author) return;
-    await handleChat(event.body, message, event, api, usersData, this.config.name, Reply.session);
+  onStart: async function ({ api, event, args }) {
+      const query = args.join(" ");
+      if (!query) return api.sendMessage("জি জানু! কিছু তো বলো। শুধু শুধু ডাকলে হবে? 🙄", event.threadID, event.messageID);
+      
+      try {
+        const res = await axios.get(`https://api.sandipbaruwal.com.np/pi?prompt=${encodeURIComponent(query)}`);
+        return api.sendMessage(res.data.answer, event.threadID, event.messageID);
+      } catch (e) {
+          return api.sendMessage("সার্ভার একটু বিজি, পরে ট্রাই করো সুইটহার্ট! 🤧", event.threadID);
+      }
   }
 };
-
-async function handleChat(input, message, event, api, usersData, commandName, oldSession = null) {
-  const userId = event.senderID;
-  const session = oldSession || `pi-${userId}`;
-  
-  // র‍্যান্ডম রিঅ্যাকশন
-  const reacts = ["😊", "🌸", "😄", "🫡", "🙂", "😚", "😍", "🥹", "💝", "🐱", "💚", "🦋", "🥺", "🌚"];
-  const randomReact = reacts[Math.floor(Math.random() * reacts.length)];
-  api.setMessageReaction(randomReact, event.messageID, () => {}, true);
-
-  try {
-    // ইনপুট থেকে প্রিফিক্স বা নাম পরিষ্কার করা
-    let cleanInput = input;
-    if (cleanInput.startsWith("!")) cleanInput = cleanInput.slice(1);
-    nicknames.forEach(name => {
-      if (cleanInput.toLowerCase().startsWith(name)) {
-        cleanInput = cleanInput.slice(name.length).trim();
-      }
-    });
-
-    const res = await callPi(cleanInput || input, session);
-    
-    if (!res || !res.text) {
-      api.setMessageReaction("❌", event.messageID, () => {}, true);
-      return message.reply("❌ Citti is currently busy. Try again later.");
-    }
-
-    let replyText = res.text;
-    
-    // নাম এবং ডেভেলপার ফিল্টারিং
-    replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
-    const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে/gi;
-    
-    if (creatorRegex.test(input.toLowerCase()) || creatorRegex.test(replyText.toLowerCase())) {
-        replyText = "I was created and developed by Lubna Jannat AkHi. She is my master and developer.";
-    }
-
-    api.setMessageReaction("✅", event.messageID, () => {}, true);
-    
-    return message.reply({ body: replyText }, (err, info) => {
-      if (!err) {
-        // রিপ্লাই চেইনে ডেটা সেভ করা
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName: commandName,
-          author: userId,
-          messageID: info.messageID,
-          session
-        });
-      }
-    });
-
-  } catch (err) {
-    api.setMessageReaction("❌", event.messageID, () => {}, true);
-    return message.reply("⚠️ API Error! Please try again later.");
-  }
-}
-
-async function callPi(query, session) {
-  try {
-    const addrRes = await axios.get("https://raw.githubusercontent.com/Tanvir0999/stuffs/refs/heads/main/raw/addresses.json");
-    let baseUrl = addrRes.data.public;
-    if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-
-    const { data } = await axios.get(`${baseUrl}/pi?query=${encodeURIComponent(query)}&session=${encodeURIComponent(session)}`);
-    return data.data;
-  } catch (e) {
-    return null;
-  }
-}
