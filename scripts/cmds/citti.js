@@ -3,33 +3,31 @@ const axios = require('axios');
 module.exports = {
   config: {
     name: "citti",
-    version: "2.1",
+    version: "2.2",
     author: "AkHi",
     countDown: 3,
     role: 0,
-    description: "Chat with Citti like a Artificial Intelligence.",
+    description: "Chat with Citti.",
     category: "chat",
     guide: {
-      en: "call 'citti' or reply to message to chat with citti."
+      en: "call 'citti' or reply to message to chat."
     }
   },
 
   onChat: async function ({ message, event, usersData }) {
     if (!event.body) return;
 
-    // যদি এটি কোনো মেসেজের রিপ্লাই হয়, তবে onChat কাজ করবে না (onReply হ্যান্ডেল করবে)
+    // reply ইভেন্ট হলে onChat প্রসেস করবে না
     if (event.type === "message_reply") return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
     const messageContent = event.body.toLowerCase().trim();
-    
     const matchedKeyword = keywords.find(word => messageContent.includes(word));
 
     if (matchedKeyword) {
       const userId = event.senderID;
       const session = `pi-${userId}`;
 
-      // শুধু নাম ধরে ডাকলে কিউট রিপ্লাই
       if (messageContent === matchedKeyword) {
         const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
         message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
@@ -48,13 +46,12 @@ module.exports = {
         return message.reply(randomReply, (err, info) => {
           if (err) return;
           global.GoatBot.onReply.set(info.messageID, {
-            commandName: this.config.name,
+            commandName: "citti", // এখানে সরাসরি নাম দিয়ে দেওয়া হয়েছে যাতে ভুল না হয়
             author: userId,
             session: session 
           });
         });
       } else {
-        // নামের সাথে প্রশ্ন থাকলে
         return this.handlePiRequest(event.body, message, event, usersData);
       }
     }
@@ -67,16 +64,12 @@ module.exports = {
   },
 
   onReply: async function ({ message, event, Reply, usersData }) {
-    const { author, session, commandName } = Reply;
-    
-    // নিশ্চিত করা হচ্ছে এটি এই কমান্ডেরই রিপ্লাই
-    if (commandName !== this.config.name) return;
+    const { author, session } = Reply;
     if (event.senderID !== author) return;
 
     const input = event.body?.trim();
     if (!input) return;
 
-    // রিপ্লাই দিলে সরাসরি AI হ্যান্ডলারে পাঠানো হচ্ছে
     return this.handlePiRequest(input, message, event, usersData, session);
   },
 
@@ -99,7 +92,6 @@ module.exports = {
       if (!res?.text) return;
 
       let replyText = res.text;
-
       const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
       const isAskingAboutCreator = creatorKeywords.some(word => input.toLowerCase().includes(word));
 
@@ -112,7 +104,7 @@ module.exports = {
       return message.reply(replyText.trim(), (err, info) => {
         if (err) return;
         global.GoatBot.onReply.set(info.messageID, {
-          commandName: this.config.name,
+          commandName: "citti", // সরাসরি স্ট্রিং ব্যবহার করা হয়েছে
           author: userId,
           session: session
         });
