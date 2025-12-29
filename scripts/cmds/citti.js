@@ -3,21 +3,21 @@ const axios = require('axios');
 module.exports = {
   config: {
     name: "citti",
-    version: "2.2",
+    version: "2.5",
     author: "AkHi",
     countDown: 3,
     role: 0,
-    description: "Chat with Citti.",
+    description: "Citti AI",
     category: "chat",
     guide: {
-      en: "call 'citti' or reply to message to chat."
+      en: "Reply to Citti's message to continue the conversation."
     }
   },
 
   onChat: async function ({ message, event, usersData }) {
     if (!event.body) return;
 
-    // reply ইভেন্ট হলে onChat প্রসেস করবে না
+    // যদি মেসেজটি রিপ্লাই হয়, তবে এই সেকশন কাজ করবে না, onReply হ্যান্ডেল করবে
     if (event.type === "message_reply") return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
@@ -28,10 +28,8 @@ module.exports = {
       const userId = event.senderID;
       const session = `pi-${userId}`;
 
+      // শুধু নাম ধরে ডাকলে কিউট রিপ্লাই ও সেশন সেট করা
       if (messageContent === matchedKeyword) {
-        const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
-        message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
-
         const cuteReplies = [
           "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
           "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
@@ -42,16 +40,16 @@ module.exports = {
         ];
 
         const randomReply = cuteReplies[Math.floor(Math.random() * cuteReplies.length)];
-
         return message.reply(randomReply, (err, info) => {
           if (err) return;
           global.GoatBot.onReply.set(info.messageID, {
-            commandName: "citti", // এখানে সরাসরি নাম দিয়ে দেওয়া হয়েছে যাতে ভুল না হয়
+            commandName: "citti",
             author: userId,
             session: session 
           });
         });
       } else {
+        // নামের সাথে কিছু লিখে পাঠালে সরাসরি AI রিপ্লাই দিবে
         return this.handlePiRequest(event.body, message, event, usersData);
       }
     }
@@ -64,6 +62,7 @@ module.exports = {
   },
 
   onReply: async function ({ message, event, Reply, usersData }) {
+    // রিপ্লাই দিলে সরাসরি এই অংশটি কাজ করবে, কিওয়ার্ড লাগবে না
     const { author, session } = Reply;
     if (event.senderID !== author) return;
 
@@ -78,6 +77,7 @@ module.exports = {
     const session = oldSession || `pi-${userId}`;
 
     try {
+      // রিয়্যাকশন দেওয়া
       const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
       message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
@@ -92,10 +92,10 @@ module.exports = {
       if (!res?.text) return;
 
       let replyText = res.text;
-      const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
-      const isAskingAboutCreator = creatorKeywords.some(word => input.toLowerCase().includes(word));
 
-      if (isAskingAboutCreator) {
+      // মেকার ও নাম ফিল্টার
+      const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
+      if (creatorKeywords.some(word => input.toLowerCase().includes(word))) {
           replyText = "I was created and developed by AkHi. She is my master and developer.";
       } else {
           replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
@@ -103,8 +103,9 @@ module.exports = {
 
       return message.reply(replyText.trim(), (err, info) => {
         if (err) return;
+        // সেশন ধরে রাখা যাতে চেইন বজায় থাকে
         global.GoatBot.onReply.set(info.messageID, {
-          commandName: "citti", // সরাসরি স্ট্রিং ব্যবহার করা হয়েছে
+          commandName: "citti",
           author: userId,
           session: session
         });
