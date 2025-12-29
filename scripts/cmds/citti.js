@@ -3,11 +3,11 @@ const axios = require('axios');
 module.exports = {
   config: {
     name: "citti",
-    version: "1.7",
+    version: "1.8",
     author: "AkHi",
     countDown: 3,
     role: 0,
-    description: "Chat with Citti AI with smart language detection.",
+    description: "Chat with Citti AI with smart language detection and memory.",
     category: "chat",
     guide: {
       en: "call name and chat based on reply"
@@ -18,14 +18,16 @@ module.exports = {
     if (!event.body) return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
-    const messageContent = event.body.toLowerCase();
+    const messageContent = event.body.toLowerCase().trim();
     
-    // কিওয়ার্ড চেক করা হচ্ছে
     const matchedKeyword = keywords.find(word => messageContent.includes(word));
 
     if (matchedKeyword) {
-      // যদি শুধু নাম থাকে, তবে কিউট রিপ্লাই দেবে
-      if (messageContent.trim() === matchedKeyword) {
+      const userId = event.senderID;
+      const session = `pi-${userId}`;
+
+      // যদি শুধু নাম থাকে, তবে কিউট রিপ্লাই এবং সেশন সেট করা
+      if (messageContent === matchedKeyword) {
         const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
         message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
@@ -39,8 +41,6 @@ module.exports = {
         ];
 
         const randomReply = cuteReplies[Math.floor(Math.random() * cuteReplies.length)];
-        const userId = event.senderID;
-        const session = `pi-${userId}`;
 
         return message.reply(randomReply, (err, info) => {
           if (err) return;
@@ -48,11 +48,10 @@ module.exports = {
             commandName: this.config.name,
             author: userId,
             messageID: info.messageID,
-            session
+            session: session // সেশন পাস করা হয়েছে যাতে রিপ্লাই কাজ করে
           });
         });
       } else {
-        // যদি নামের সাথে অন্য কিছু লেখা থাকে, তবে সরাসরি AI উত্তর দিবে
         return this.handlePiRequest(event.body, message, event, usersData);
       }
     }
@@ -65,13 +64,10 @@ module.exports = {
   },
 
   onReply: async function ({ message, event, Reply, usersData }) {
-    // রিপ্লাই দাতা এবং অরিজিনাল ইউজার একই কি না চেক
     if (event.senderID !== Reply.author) return;
-
     const input = event.body?.trim();
     if (!input) return;
 
-    // সেশন সহ রিকোয়েস্ট পাঠানো
     return this.handlePiRequest(input, message, event, usersData, Reply.session);
   },
 
@@ -83,27 +79,25 @@ module.exports = {
       const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
       message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
+      // মেকার ফিল্টার আগে চেক করা হচ্ছে (API কল করার আগেই রিপ্লাই দিতে পারে বা প্রম্পট মডিফাই করতে পারে)
+      const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
+      const isAskingAboutCreator = creatorKeywords.some(word => input.toLowerCase().includes(word));
+
       let prompt = input;
-      // ভাষা নির্ধারণ লজিক
       if (/[\u0980-\u09FF]/.test(input)) {
-          prompt = `Answer in Bengali. No English translation: ${input}`;
+          prompt = `Answer in Bengali: ${input}`;
       } else if (/([aeiou][a-z]*[aeiou])/gi.test(input) && !/^[a-z\s.,!?]+$/i.test(input)) {
           prompt = `Reply in Banglish: ${input}`;
       }
 
       const res = await callPi(prompt, session);
-      
-      const currentCount = await usersData.get(userId, "data.pi_usageCount") || 0;
-      await usersData.set(userId, currentCount + 1, "data.pi_usageCount");
-
       if (!res?.text) return;
 
       let replyText = res.text;
 
-      // মেকার ফিল্টার
-      const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে|ডেভেলপার/gi;
-      if (creatorRegex.test(input.toLowerCase())) {
-          replyText = "I was created and developed by Lubna Jannat AkHi. She is my master and developer.";
+      // রিপ্লাই টেক্সট ফিল্টার
+      if (isAskingAboutCreator) {
+          replyText = "I was created and developed by AkHi. She is my master and developer.";
       } else {
           replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
           replyText = replyText.replace(/The phrase ".*?" translates to ".*?" in English\./gi, "");
@@ -112,7 +106,6 @@ module.exports = {
 
       return message.reply(replyText.trim(), (err, info) => {
         if (err) return;
-        // রিপ্লাই চেইন বজায় রাখা
         global.GoatBot.onReply.set(info.messageID, {
           commandName: this.config.name,
           author: userId,
@@ -135,4 +128,4 @@ async function callPi(query, session) {
   } catch (error) {
     throw new Error("API Connection Error");
   }
-}
+                               }
