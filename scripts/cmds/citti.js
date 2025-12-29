@@ -3,14 +3,14 @@ const axios = require('axios');
 module.exports = {
   config: {
     name: "citti",
-    version: "1.6",
+    version: "1.7",
     author: "AkHi",
-    countDown: 5,
+    countDown: 3,
     role: 0,
-    description: "chat with citti like a Artificial Intelligence.",
+    description: "Chat with Citti AI with smart language detection.",
     category: "chat",
     guide: {
-      en: "call name without prefix and chat."
+      en: "call name and chat based on reply"
     }
   },
 
@@ -19,36 +19,42 @@ module.exports = {
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
     const messageContent = event.body.toLowerCase();
-    const hasKeyword = keywords.some(word => messageContent.includes(word));
+    
+    // কিওয়ার্ড চেক করা হচ্ছে
+    const matchedKeyword = keywords.find(word => messageContent.includes(word));
 
-    if (hasKeyword) {
-      // ২০টি র‍্যান্ডম রিঅ্যাক্ট
-      const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
-      const randomReact = reactions[Math.floor(Math.random() * reactions.length)];
-      message.reaction(randomReact, event.messageID);
+    if (matchedKeyword) {
+      // যদি শুধু নাম থাকে, তবে কিউট রিপ্লাই দেবে
+      if (messageContent.trim() === matchedKeyword) {
+        const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
+        message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
-      const cuteReplies = [
-        "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
-        "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
-        "জি সোনা! শুনছি, ঝটপট বলে ফেলো।",
-        "হুম বলো, খুব ব্যস্ত নাকি? 😜",
-        "আমি চিট্টি বলছি, কিভাবে তোমাকে সাহায্য করতে পারি?",
-        "Hlw I'm Citti, how can i help you?"
-      ];
+        const cuteReplies = [
+          "জি জানু, বলো কী সাহায্য করতে পারি? 😉",
+          "উফ! এভাবে ডাকলে তো প্রেমে পড়ে যাবো। বলো কী খবর?",
+          "জি সোনা! শুনছি, ঝটপট বলে ফেলো।",
+          "হুম বলো, খুব ব্যস্ত নাকি? 😜",
+          "আমি চিট্টি বলছি, কিভাবে তোমাকে সাহায্য করতে পারি?",
+          "Hlw I'm Citti, how can i help you?"
+        ];
 
-      const randomReply = cuteReplies[Math.floor(Math.random() * cuteReplies.length)];
-      const userId = event.senderID;
-      const session = `pi-${userId}`;
+        const randomReply = cuteReplies[Math.floor(Math.random() * cuteReplies.length)];
+        const userId = event.senderID;
+        const session = `pi-${userId}`;
 
-      return message.reply(randomReply, (err, info) => {
-        if (err) return;
-        global.GoatBot.onReply.set(info.messageID, {
-          commandName: this.config.name,
-          author: userId,
-          messageID: info.messageID,
-          session
+        return message.reply(randomReply, (err, info) => {
+          if (err) return;
+          global.GoatBot.onReply.set(info.messageID, {
+            commandName: this.config.name,
+            author: userId,
+            messageID: info.messageID,
+            session
+          });
         });
-      });
+      } else {
+        // যদি নামের সাথে অন্য কিছু লেখা থাকে, তবে সরাসরি AI উত্তর দিবে
+        return this.handlePiRequest(event.body, message, event, usersData);
+      }
     }
   },
 
@@ -59,12 +65,13 @@ module.exports = {
   },
 
   onReply: async function ({ message, event, Reply, usersData }) {
-    const userId = event.senderID;
-    if (userId !== Reply.author) return;
+    // রিপ্লাই দাতা এবং অরিজিনাল ইউজার একই কি না চেক
+    if (event.senderID !== Reply.author) return;
 
     const input = event.body?.trim();
     if (!input) return;
 
+    // সেশন সহ রিকোয়েস্ট পাঠানো
     return this.handlePiRequest(input, message, event, usersData, Reply.session);
   },
 
@@ -73,17 +80,15 @@ module.exports = {
     const session = oldSession || `pi-${userId}`;
 
     try {
-      // রিঅ্যাক্ট দেওয়া
       const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
       message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
-      // ভাষার জন্য কাস্টম প্রম্পট সেট করা
       let prompt = input;
+      // ভাষা নির্ধারণ লজিক
       if (/[\u0980-\u09FF]/.test(input)) {
-          prompt = `Reply in Bengali: ${input}. Do not show any English translation.`;
-      } else if (/([aeiou][a-z]*[aeiou])/gi.test(input) && !/^[a-z]+$/i.test(input)) {
-          // এটি বাংলিশ ডিটেক্ট করার জন্য একটি সাধারণ লজিক
-          prompt = `Reply in Banglish (Bengali written in English letters): ${input}`;
+          prompt = `Answer in Bengali. No English translation: ${input}`;
+      } else if (/([aeiou][a-z]*[aeiou])/gi.test(input) && !/^[a-z\s.,!?]+$/i.test(input)) {
+          prompt = `Reply in Banglish: ${input}`;
       }
 
       const res = await callPi(prompt, session);
@@ -95,29 +100,29 @@ module.exports = {
 
       let replyText = res.text;
 
-      // ফিল্টার: নাম এবং মেকার পরিবর্তন
+      // মেকার ফিল্টার
       const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে|ডেভেলপার/gi;
       if (creatorRegex.test(input.toLowerCase())) {
           replyText = "I was created and developed by Lubna Jannat AkHi. She is my master and developer.";
       } else {
           replyText = replyText.replace(/Pi AI|Pi|Inflection AI/gi, "Citti");
-          // স্ক্রিনশটে আসা ফালতু অনুবাদের লাইন রিমুভ করার জন্য
           replyText = replyText.replace(/The phrase ".*?" translates to ".*?" in English\./gi, "");
           replyText = replyText.replace(/In Bengali, ".*?" means ".*?"\./gi, "");
       }
 
       return message.reply(replyText.trim(), (err, info) => {
         if (err) return;
+        // রিপ্লাই চেইন বজায় রাখা
         global.GoatBot.onReply.set(info.messageID, {
           commandName: this.config.name,
           author: userId,
           messageID: info.messageID,
-          session
+          session: session
         });
       });
 
     } catch (err) {
-      console.error("Pi AI Error: " + err.message);
+      console.error("Citti AI Error: " + err.message);
     }
   }
 };
@@ -130,4 +135,4 @@ async function callPi(query, session) {
   } catch (error) {
     throw new Error("API Connection Error");
   }
-                 }
+}
