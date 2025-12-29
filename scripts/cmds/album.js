@@ -1,130 +1,107 @@
 const axios = require("axios");
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs-extra");
 
-const baseApiUrl = async () => {
-  const base = await axios.get(
-    `https://raw.githubusercontent.com/Mostakim0978/D1PT0/refs/heads/main/baseApiUrl.json`,
-  );
-  return base.data.api;
-};
+const storagePath = path.join(__dirname, "album_storage");
 
 module.exports = {
   config: {
     name: "album",
-    version: "1.0.1",
+    version: "2.0.0",
     role: 0,
     author: "AkHi",
-    description: "Displays album options for selection.",
+    description: "Save and view local album videos/photos.",
     category: "Media",
     countDown: 5,
     guide: {
-      en: "{p}{n} or add [category]",
+      en: "{p}{n} add [category] (reply to media) or {p}{n} to see list",
     },
   },
 
   onStart: async function ({ api, event, args }) {
-    if (!args[0]) {
-      api.setMessageReaction("😘", event.messageID, (err) => {}, true);
-      const message =
-        "╔══════════════════════╗\n" +
-        "   ❤️‍🔥 𝗔𝗟𝗕𝗨𝗠 𝗠𝗘𝗡𝗨 𝗕𝗔𝗕𝗬 ❤️‍🔥\n" +
-        "╚══════════════════════╝\n" +
-        "┌ 𝟭. 𝗙𝘂𝗻𝗻𝘆 𝘃𝗶𝗱𝗲𝗼 🤡\n" +
-        "├ 𝟮. 𝗜𝘀𝗹𝗮𝗺𝗶𝗰 𝘃𝗶𝗱𝗲𝗼 🕋\n" +
-        "├ 𝟯. 𝗦𝗮𝗱 𝘃𝗶𝗱𝗲𝗼 💧\n" +
-        "├ 𝟰. 𝗔𝗻𝗶𝗺𝗲 𝘃𝗶𝗱𝗲𝗼 🍥\n" +
-        "├ 𝟱. 𝗖𝗮𝗿𝘁𝗼𝗼𝗻 𝘃𝗶𝗱𝗲𝗼 🎪\n" +
-        "├ 𝟲. 𝗟𝗼𝗙𝗶 𝗩𝗶𝗱𝗲𝗼 ☁️\n" +
-        "├ 𝟳. 𝗛𝗼𝗿𝗻𝘆 𝘃𝗶𝗱𝗲𝗼 ⛈️\n" +
-        "├ 𝟴. 𝗖𝗼𝘂𝗽𝗹𝗲 𝗩𝗶𝗱𝗲𝗼 💍\n" +
-        "├ 𝟵. 𝗙𝗹𝗼𝘄𝗲𝗿 𝗩𝗶𝗱𝗲𝗼 🌷\n" +
-        "└ 𝟭𝟬. 𝗥𝗮𝗻𝗱𝗼𝗺 𝗣𝗵𝗼𝘁𝗼 🖼️\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-        "📍 𝗣𝗮𝗴𝗲 [ 𝟭/𝟮 ] ➪ 𝗨𝘀𝗲 !𝗮𝗹𝗯𝘂𝗺 𝟮";
+    const { threadID, messageID, senderID, messageReply, type } = event;
 
-      await api.sendMessage(message, event.threadID, (error, info) => {
-          global.GoatBot.onReply.set(info.messageID, {
-            commandName: this.config.name,
-            type: "reply",
-            messageID: info.messageID,
-            author: event.senderID
-          });
-        }, event.messageID);
-    } else if (args[0] === "2") {
-      api.setMessageReaction("😚", event.messageID, (err) => {}, true);
-      const message =
-        "╔══════════════════════╗\n" +
-        "   ❤️‍🔥 𝗔𝗟𝗕𝗨𝗠 𝗠𝗘𝗡𝗨 𝗕𝗔𝗕𝗬 ❤️‍🔥\n" +
-        "╚══════════════════════╝\n" +
-        "┌ 𝟭𝟭. 𝗔𝗲𝘀𝘁𝗵𝗲𝘁𝗶𝗰 𝗩𝗶𝗱𝗲𝗼 😙\n" +
-        "├ 𝟭𝟮. 𝗦𝗶𝗴𝗺𝗮 𝗥𝘂𝗹𝗲 🐤\n" +
-        "├ 𝟭𝟯. 𝗟𝘆𝗿𝗶𝗰𝘀 𝗩𝗶𝗱𝗲𝗼 🥰\n" +
-        "├ 𝟭𝟰. 𝗖𝗮𝘁 𝗩𝗶𝗱𝗲𝗼 😙\n" +
-        "├ 𝟭𝟱. 𝗚𝗶𝗿𝗹 𝘃𝗶𝗱𝗲𝗼 💃\n" +
-        "├ 𝟭𝟲. 𝗙𝗿𝗲𝗲 𝗙𝗶𝗿𝗲 𝘃𝗶𝗱𝗲𝗼 🎮\n" +
-        "├ 𝟭𝟳. 𝗙𝗼𝗼𝘁𝗕𝗮𝗹𝗹 𝘃𝗶𝗱𝗲𝗼 ⚽\n" +
-        "└ 𝟭𝟴. 𝗟𝗼𝘃𝗲 𝘃𝗶𝗱𝗲𝗼 ❤️\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-        "📍 𝗣𝗮𝗴𝗲 [ 𝟮/𝟮 ] ➪ 𝗕𝗮𝗰𝗸 !𝗮𝗹𝗯𝘂𝗺";
+    // নিশ্চিত করা যে স্টোরেজ ফোল্ডার আছে
+    if (!fs.existsSync(storagePath)) fs.mkdirSync(storagePath);
 
-      await api.sendMessage(message, event.threadID, (error, info) => {
-          global.GoatBot.onReply.set(info.messageID, {
-            commandName: this.config.name,
-            type: "reply",
-            messageID: info.messageID,
-            author: event.senderID
-          });
-        }, event.messageID);
+    // ১. অ্যালবাম অ্যাড করার লজিক: !album add <category>
+    if (args[0] === "add") {
+      const category = args[1]?.toLowerCase();
+      if (!category) return api.sendMessage("⚠️ | Please provide a category name. Example: !album add funny", threadID, messageID);
+      
+      if (!messageReply || !messageReply.attachments || messageReply.attachments.length === 0) {
+        return api.sendMessage("⚠️ | Please reply to a video or photo to add it to the album.", threadID, messageID);
+      }
+
+      const attachment = messageReply.attachments[0];
+      const categoryDir = path.join(storagePath, category);
+      if (!fs.existsSync(categoryDir)) fs.mkdirSync(categoryDir);
+
+      const extension = attachment.type === "video" ? ".mp4" : attachment.type === "photo" ? ".jpg" : ".gif";
+      const fileName = `item_${Date.now()}${extension}`;
+      const filePath = path.join(categoryDir, fileName);
+
+      try {
+        const response = await axios.get(attachment.url, { responseType: "arraybuffer" });
+        fs.writeFileSync(filePath, Buffer.from(response.data));
+        return api.sendMessage(`✅ | Added to [${category}] successfully!`, threadID, messageID);
+      } catch (e) {
+        return api.sendMessage("❌ | Failed to save media.", threadID, messageID);
+      }
     }
+
+    // ২. অ্যালবামের লিস্ট দেখানোর লজিক
+    const categories = fs.readdirSync(storagePath).filter(file => fs.statSync(path.join(storagePath, file)).isDirectory());
+    
+    if (categories.length === 0) {
+      return api.sendMessage("📂 | The album is empty. Use !album add [category] to start saving!", threadID, messageID);
+    }
+
+    let msg = "╔══════════════════════╗\n" +
+              "   ❤️‍🔥 𝗔𝗟𝗕𝗨𝗠 𝗠𝗘𝗡𝗨 𝗕𝗔𝗕𝗬 ❤️‍🔥\n" +
+              "╚══════════════════════╝\n";
+    
+    categories.forEach((cat, index) => {
+      msg += `┌ ${index + 1}. ${cat.toUpperCase()}\n`;
+    });
+    
+    msg += "━━━━━━━━━━━━━━━━━━━━━━━━\n📍 Reply with a number to get media.";
+
+    return api.sendMessage(msg, threadID, (error, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        type: "reply",
+        messageID: info.messageID,
+        author: senderID,
+        categories: categories
+      });
+    }, messageID);
   },
 
   onReply: async function ({ api, event, Reply }) {
+    const { threadID, messageID, body } = event;
+    const { categories } = Reply;
     api.unsendMessage(Reply.messageID);
-    const reply = parseInt(event.body);
 
-    const options = {
-      1: ["funny", "Here is your funny video 😆"],
-      2: ["islamic", "Here is your Islamic video 🌸"],
-      3: ["sad", "Here is your sad video 🥹"],
-      4: ["anime", "Here is your anime video 😍"],
-      5: ["video", "Here is your cartoon video 😚"],
-      6: ["lofi", "Here is your lofi video 🥳"],
-      7: ["horny", "Here is your horny video 🥵"],
-      8: ["love", "Here is your couple video 💍"],
-      9: ["baby", "Here is your flower/baby video 🌷"],
-      10: ["photo", "Here is your random photo 😀"],
-      11: ["aesthetic", "Here is your aesthetic video 🫠"],
-      12: ["sigma", "Here is your sigma video 🫡"],
-      13: ["lyrics", "Here is your lyrical video 😌"],
-      14: ["cat", "Here is your cat video 😙"],
-      15: ["girl", "Here is your girl video 💃"],
-      16: ["ff", "Here is your Free Fire video 🎮"],
-      17: ["football", "Here is your football video ⚽"],
-      18: ["love", "Here is your love video ❤️"]
-    };
-
-    if (!options[reply]) return api.sendMessage("🔰 | Please reply with a valid number.", event.threadID, event.messageID);
-
-    try {
-      const query = options[reply][0];
-      const cp = options[reply][1];
-      const res = await axios.get(`${await baseApiUrl()}/album?type=${query}`);
-      const imgUrl = res.data.data;
-      
-      const imgRes = await axios.get(imgUrl, { responseType: "arraybuffer" });
-      const filename = __dirname + `/assets/album_${Date.now()}.mp4`;
-      
-      if (!fs.existsSync(__dirname + '/assets')) fs.mkdirSync(__dirname + '/assets');
-      fs.writeFileSync(filename, Buffer.from(imgRes.data, "binary"));
-      
-      return api.sendMessage({
-        body: `${cp}\n\n𝗗𝗼𝘄𝗻𝗹𝗼𝗮𝗱 𝗨𝗿𝗹: ${imgUrl}`,
-        attachment: fs.createReadStream(filename)
-      }, event.threadID, () => fs.unlinkSync(filename), event.messageID);
-    } catch (error) {
-      return api.sendMessage("API didn't return a video link for this category.", event.threadID, event.messageID);
+    const index = parseInt(body) - 1;
+    if (isNaN(index) || !categories[index]) {
+      return api.sendMessage("⚠️ | Invalid selection. Please reply with a valid number.", threadID, messageID);
     }
+
+    const selectedCategory = categories[index];
+    const categoryDir = path.join(storagePath, selectedCategory);
+    const files = fs.readdirSync(categoryDir);
+
+    if (files.length === 0) {
+      return api.sendMessage(`❌ | No files found in [${selectedCategory}] category.`, threadID, messageID);
+    }
+
+    const randomFile = files[Math.floor(Math.random() * files.length)];
+    const filePath = path.join(categoryDir, randomFile);
+
+    return api.sendMessage({
+      body: `✅ | Here is your ${selectedCategory} media!`,
+      attachment: fs.createReadStream(filePath)
+    }, threadID, messageID);
   }
 };
-                                              
