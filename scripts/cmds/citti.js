@@ -3,19 +3,22 @@ const axios = require('axios');
 module.exports = {
   config: {
     name: "citti",
-    version: "2.0",
+    version: "2.1",
     author: "AkHi",
-    countDown: 5,
+    countDown: 3,
     role: 0,
-    description: "Chat with Citti.",
+    description: "Chat with Citti like a Artificial Intelligence.",
     category: "chat",
     guide: {
-      en: "call 'citti' or reply to its message to chat."
+      en: "call 'citti' or reply to message to chat with citti."
     }
   },
 
   onChat: async function ({ message, event, usersData }) {
     if (!event.body) return;
+
+    // যদি এটি কোনো মেসেজের রিপ্লাই হয়, তবে onChat কাজ করবে না (onReply হ্যান্ডেল করবে)
+    if (event.type === "message_reply") return;
 
     const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
     const messageContent = event.body.toLowerCase().trim();
@@ -26,7 +29,7 @@ module.exports = {
       const userId = event.senderID;
       const session = `pi-${userId}`;
 
-      // যদি শুধু কিওয়ার্ড থাকে
+      // শুধু নাম ধরে ডাকলে কিউট রিপ্লাই
       if (messageContent === matchedKeyword) {
         const reactions = ["❤️", "💖", "😘", "😍", "✨", "🌸", "🎀", "😇", "🔥", "😻", "💙", "🤞", "🍭", "🧸", "🐣", "🌈", "🍓", "💎", "💞", "🌹"];
         message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
@@ -51,7 +54,7 @@ module.exports = {
           });
         });
       } else {
-        // কিওয়ার্ডের সাথে প্রশ্ন থাকলে
+        // নামের সাথে প্রশ্ন থাকলে
         return this.handlePiRequest(event.body, message, event, usersData);
       }
     }
@@ -64,13 +67,16 @@ module.exports = {
   },
 
   onReply: async function ({ message, event, Reply, usersData }) {
-    // রিপ্লাই দিলে এই সেকশনটি কাজ করবে
-    const { author, session } = Reply;
-    if (event.senderID !== author) return; // যে মেসেজ দিয়েছে শুধু সেই রিপ্লাই দিতে পারবে
+    const { author, session, commandName } = Reply;
+    
+    // নিশ্চিত করা হচ্ছে এটি এই কমান্ডেরই রিপ্লাই
+    if (commandName !== this.config.name) return;
+    if (event.senderID !== author) return;
 
     const input = event.body?.trim();
     if (!input) return;
 
+    // রিপ্লাই দিলে সরাসরি AI হ্যান্ডলারে পাঠানো হচ্ছে
     return this.handlePiRequest(input, message, event, usersData, session);
   },
 
@@ -83,9 +89,8 @@ module.exports = {
       message.reaction(reactions[Math.floor(Math.random() * reactions.length)], event.messageID);
 
       let prompt = input;
-      // ভাষা নির্ধারণ
       if (/[\u0980-\u09FF]/.test(input)) {
-          prompt = `Answer in Bengali. No English: ${input}`;
+          prompt = `Answer in Bengali: ${input}`;
       } else if (/([aeiou][a-z]*[aeiou])/gi.test(input) && !/^[a-z\s.,!?]+$/i.test(input)) {
           prompt = `Reply in Banglish: ${input}`;
       }
@@ -95,7 +100,6 @@ module.exports = {
 
       let replyText = res.text;
 
-      // মেকার ফিল্টার
       const creatorKeywords = ["developer", "creator", "owner", "তৈরি", "মালিক", "ডেভেলপার"];
       const isAskingAboutCreator = creatorKeywords.some(word => input.toLowerCase().includes(word));
 
@@ -107,7 +111,6 @@ module.exports = {
 
       return message.reply(replyText.trim(), (err, info) => {
         if (err) return;
-        // সেশন সেভ করা যাতে পরের রিপ্লাই কাজ করে
         global.GoatBot.onReply.set(info.messageID, {
           commandName: this.config.name,
           author: userId,
