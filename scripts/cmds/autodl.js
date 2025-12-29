@@ -4,21 +4,22 @@ const path = require("path");
 
 const config = {
   name: "autodl",
-  version: "3.0.0",
+  version: "3.5.0",
   author: "AkHi",
   countDown: 5,
   role: 0,
-  description: "Auto download video/photo from TikTok, FB, IG, YT, Twitter, and more without watermark.",
+  description: "Auto download video/photo from TikTok, FB, IG, YT, Twitter without watermark.",
   category: "media",
   guide: {
-    en: "Just paste the link, and the bot will automatically download the media."
+    en: "Just paste any social media link in the chat."
   }
 };
 
-const onChat = async ({ api, event, threadsData }) => {
+const onChat = async ({ api, event }) => {
   const { body, threadID, messageID } = event;
   if (!body) return;
 
+  // সাপোর্ট করা ওয়েবসাইট লিস্ট
   const urlPatterns = [
     "tiktok.com", "facebook.com", "instagram.com", "youtu.be", "youtube.com",
     "twitter.com", "x.com", "pin.it", "fb.watch", "reel"
@@ -26,22 +27,27 @@ const onChat = async ({ api, event, threadsData }) => {
 
   if (urlPatterns.some(p => body.includes(p))) {
     try {
-      // ⌛ React while processing
+      // ⌛ Processing Reaction
       await api.setMessageReaction("⌛", messageID, () => {}, true);
       
-      const waitingMsg = await api.sendMessage("Please wait, I'm fetching your media... 📥", threadID);
+      const waitingMsg = await api.sendMessage("Wait Bby, I'm fetching your media... 😘", threadID);
 
-      // Using a high-quality all-in-one downloader API
-      const res = await axios.get(`https://api.diptos.me/alldl?url=${encodeURIComponent(body)}`);
+      // বিকল্প API ব্যবহার করা হয়েছে (এটি সাধারণত বেশি স্টেবল থাকে)
+      const res = await axios.get(`https://api.samir.pro/alldl?url=${encodeURIComponent(body)}`);
+      
       const data = res.data;
-
-      if (!data.result) {
-        throw new Error("Could not find a valid download link.");
+      if (!data.url) {
+        throw new Error("Sorry, I couldn't find the media link!");
       }
 
-      const mediaUrl = data.result;
-      const isVideo = !mediaUrl.match(/\.(jpg|jpeg|png)$/i);
-      const ext = isVideo ? ".mp4" : ".jpg";
+      const mediaUrl = data.url;
+      const title = data.title || "No Title";
+      
+      // ফাইল এক্সটেনশন ডিটেক্ট করা
+      let ext = ".mp4";
+      if (mediaUrl.includes(".jpg") || mediaUrl.includes(".jpeg")) ext = ".jpg";
+      if (mediaUrl.includes(".png")) ext = ".png";
+
       const fileName = `autodl_${Date.now()}${ext}`;
       const filePath = path.join(__dirname, 'cache', fileName);
 
@@ -49,24 +55,26 @@ const onChat = async ({ api, event, threadsData }) => {
         fs.mkdirSync(path.join(__dirname, 'cache'));
       }
 
-      // Download file
+      // মিডিয়া ফাইল ডাউনলোড
       const fileStream = await axios.get(mediaUrl, { responseType: "arraybuffer" });
       fs.writeFileSync(filePath, Buffer.from(fileStream.data, "binary"));
 
-      // ✅ React when download starts sending
+      // ✅ Success Reaction
       await api.setMessageReaction("✅", messageID, () => {}, true);
       await api.unsendMessage(waitingMsg.messageID);
 
       await api.sendMessage({
-        body: `✅ | Downloaded Successfully!\n\n${data.cp || "Here is your requested media."}`,
+        body: `✅ | Downloaded: ${title}\n\nEnjoy your media! <😘`,
         attachment: fs.createReadStream(filePath)
-      }, threadID, () => fs.unlinkSync(filePath), messageID);
+      }, threadID, () => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }, messageID);
 
     } catch (err) {
-      // ❌ React on error
+      // ❌ Error Reaction
       await api.setMessageReaction("❌", messageID, () => {}, true);
       console.error(err);
-      api.sendMessage(`❌ | Error: ${err.message || "Failed to download media. The link might be private or unsupported."}`, threadID, messageID);
+      api.sendMessage(`❌ | Error: ${err.message || "Failed to download. Link might be private or broken."}`, threadID, messageID);
     }
   }
 };
