@@ -1,13 +1,13 @@
 const fs = require("fs-extra");
 const axios = require("axios");
-const request = require("request");
+const path = require("path");
 
 const nix = "https://raw.githubusercontent.com/aryannix/stuffs/master/raw/apis.json";
 
 module.exports = {
   config: {
     name: "auto",
-    version: "0.0.1",
+    version: "1.0.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -16,54 +16,70 @@ module.exports = {
   },
 
   onStart: async function ({ api, event }) {
-    return api.sendMessage("✅ AutoLink Is running ", event.threadID);
+    return api.sendMessage("✅ AutoLink Is running", event.threadID);
   },
 
   onChat: async function ({ api, event }) {
-    let e;
-    try {
-      const apiConfig = await axios.get(nix);
-      e = apiConfig.data && apiConfig.data.api;
-      if (!e) {
-        return; 
-      }
-    } catch (error) {
-      console.error("API Config Fetch Error:", error);
-      return; 
-    }
+    const { body, threadID, messageID } = event;
+    if (!body) return;
 
-    const threadID = event.threadID;
-    const message = event.body;
-
-    const linkMatch = message.match(/(https?:\/\/[^\s]+)/);
+    const linkMatch = body.match(/(https?:\/\/[^\s]+)/);
     if (!linkMatch) return;
 
     const url = linkMatch[0];
-    api.setMessageReaction("⏳", event.messageID, () => {}, true);
 
     try {
-      const response = await axios.get(
-        `${e}/alldl?url=${encodeURIComponent(url)}`
-      );
-      const data = response.data.data || {};
-      const videoUrl = data.videoUrl || data.high || data.low || null;
-      if (!videoUrl) return;
+      // API Config Fetch
+      const apiConfig = await axios.get(nix);
+      const apiUrl = apiConfig.data && apiConfig.data.api;
+      if (!apiUrl) return;
 
-      request(videoUrl)
-        .pipe(fs.createWriteStream("video.mp4"))
-        .on("close", () => {
-          api.setMessageReaction("✅", event.messageID, () => {}, true);
-          api.sendMessage(
-            {
-              body: "════『 AUTODL 』════\n\n✨ Here's your video! ✨",
-              attachment: fs.createReadStream("video.mp4")
-            },
-            threadID,
-            () => fs.unlinkSync("video.mp4")
-          );
+      // Reaction and Processing
+      api.setMessageReaction("⏳", messageID, () => {}, true);
+
+      const res = await axios.get(`${apiUrl}/alldl?url=${encodeURIComponent(url)}`);
+      const data = res.data.data || {};
+      const videoUrl = data.videoUrl || data.high || data.low;
+
+      if (!videoUrl) {
+        api.setMessageReaction("❌", messageID, () => {}, true);
+        return;
+      }
+
+      // File Path for Temporary Video
+      const videoPath = path.join(__dirname, `video_${threadID}_${messageID}.mp4`);
+
+      // Download Video using Axios
+      const videoRes = await axios({
+        method: 'get',
+        url: videoUrl,
+        responseType: 'stream'
+      });
+
+      const writer = fs.createWriteStream(videoPath);
+      videoRes.data.pipe(writer);
+
+      writer.on('finish', () => {
+        api.setMessageReaction("✅", messageID, () => {}, true);
+        api.sendMessage({
+          body: "════『 AUTODL 』════\n\n✨ Here's your video! ✨",
+          attachment: fs.createReadStream(videoPath)
+        }, threadID, () => {
+          // Delete file after sending
+          if (fs.existsSync(videoPath)) {
+            fs.unlinkSync(videoPath);
+          }
         });
+      });
+
+      writer.on('error', (err) => {
+        console.error("Stream Error:", err);
+        api.sendMessage("❌ Error while saving the video.", threadID, messageID);
+      });
+
     } catch (err) {
-      api.sendMessage("❌ Failed to download video.", threadID, event.messageID);
+      console.error("AutoDL Error:", err);
+      api.setMessageReaction("❌", messageID, () => {}, true);
     }
   }
 };
