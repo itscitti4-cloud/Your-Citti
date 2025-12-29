@@ -4,10 +4,10 @@ const API_ENDPOINT = 'https://metakexbyneokex.fly.dev/chat';
 module.exports = {
   config: {
     name: "bby",
-    version: "2.9.0",
+    version: "3.0.0",
     role: 0,
     author: "AkHi",
-    description: "Chat with citti (Short, Funny & Contextual)",
+    description: "Chat with citti (Contextual, Funny & Multilingual)",
     category: "chat",
     usages: "[message]",
     cooldowns: 0,
@@ -22,10 +22,8 @@ module.exports = {
     
     const matchedKeyword = keywords.find(word => bodyLower.startsWith(word));
     
-    // শুধু এই কমান্ডের মেসেজের রিপ্লাই হলে রেসপন্স করবে
-    const isReplyToThisBot = messageReply && 
-                             messageReply.senderID == api.getCurrentUserID() &&
-                             (messageReply.body.includes("citti") || messageReply.body.includes("বট") || messageReply.body.includes("janu") || messageReply.body.includes("বলো"));
+    // রিপ্লাই চেক সহজ করা হয়েছে যাতে রিপ্লাই চেইন কেটে না যায়
+    const isReplyToThisBot = messageReply && messageReply.senderID == api.getCurrentUserID();
 
     if (matchedKeyword || isReplyToThisBot) {
       let query = matchedKeyword ? body.slice(matchedKeyword.length).trim() : body.trim();
@@ -41,25 +39,31 @@ module.exports = {
         return api.sendMessage(nicknames[Math.floor(Math.random() * nicknames.length)], threadID, messageID);
       }
 
-      // ডেভেলপার/ওনার সংক্রান্ত প্রশ্নের নতুন লজিক
+      // ডেভেলপার এবং নাম সংক্রান্ত ফিক্সড রিপ্লাই
       const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে|ডেভেলপার/gi;
+      const nameRegex = /তোমার নাম কি|tomar nam ki|tmr nam ki|your name/gi;
+
       if (creatorRegex.test(bodyLower)) {
           return api.sendMessage("I was created and developed by Lubna Jannat AkHi. She is my master and developer.", threadID, messageID);
       }
+      if (nameRegex.test(bodyLower)) {
+          return api.sendMessage("আমার নাম citti (চিট্টি)! তোমার কিউট একাউন্ট এর পার্সোনাল অ্যাসিস্ট্যান্ট। 😉", threadID, messageID);
+      }
 
-      // ভাষা নির্ধারণ লজিক
-      let finalPrompt = query;
+      // বাংলিশ এবং বাংলা ডিটেকশন লজিক ইমপ্রুভমেন্ট
+      let systemInstruction = "You are citti, a funny AI. Answer in 1-2 sentences.";
+      
       if (/[\u0980-\u09FF]/.test(query)) {
-          finalPrompt = `Answer in Bengali. No English translation. Be funny and short (1-2 sentences): ${query}`;
-      } else if (/([aeiou][a-z]*[aeiou])/gi.test(query) && !/^[a-z\s.,!?]+$/i.test(query)) {
-          finalPrompt = `Reply in Banglish (Bengali written in English letters). Be funny and short (1-2 sentences): ${query}`;
+          systemInstruction += " Reply strictly in Bengali language only.";
+      } else if (/[a-z]/i.test(query) && (query.includes("ki") || query.includes("kemon") || query.includes("tmr") || query.includes("tumi") || query.includes("khaba"))) {
+          systemInstruction += " Reply in Banglish (Bengali words using English letters). Don't use pure English.";
       } else {
-          finalPrompt = `Answer shortly in English. Be funny: ${query}`;
+          systemInstruction += " Reply in the language the user is using.";
       }
 
       try {
         const fullResponse = await axios.post(API_ENDPOINT, { 
-            message: `Instruction: You are an AI named citti. Be funny. Question: ${finalPrompt}`, 
+            message: `Instruction: ${systemInstruction}. User says: ${query}`, 
             new_conversation: false,
             cookies: {} 
         }, { timeout: 15000 });
@@ -84,21 +88,9 @@ module.exports = {
       const query = args.join(" ");
       if (!query) return api.sendMessage("জি জানু! কিছু তো বলো। শুধু শুধু ডাকলে হবে? 🙄", event.threadID, event.messageID);
       
-      const creatorRegex = /admin|owner|developer|creator|মালিক|তৈরি করেছে|ডেভেলপার/gi;
-      if (creatorRegex.test(query.toLowerCase())) {
-          return api.sendMessage("I was created and developed by Lubna Jannat AkHi. She is my master and developer.", event.threadID, event.messageID);
-      }
-
-      let finalPrompt = query;
-      if (/[\u0980-\u09FF]/.test(query)) {
-          finalPrompt = `Answer in Bengali. No English: ${query}`;
-      } else if (/([aeiou][a-z]*[aeiou])/gi.test(query)) {
-          finalPrompt = `Reply in Banglish: ${query}`;
-      }
-
       try {
         const res = await axios.post(API_ENDPOINT, { 
-            message: `Answer shortly and funny: ${finalPrompt}`, 
+            message: `You are citti, a funny AI. Answer shortly: ${query}`, 
             new_conversation: true 
         });
         return api.sendMessage(res.data.message, event.threadID, event.messageID);
