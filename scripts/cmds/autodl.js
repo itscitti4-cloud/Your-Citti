@@ -1,89 +1,85 @@
-const axios = require('axios');
-const fs = require('fs-extra');
-const path = require('path');
+const axios = require("axios");
+const fs = require("fs-extra");
+//const tinyurl = require("tinyurl");
+const baseApiUrl = async () => {
+  const base = await axios.get(`https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json`);
+  return base.data.api;
+};
+
+const config = {
+  name: "autodl",
+  version: "2.0",
+  author: "AkHi",
+  credits: "AkHi",
+  description: "Auto download video from tiktok, facebook, Instagram, YouTube, and more",
+  category: "media",
+  commandCategory: "media",
+  usePrefix: true,
+  prefix: true,
+  dependencies: {
+   // "tinyurl": "",
+    "fs-extra": "",
+  },
+};
+
+const onStart = () => {};
+const onChat = async ({ api, event }) => {
+  let dipto = event.body ? event.body : "", ex, cp;
+  try {
+    if (
+      dipto.startsWith("https://vt.tiktok.com") ||
+      dipto.startsWith("https://www.tiktok.com/") ||
+      dipto.startsWith("https://www.facebook.com") ||
+      dipto.startsWith("https://www.instagram.com/") ||
+      dipto.startsWith("https://youtu.be/") ||
+      dipto.startsWith("https://youtube.com/") ||
+      dipto.startsWith("https://x.com/") ||
+      dipto.startsWith("https://youtube.com/")
+|| dipto.startsWith("https://www.instagram.com/p/") ||
+      dipto.startsWith("https://pin.it/") ||
+      dipto.startsWith("https://twitter.com/") ||
+      dipto.startsWith("https://vm.tiktok.com") ||
+      dipto.startsWith("https://fb.watch")
+    ) {
+      api.setMessageReaction("⌛", event.messageID, {}, true);
+      const w = await api.sendMessage("Wait Bby <😘", event.threadID);
+      const response = await axios.get(`${await baseApiUrl()}/alldl?url=${encodeURIComponent(dipto)}`);
+      const d = response.data;
+      if (d.result.includes(".jpg")) {
+        ex = ".jpg";
+        cp = "Here's your Photo <😘";
+      } else if (d.result.includes(".png")) {
+        ex = ".png";
+        cp = "Here's your Photo <😘";
+      } else if (d.result.includes(".jpeg")) {
+        ex = ".jpeg";
+        cp = "Here's your Photo <😘";
+      } else {
+        ex = ".mp4";
+        cp = d.cp;
+      }
+      const path = __dirname + `/cache/video${ex}`;
+      fs.writeFileSync(path, Buffer.from((await axios.get(d.result, { responseType: "arraybuffer" })).data, "binary"));
+      const tinyUrlResponse = await axios.get(`https://tinyurl.com/api-create.php?url=${d.result}`);
+      api.setMessageReaction("✅", event.messageID, {}, true);
+      api.unsendMessage(w.messageID);
+      await api.sendMessage({
+          body: `${d.cp || null}\n✅ | Link: ${tinyUrlResponse.data || null}`,
+          attachment: fs.createReadStream(path),
+        }, event.threadID, () => fs.unlinkSync(path), event.messageID
+      )
+    }
+  } catch (err) {
+    api.setMessageReaction("❌", event.messageID, {}, true);
+    console.log(err);
+    api.sendMessage(`Error: ${err.message}`, event.threadID, event.messageID);
+  }
+};
 
 module.exports = {
-  config: {
-    name: "autodl",
-    version: "1.1.0",
-    author: "AkHi",
-    countDown: 5,
-    role: 0,
-    description: "Auto download video from FB, Insta, TikTok, YT, Twitter, Threads",
-    category: "media",
-    guide: {
-      en: "{p}autodl [link]"
-    }
-  },
-
-  onStart: async function ({ api, event, args }) {
-    const link = args[0] || event.body;
-    if (!link || !link.startsWith("http")) return;
-
-    api.setMessageReaction("⌛", event.messageID, () => {}, true);
-    const waitMsg = await api.sendMessage("Processing your video, please wait...", event.threadID, event.messageID);
-
-    try {
-      let videoUrl = null;
-
-      // API 1: (Latest All-in-One Downloader)
-      try {
-        const res = await axios.get(`https://api.giftedtech.my.id/api/download/all-dl?url=${encodeURIComponent(link)}`);
-        if (res.data.success) {
-          videoUrl = res.data.result.video_url || res.data.result.url;
-        }
-      } catch (e) {}
-
-      // Backup API 2: (Ayan API)
-      if (!videoUrl) {
-        try {
-          const res2 = await axios.get(`https://api.ayan-official.repl.co/api/downloader/fbdl?url=${encodeURIComponent(link)}`);
-          videoUrl = res2.data.result;
-        } catch (e) {}
-      }
-
-      if (!videoUrl) throw new Error("Could not fetch video URL");
-
-      const filePath = path.join(__dirname, 'cache', `${Date.now()}.mp4`);
-      
-      // ভিডিও ডাউনলোড করার সময় স্ট্রিমিং ব্যবহার করা ভালো
-      const response = await axios({
-        method: 'GET',
-        url: videoUrl,
-        responseType: 'stream'
-      });
-
-      fs.ensureDirSync(path.join(__dirname, 'cache'));
-      const writer = fs.createWriteStream(filePath);
-      response.data.pipe(writer);
-
-      writer.on('finish', async () => {
-        await api.sendMessage({
-          body: `✅ Download Successful!\n👤 Author: AkHi`,
-          attachment: fs.createReadStream(filePath)
-        }, event.threadID);
-
-        api.setMessageReaction("✅", event.messageID, () => {}, true);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        api.unsendMessage(waitMsg.messageID);
-      });
-
-      writer.on('error', (err) => { throw err; });
-
-    } catch (err) {
-      console.error(err);
-      api.setMessageReaction("❌", event.messageID, () => {}, true);
-      api.sendMessage("Sorry, the video could not be downloaded. This happens if the link is private or the server is down.", event.threadID, event.messageID);
-      api.unsendMessage(waitMsg.messageID);
-    }
-  },
-
-  onChat: async function ({ api, event }) {
-    if (!event.body) return;
-    const regex = /(https?:\/\/(?:www\.)?(facebook|fb|instagram|tiktok|youtube|youtu|twitter|x|threads|reels)\.com\/\S+|https?:\/\/fb\.watch\/\S+|https?:\/\/www\.facebook\.com\/share\/\S+)/ig;
-    const match = event.body.match(regex);
-    if (match && !event.body.startsWith("!")) { // ! থাকলে autodl কমান্ড কাজ করবে, নাহলে অটো হবে
-      this.onStart({ api, event, args: [match[0]] });
-    }
-  }
+  config,
+  onChat,
+  onStart,
+  run: onStart,
+  handleEvent: onChat,
 };
