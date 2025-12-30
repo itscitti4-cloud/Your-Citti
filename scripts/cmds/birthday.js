@@ -9,7 +9,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "1.3.1",
+    version: "1.3.2",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -56,7 +56,7 @@ module.exports = {
     }, { timezone: "Asia/Dhaka" });
   },
 
-  onStart: async function ({ api, event, args, usersData }) { // Users এর বদলে usersData ব্যবহার করা হয়েছে
+  onStart: async function ({ api, event, args }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
     let birthdays = fs.readJsonSync(dbPath);
@@ -84,11 +84,17 @@ module.exports = {
         return api.sendMessage("❌ Invalid format! Use: DD-MM-YYYY (Example: 30-12-2000)", threadID, messageID);
       }
 
-      // getNameUser ফাংশনটি usersData থেকে কল করা হয়েছে যা GoatBot V2 এর জন্য সঠিক
-      const name = await usersData.getNameUser(uid); 
-      birthdays[uid] = { name, date: dob };
-      fs.writeJsonSync(dbPath, birthdays);
-      return api.sendMessage(`✅ Success! Added birthday for ${name} on ${dob}`, threadID, messageID);
+      try {
+        // সরাসরি API থেকে নাম নেওয়ার পদ্ধতি (সবচেয়ে নিরাপদ)
+        const info = await api.getUserInfo(uid);
+        const name = info[uid].name; 
+        
+        birthdays[uid] = { name, date: dob };
+        fs.writeJsonSync(dbPath, birthdays);
+        return api.sendMessage(`✅ Success! Added birthday for ${name} on ${dob}`, threadID, messageID);
+      } catch (err) {
+        return api.sendMessage("❌ Could not fetch user information. Make sure UID is correct.", threadID, messageID);
+      }
     }
 
     if (action === "rem" || action === "remove") {
