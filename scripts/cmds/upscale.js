@@ -9,7 +9,7 @@ module.exports = {
     role: 0,
     shortDescription: "Upscale image to HD/4K quality.",
     longDescription: "Reply to an image to enhance its quality and resolution.",
-    category: "image",
+    category: "ai-image",
     guide: "{pn} (reply to an image)"
   },
 
