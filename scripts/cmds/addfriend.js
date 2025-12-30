@@ -3,9 +3,9 @@ module.exports = {
     name: "addfriend",
     version: "1.0.1",
     role: 0,
-    author: "Box Chat",
+    author: "AkHi",
     description: "Displays a list of 15 friends and adds them to the group.",
-    category: "group",
+    category: "Box chat",
     guide: "{pn}",
     countDown: 5
   },
