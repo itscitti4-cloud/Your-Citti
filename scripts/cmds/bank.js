@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const User = require("../../../database/model/mongodb/user");
+const User = require("../../database/model/mongodb/user");
 const { createCanvas, loadImage, registerFont } = require("canvas");
 const fs = require("fs-extra");
 const path = require("path");
