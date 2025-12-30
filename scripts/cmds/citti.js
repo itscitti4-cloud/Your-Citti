@@ -3,7 +3,7 @@ const API_ENDPOINT = 'https://metakexbyneokex.fly.dev/chat';
 
 module.exports = {
   config: {
-    name: "bby",
+    name: "citti",
     version: "3.0.0",
     role: 0,
     author: "AkHi",
@@ -17,7 +17,7 @@ module.exports = {
     const { threadID, messageID, body, senderID, messageReply } = event;
     if (!body || senderID == api.getCurrentUserID()) return;
 
-    const keywords = ["citti", "চিট্টি", "বেবি", "হিনাতা", "বট", "bby", "baby", "hinata", "bot"];
+    const keywords = ["citti", "চিট্টি", "হিনাতা", "বট", "hinata", "bot"];
     const bodyLower = body.toLowerCase();
     
     const matchedKeyword = keywords.find(word => bodyLower.startsWith(word));
