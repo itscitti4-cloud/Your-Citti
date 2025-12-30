@@ -65,7 +65,7 @@ module.exports = {
 ┃ 🌐 Facebook  : ${authorFB}
 ┃ 📸 Insta     : ${authorInsta}
 ┃
-╰─╼━━━━━━━━━━━━━━━━━━━━━━━━━━━━╾─╯`,
+╰─╼━━━━━━━━━━━━━━━━━━━━━━━━━━━━╾─╯`});
                     
 
             } catch (error) {
