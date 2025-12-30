@@ -3,12 +3,10 @@ const path = require("path");
 
 const dbPath = path.join(__dirname, "../../vips.json");
 
-// Function to format money (K, M, B, T)
 function formatCurrency(number) {
     if (number < 1000) return number.toString();
     const units = ["", "K", "M", "B", "T"];
     const tier = Math.floor(Math.log10(number) / 3);
-    if (tier === 0) return number.toString();
     const suffix = units[tier];
     const scale = Math.pow(10, tier * 3);
     const scaled = number / scale;
@@ -19,16 +17,16 @@ module.exports = {
     config: {
         name: "vip",
         aliases: ["premium"],
-        version: "2.1.1",
+        version: "2.1.3",
         author: "AkHi",
         countDown: 5,
         role: 0, 
-        category: "Premium",
+        category: "Game",
         shortDescription: { en: "Manage and view VIP status" },
         guide: { en: "{pn} info | {pn} add [@tag] | {pn} rem [@tag] | {pn} list" }
     },
 
-    onStart: async function ({ api, event, args, role }) {
+    onStart: async function ({ api, event, args, role, usersData }) {
         const { threadID, messageID, senderID, mentions, messageReply } = event;
 
         if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
@@ -55,17 +53,16 @@ module.exports = {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || senderID);
             
             try {
-                // api.getUserInfo ব্যবহার করা হয়েছে এরর এড়াতে
                 const info = await api.getUserInfo(targetID);
                 const name = info[targetID].name;
                 
-                // Balance fetch করার জন্য global controller ব্যবহার করা যেতে পারে
-                // যদি money না দেখায় তবে 0 দেখাবে
+                // ব্যালেন্স চেক করার আপডেট পদ্ধতি
                 let money = 0;
-                try {
-                    const userData = await global.controllers.Users.get(targetID);
-                    money = userData.money || 0;
-                } catch(e) {}
+                if (usersData) {
+                    const userData = await usersData.get(targetID);
+                    // GoatBot V2-তে অনেক সময় ডেটা সরাসরি money কি-তে থাকে না, তাই সব চেক করা হচ্ছে
+                    money = userData.money || (userData.data ? userData.data.money : 0) || 0;
+                }
 
                 const isVip = vips[targetID] ? "Premium User ★" : "Normal User";
 
@@ -78,16 +75,16 @@ module.exports = {
                 
                 return api.sendMessage(msg, threadID, messageID);
             } catch (err) {
-                return api.sendMessage("❌ Failed to fetch user info.", threadID, messageID);
+                console.log(err);
+                return api.sendMessage("❌ Error: Unable to fetch information.", threadID, messageID);
             }
         }
 
-        // --- ADMIN ONLY ACTIONS (Add/Rem) ---
+        // --- ADMIN ONLY ACTIONS ---
         if (role < 2 || role > 4) {
             return api.sendMessage("⚠️ Access Denied! Only 'AkHi Ma'am' can manage VIP list.", threadID, messageID);
         }
 
-        // 3. VIP ADD
         if (action === "add") {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || args[1]);
             if (!targetID) return api.sendMessage("❌ Please tag, reply, or provide UID.", threadID, messageID);
@@ -95,21 +92,17 @@ module.exports = {
             try {
                 const info = await api.getUserInfo(targetID);
                 const name = info[targetID].name;
-                
                 vips[targetID] = { name, addedDate: new Date().toLocaleDateString() };
                 fs.writeJsonSync(dbPath, vips);
-                
                 return api.sendMessage(`✅ Successfully added ${name} to the VIP list!`, threadID, messageID);
             } catch (err) {
                 return api.sendMessage("❌ Error: Invalid UID or User not found.", threadID, messageID);
             }
         }
 
-        // 4. VIP REMOVE
         if (action === "rem" || action === "remove") {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || args[1]);
             if (!vips[targetID]) return api.sendMessage("❌ User is not in the VIP list.", threadID, messageID);
-            
             delete vips[targetID];
             fs.writeJsonSync(dbPath, vips);
             return api.sendMessage("✅ User removed from VIP status.", threadID, messageID);
