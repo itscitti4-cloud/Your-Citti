@@ -1,12 +1,15 @@
 const fs = require("fs-extra");
 const path = require("path");
 
-const dbPath = path.join(__dirname, "../../vips.json");
-
 function formatCurrency(number) {
+    // undefined বা NaN চেক করা হচ্ছে যাতে error না আসে
+    if (number === undefined || number === null || isNaN(number)) return "0";
     if (number < 1000) return number.toString();
+    
     const units = ["", "K", "M", "B", "T"];
-    const tier = Math.floor(Math.log10(number) / 3);
+    const tier = Math.floor(Math.log10(Math.abs(number)) / 3);
+    if (tier === 0) return number.toString();
+    
     const suffix = units[tier];
     const scale = Math.pow(10, tier * 3);
     const scaled = number / scale;
@@ -17,97 +20,86 @@ module.exports = {
     config: {
         name: "vip",
         aliases: ["premium"],
-        version: "2.1.3",
+        version: "2.2.0",
         author: "AkHi",
         countDown: 5,
         role: 0, 
-        category: "Game",
-        shortDescription: { en: "Manage and view VIP status" },
+        category: "Premium",
+        shortDescription: { en: "Manage and view VIP status using DB" },
         guide: { en: "{pn} info | {pn} add [@tag] | {pn} rem [@tag] | {pn} list" }
     },
 
     onStart: async function ({ api, event, args, role, usersData }) {
         const { threadID, messageID, senderID, mentions, messageReply } = event;
-
-        if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
-        let vips = fs.readJsonSync(dbPath);
-
         const action = args[0]?.toLowerCase();
 
-        // 1. VIP LIST
+        // ১. ভিআইপি লিস্ট চেক (MongoDB থেকে ডাটা নেওয়া)
         if (action === "list") {
+            const allUsers = await usersData.getAll();
+            const vipList = allUsers.filter(u => u.data && u.data.isVip === true);
+            
             let msg = "🏆 VIP USER LIST 🏆\n━━━━━━━━━━━━━━━\n";
-            const list = Object.entries(vips);
-            if (list.length === 0) msg += "No VIP users found.";
+            if (vipList.length === 0) msg += "No VIP users found in Database.";
             else {
-                list.forEach(([id, data], index) => {
-                    msg += `${index + 1}. ${data.name}\n🆔 ID: ${id}\n`;
+                vipList.forEach((user, index) => {
+                    msg += `${index + 1}. ${user.name || "Unknown"}\n🆔 ID: ${user.userID}\n`;
                 });
             }
             msg += `━━━━━━━━━━━━━━━`;
             return api.sendMessage(msg, threadID, messageID);
         }
 
-        // 2. VIP INFO
+        // ২. ভিআইপি ইনফো
         if (action === "info" || !action) {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || senderID);
             
             try {
                 const info = await api.getUserInfo(targetID);
                 const name = info[targetID].name;
+                const userData = await usersData.get(targetID);
                 
-                // ব্যালেন্স চেক করার আপডেট পদ্ধতি
-                let money = 0;
-                if (usersData) {
-                    const userData = await usersData.get(targetID);
-                    // GoatBot V2-তে অনেক সময় ডেটা সরাসরি money কি-তে থাকে না, তাই সব চেক করা হচ্ছে
-                    money = userData.money || (userData.data ? userData.data.money : 0) || 0;
-                }
-
-                const isVip = vips[targetID] ? "Premium User ★" : "Normal User";
+                // ব্যালেন্স এবং ভিআইপি স্ট্যাটাস সরাসরি DB থেকে নেওয়া হচ্ছে
+                const money = userData.money || 0;
+                const isVip = (userData.data && userData.data.isVip === true);
 
                 let msg = `★ VIP INFORMATION ★\n━━━━━━━━━━━━━━━\n`;
                 msg += `👤 Name: ${name}\n`;
                 msg += `💰 Balance: $${formatCurrency(money)}\n`;
-                msg += `✨ Status: ${isVip}\n`;
+                msg += `✨ Status: ${isVip ? "Premium User ★" : "Normal User"}\n`;
                 msg += `━━━━━━━━━━━━━━━\n`;
-                msg += vips[targetID] ? "Thank you for being a VIP member!" : "Upgrade to VIP to get special perks!";
+                msg += isVip ? "Thank you for being a VIP member!" : "Upgrade to VIP to get special perks!";
                 
                 return api.sendMessage(msg, threadID, messageID);
             } catch (err) {
-                console.log(err);
-                return api.sendMessage("❌ Error: Unable to fetch information.", threadID, messageID);
+                return api.sendMessage("❌ Error: Unable to fetch DB info.", threadID, messageID);
             }
         }
 
-        // --- ADMIN ONLY ACTIONS ---
+        // --- অ্যাডমিন অ্যাকশন (অ্যাড/রিমুভ) ---
         if (role < 2 || role > 4) {
-            return api.sendMessage("⚠️ Access Denied! Only 'AkHi Ma'am' can manage VIP list.", threadID, messageID);
+            return api.sendMessage("⚠️ Access Denied! Only Bot Admins can manage VIP list.", threadID, messageID);
         }
 
         if (action === "add") {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || args[1]);
-            if (!targetID) return api.sendMessage("❌ Please tag, reply, or provide UID.", threadID, messageID);
+            if (!targetID) return api.sendMessage("❌ Please tag or reply to someone.", threadID, messageID);
             
-            try {
-                const info = await api.getUserInfo(targetID);
-                const name = info[targetID].name;
-                vips[targetID] = { name, addedDate: new Date().toLocaleDateString() };
-                fs.writeJsonSync(dbPath, vips);
-                return api.sendMessage(`✅ Successfully added ${name} to the VIP list!`, threadID, messageID);
-            } catch (err) {
-                return api.sendMessage("❌ Error: Invalid UID or User not found.", threadID, messageID);
-            }
+            // MongoDB-তে ডাটা সেভ করা হচ্ছে
+            await usersData.set(targetID, { isVip: true }, "data");
+            const name = (await api.getUserInfo(targetID))[targetID].name;
+            
+            return api.sendMessage(`✅ Successfully added ${name} to the VIP list (Saved in DB)!`, threadID, messageID);
         }
 
         if (action === "rem" || action === "remove") {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || args[1]);
-            if (!vips[targetID]) return api.sendMessage("❌ User is not in the VIP list.", threadID, messageID);
-            delete vips[targetID];
-            fs.writeJsonSync(dbPath, vips);
-            return api.sendMessage("✅ User removed from VIP status.", threadID, messageID);
+            
+            // MongoDB থেকে স্ট্যাটাস রিমুভ করা
+            await usersData.set(targetID, { isVip: false }, "data");
+            return api.sendMessage("✅ User removed from VIP status in Database.", threadID, messageID);
         }
 
         return api.sendMessage("❓ Use: !vip [info | add | rem | list]", threadID, messageID);
     }
 };
+            
