@@ -2,12 +2,12 @@ module.exports = {
     config: {
         name: "edit",
         version: "1.0.0",
-        author: "Gemini",
+        author: "AkHi",
         countDown: 5,
         role: 0,
         shortDescription: "AI Image Editor",
         longDescription: "Reply to an image with a prompt to edit it using AI.",
-        category: "image",
+        category: "ai-image",
         guide: "{pn} [your prompt]"
     },
 
