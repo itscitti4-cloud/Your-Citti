@@ -18,7 +18,7 @@ module.exports = {
  vi: "Tìm lời bài hát bằng tên bài hát và nghệ sĩ với nhiều nguồn khác nhau",
  en: "Find song lyrics by song name and artist from multiple sources"
  },
- category: "music",
+ category: "media",
  guide: {
  vi: "{pn} <tên bài hát> - <nghệ sĩ>",
  en: "{pn} <song name> - <artist>"
