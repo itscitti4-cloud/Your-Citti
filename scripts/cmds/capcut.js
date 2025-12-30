@@ -9,7 +9,7 @@ module.exports = {
     role: 0,
     shortDescription: "Search for CapCut templates.",
     longDescription: "Find trending CapCut templates and get the video preview.",
-    category: "multimedia",
+    category: "media",
     guide: {
       en: "{pn} <template name>"
     }
