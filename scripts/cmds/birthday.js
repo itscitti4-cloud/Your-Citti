@@ -9,7 +9,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "1.3.0",
+    version: "1.3.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -25,7 +25,6 @@ module.exports = {
     cron.schedule("0 0 * * *", async () => {
       const birthdays = fs.readJsonSync(dbPath);
       const today = new Date();
-      // DD-MM ফরমেটে চেক করা হচ্ছে
       const dayMonth = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}`;
       const threads = await api.getThreadList(100, null, ["INBOX"]);
       
@@ -57,7 +56,7 @@ module.exports = {
     }, { timezone: "Asia/Dhaka" });
   },
 
-  onStart: async function ({ api, event, args, Users }) {
+  onStart: async function ({ api, event, args, usersData }) { // Users এর বদলে usersData ব্যবহার করা হয়েছে
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
     let birthdays = fs.readJsonSync(dbPath);
@@ -67,28 +66,26 @@ module.exports = {
     if (action === "add") {
       let uid, dob;
 
-      // লজিক: ট্যাগ, রিপ্লাই বা ইউআইডি আছে কিনা চেক করা
       if (messageReply) {
         uid = messageReply.senderID;
         dob = args[1];
       } else if (Object.keys(mentions).length > 0) {
         uid = Object.keys(mentions)[0];
         dob = args[args.length - 1];
-      } else if (args.length === 3 && !isNaN(args[1])) { // !dob add UID date
+      } else if (args.length === 3 && !isNaN(args[1])) {
         uid = args[1];
         dob = args[2];
       } else {
-        // কিছু না থাকলে যে কমান্ড দিছে তার নিজের আইডি এবং প্রথম আর্গুমেন্ট হবে ডেট
         uid = senderID;
         dob = args[1];
       }
 
-      // ফরমেট ভ্যালিডেশন (DD-MM-YYYY)
       if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
         return api.sendMessage("❌ Invalid format! Use: DD-MM-YYYY (Example: 30-12-2000)", threadID, messageID);
       }
 
-      const name = await Users.getName(uid); 
+      // getNameUser ফাংশনটি usersData থেকে কল করা হয়েছে যা GoatBot V2 এর জন্য সঠিক
+      const name = await usersData.getNameUser(uid); 
       birthdays[uid] = { name, date: dob };
       fs.writeJsonSync(dbPath, birthdays);
       return api.sendMessage(`✅ Success! Added birthday for ${name} on ${dob}`, threadID, messageID);
