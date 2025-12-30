@@ -63,6 +63,7 @@ function getExpiryDate() {
     date.setFullYear(date.getFullYear() + CARD_VALIDITY_YEARS);
     return (date.getMonth() + 1).toString().padStart(2, "0") + "/" + date.getFullYear().toString().slice(-2);
 }
+
 async function createBankCard(cardData, userData) {
     const width = 850;
     const height = 540;
@@ -266,4 +267,3 @@ module.exports = {
         }
     }
 };
-                                                                                                                                      
