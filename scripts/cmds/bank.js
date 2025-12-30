@@ -659,13 +659,15 @@ Welcome to ${BANK_NAME}!`,
                 const receiptPath = await createTransactionReceipt(transaction, userData);
                 return message.reply({
                     body: `✅ [ WITHDRAW SUCCESS ]\n\n💸 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}\n💳 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n👛 Wallet Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.money)}\n🔖 Transaction ID: ${transaction.transactionId}`,
-                    attachment: fs.createReadStream(receiptPath), () => fs.unlinkSync(receiptPath));
+                    attachment: fs.createReadStream(receiptPath)
+                }, () => fs.unlinkSync(receiptPath)); // এখানে ব্র্যাকেট এবং কমা ঠিক করা হয়েছে
 
             case "transfer":
             case "tf": {
                 if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
                     return message.reply("⚠️ You don't have a bank account. Register first!");
                 }
+
 
                 let targetID;
                 let transferAmount;
