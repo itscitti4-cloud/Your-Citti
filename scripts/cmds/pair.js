@@ -5,18 +5,18 @@ const path = require("path");
 module.exports = {
   config: {
     name: "pair",
-    version: "1.1.0",
+    version: "1.1.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
     shortDescription: "Create a pair between group members",
     longDescription: "This command randomly selects two members of the group and creates a pair.",
-    category: "entertainment",
+    category: "fun",
     guide: "{pn}"
   },
 
-  onStart: async function ({ api, event, usersData }) {
-    const { threadID, messageID, senderID } = event;
+  onStart: async function ({ api, event, Users }) { // এখানে Users অ্যাড করা হয়েছে
+    const { threadID, messageID } = event;
 
     try {
       // Get thread info to get participant list
@@ -36,14 +36,13 @@ module.exports = {
         id2 = participantIDs[Math.floor(Math.random() * participantIDs.length)];
       }
 
-      // Fetch names using usersData (fixing the TypeError)
-      const name1 = await usersData.getNameUser(id1);
-      const name2 = await usersData.getNameUser(id2);
+      // Fetch names using the correct Users method
+      const name1 = await Users.getName(id1);
+      const name2 = await Users.getName(id2);
 
       // Prepare the message
       const msg = `Today's best match is:\n\n💞 ${name1} x ${name2} 💞\n\nCongratulations to both of you! 🥳`;
 
-      // Optional: You can add profile pictures as attachments here
       return api.sendMessage(msg, threadID, messageID);
 
     } catch (error) {
