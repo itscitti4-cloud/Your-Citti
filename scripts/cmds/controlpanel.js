@@ -1,7 +1,7 @@
 module.exports = {
  config: {
  name: "settings",
- alias: "cntl"
+ alias: "cntl",
  version: "1.0.4",
  author: "AkHi",
  countDown: 5,
