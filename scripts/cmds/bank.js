@@ -760,7 +760,7 @@ Welcome to ${BANK_NAME}!`,
                 }
 
                 // ৩. ট্রানজেকশন অবজেক্ট তৈরি করা
-                const transaction = {
+                transaction = { 
                     transactionId: generateTransactionId(),
                     type: "transfer",
                     amount: transferAmount,
