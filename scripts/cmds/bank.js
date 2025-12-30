@@ -266,4 +266,4 @@ module.exports = {
             return message.reply("❌ Error connecting to bank server!");
         }
     }
-};
+};         
