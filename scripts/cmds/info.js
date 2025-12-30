@@ -35,9 +35,9 @@ module.exports = {
                 const botName = "Your Citti";
                 const botPrefix = `${global.GoatBot.config.prefix}`;
                 const authorName = "Lubna Jannat AkHi";
-                const authorFB = "https://www.facebook.com/LubnaaJannat.AkHi";
+                const authorFB = "fb.com/LubnaaJannat.AkHi";
                 const authorInsta = "@lubnajannat_";
-                const status = "Married to Shahryar Sabu";
+                const status = "Married";
 
                 const now = moment().tz('Asia/Dhaka');
                 const date = now.format('dddd, MMMM Do YYYY');
@@ -51,21 +51,20 @@ module.exports = {
                 const uptimeString = `${days}d ${hours}h ${minutes}m ${seconds}s`.replace(/^0d 0h /, "");
                 
                 message.reply({
-                    body: `╭─╼━━━[ 🌟 𝑩𝑶𝑻 & 𝑨𝑼𝑻𝑯𝑶𝑹 𝑰𝑵𝑭𝑶 🌟 ]━━━╾─╮
-┃
-┃ 👤 Bot Owner: ${authorName}
-┃ 🤖 Bot name : ${botName}
-┃ 🔰 Prefix   : ${botPrefix}
-┃ ❤ Status    : ${status}
-┃
-┃ 📆 Date     : ${date}
-┃ ⏰ Time     : ${time}
-┃ ⚙ Uptime    : ${uptimeString}
-┃
-┃ 🌐 Facebook  : ${authorFB}
-┃ 📸 Insta     : ${authorInsta}
-┃
-╰─╼━━━━━━━━━━━━━━━━━━━━━━━━━━━━╾─╯`
+                    body: `╭─────── BOT AND AUTHOR INFO ───────╮
+  👤 𝗢𝘄𝗻𝗲𝗿: ${authorName}
+  🤖 𝗕𝗼𝘁: ${botName}
+  🔰 𝗣𝗿𝗲𝗳𝗶𝘅: ${botPrefix}
+  💍 𝗦𝘁𝗮𝘁𝘂𝘀: ${status}
+  🤵🏻 𝗛𝘂𝘀𝗯𝗮𝗻𝗱: Shahryar Sabu
+  
+  📆 𝗗𝗮𝘁𝗲: ${date}
+  ⏰ 𝗧𝗶𝗺𝗲: ${time}
+  ⚙️ 𝗨𝗽𝘁𝗶𝗺𝗲: ${uptimeString}
+  
+  🌐 𝗙𝗕: ${authorFB}
+  📸 𝗜𝗚: ${authorInsta}
+╰────────────────────╯`
                 }); // <--- এখানে }); দিয়ে ফাংশন শেষ করা হয়েছে
             });
 
