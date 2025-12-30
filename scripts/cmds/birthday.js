@@ -4,23 +4,36 @@ const path = require("path");
 const cron = require("node-cron");
 
 const dbPath = path.join(__dirname, "../../birthdays.json");
+const vipPath = path.join(__dirname, "../../vips.json");
+
+// Function to format money (K, M, B, T)
+function formatCurrency(number) {
+    if (number < 1000) return number.toString();
+    const units = ["", "K", "M", "B", "T"];
+    const tier = Math.floor(Math.log10(number) / 3);
+    const suffix = units[tier];
+    const scale = Math.pow(10, tier * 3);
+    const scaled = number / scale;
+    return scaled.toFixed(1).replace(/\.0$/, "") + suffix;
+}
 
 module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "1.3.2",
+    version: "1.4.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Manage birthdays",
-    longDescription: "Add, remove, or list birthdays with auto-wish feature.",
+    shortDescription: "Manage birthdays (Free for VIP, 10K for Normal)",
+    longDescription: "Add birthdays. VIPs are free, others pay $10,000.",
     category: "utility",
     guide: "{pn} add [tag/reply/uid] DD-MM-YYYY\n{pn} rem [tag/reply/uid]\n{pn} list"
   },
 
   onLoad: async function ({ api }) {
     if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
+    if (!fs.existsSync(vipPath)) fs.writeJsonSync(vipPath, {});
 
     cron.schedule("0 0 * * *", async () => {
       const birthdays = fs.readJsonSync(dbPath);
@@ -56,16 +69,20 @@ module.exports = {
     }, { timezone: "Asia/Dhaka" });
   },
 
-  onStart: async function ({ api, event, args }) { 
+  onStart: async function ({ api, event, args, Users }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
+    
     if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
+    if (!fs.existsSync(vipPath)) fs.writeJsonSync(vipPath, {});
+    
     let birthdays = fs.readJsonSync(dbPath);
+    let vips = fs.readJsonSync(vipPath);
+    const cost = 10000;
 
     const action = args[0]?.toLowerCase();
 
     if (action === "add") {
       let uid, dob;
-
       if (messageReply) {
         uid = messageReply.senderID;
         dob = args[1];
@@ -84,16 +101,29 @@ module.exports = {
         return api.sendMessage("❌ Invalid format! Use: DD-MM-YYYY (Example: 30-12-2000)", threadID, messageID);
       }
 
+      // VIP and Economy Logic
+      const isVip = vips.hasOwnProperty(senderID);
+      if (!isVip) {
+          const userData = await Users.get(senderID);
+          if (userData.money < cost) {
+              return api.sendMessage(`❌ You need $${formatCurrency(cost)} to add a birthday. VIP users can add for free!`, threadID, messageID);
+          }
+          await Users.set(senderID, { money: userData.money - cost });
+      }
+
       try {
-        // সরাসরি API থেকে নাম নেওয়ার পদ্ধতি (সবচেয়ে নিরাপদ)
         const info = await api.getUserInfo(uid);
         const name = info[uid].name; 
         
         birthdays[uid] = { name, date: dob };
         fs.writeJsonSync(dbPath, birthdays);
-        return api.sendMessage(`✅ Success! Added birthday for ${name} on ${dob}`, threadID, messageID);
+        
+        let successMsg = `✅ Success! Added birthday for ${name} on ${dob}\n`;
+        successMsg += isVip ? `✨ VIP Benefit: Added for free!` : `💰 Fee Paid: $${formatCurrency(cost)}`;
+        
+        return api.sendMessage(successMsg, threadID, messageID);
       } catch (err) {
-        return api.sendMessage("❌ Could not fetch user information. Make sure UID is correct.", threadID, messageID);
+        return api.sendMessage("❌ Could not fetch user information.", threadID, messageID);
       }
     }
 
@@ -121,3 +151,4 @@ module.exports = {
     return api.sendMessage("❓ Use: !dob [add | rem | list]", threadID, messageID);
   }
 };
+                          
