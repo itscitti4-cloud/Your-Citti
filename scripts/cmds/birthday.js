@@ -5,7 +5,19 @@ const cron = require("node-cron");
 const moment = require("moment-timezone");
 const jimp = require("jimp");
 
-// বয়স গণনা করার ফাংশন
+// Currency formatting function (e.g., 10000 -> 10K)
+function formatCurrency(number) {
+    if (number === undefined || number === null || isNaN(number)) return "0";
+    if (number < 1000) return number.toString();
+    const units = ["", "K", "M", "B", "T"];
+    const tier = Math.floor(Math.log10(Math.abs(number)) / 3);
+    const suffix = units[tier];
+    const scale = Math.pow(10, tier * 3);
+    const scaled = number / scale;
+    return scaled.toFixed(1).replace(/\.0$/, "") + suffix;
+}
+
+// Age calculation function
 function getAge(dob) {
     const birthDate = moment(dob, "DD-MM-YYYY");
     const today = moment.tz("Asia/Dhaka");
@@ -16,11 +28,11 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.5.1",
+    version: "3.6.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Manage birthdays with Custom Frames & Shorts",
+    shortDescription: "Manage birthdays (Cost: 10K for users)",
     category: "utility",
     guide: "{pn} add [tag/reply/uid] DD-MM-YYYY\n{pn} set [tag/reply/uid/list#] <message>\n{pn} rem [tag/reply/uid/list#]\n{pn} list\n{pn} upcoming\n{pn} check"
   },
@@ -97,36 +109,59 @@ module.exports = {
     }
   },
 
-  onStart: async function ({ api, event, args, usersData }) { 
+  onStart: async function ({ api, event, args, usersData, Currencies }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     const action = args[0]?.toLowerCase();
+    const cost = 10000; // 10K Taka
 
-    if (action === "add") {
-      let uid, dob;
-      if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
-      else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
-      else { uid = senderID; dob = args[1]; }
+    const { adminIDs, developerID } = global.config;
+    const isAdmin = adminIDs.some(item => item.id == senderID);
+    const isDev = developerID == senderID;
+    const user = await usersData.get(senderID);
+    const isVIP = user.data?.isVIP || false;
 
-      if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) return api.sendMessage("❌ Use: DD-MM-YYYY", threadID, messageID);
-      
-      await usersData.set(uid, { birthday: dob }, "data");
-      return api.sendMessage(`✅ Birthday set for ${uid} on ${dob}`, threadID, messageID);
-    }
+    const isFree = isAdmin || isDev || isVIP;
 
-    if (action === "set") {
-      let uid, wishText;
-      if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
-      else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
-      else if (!isNaN(args[1])) {
-          const all = (await usersData.getAll()).filter(u => u.data?.birthday);
-          uid = all[parseInt(args[1]) - 1]?.userID;
-          wishText = args.slice(2).join(" ");
-      } else { uid = senderID; wishText = args.slice(1).join(" "); }
+    if (action === "add" || action === "set") {
+      if (!isFree) {
+        const userData = await Currencies.getData(senderID);
+        if (userData.money < cost) {
+          return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
+        }
+        await Currencies.decreaseData(senderID, cost);
+      }
 
-      if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text> or !dob set <list#> <text>", threadID, messageID);
-      
-      await usersData.set(uid, { customWish: wishText }, "data");
-      return api.sendMessage("✅ Custom wish format updated! You can use {name} and {age}.", threadID, messageID);
+      if (action === "add") {
+        let uid, dob;
+        if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
+        else { uid = senderID; dob = args[1]; }
+
+        if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) return api.sendMessage("❌ Invalid Format! Use: DD-MM-YYYY", threadID, messageID);
+        
+        await usersData.set(uid, { birthday: dob }, "data");
+        let msg = `✅ Birthday successfully set for ${uid} on ${dob}`;
+        if (!isFree) msg += `\n💸 ${formatCurrency(cost)} has been deducted from your balance.`;
+        return api.sendMessage(msg, threadID, messageID);
+      }
+
+      if (action === "set") {
+        let uid, wishText;
+        if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
+        else if (!isNaN(args[1])) {
+            const all = (await usersData.getAll()).filter(u => u.data?.birthday);
+            uid = all[parseInt(args[1]) - 1]?.userID;
+            wishText = args.slice(2).join(" ");
+        } else { uid = senderID; wishText = args.slice(1).join(" "); }
+
+        if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text> or !dob set <list#> <text>", threadID, messageID);
+        
+        await usersData.set(uid, { customWish: wishText }, "data");
+        let msg = "✅ Custom wish format updated! You can use {name} and {age}.";
+        if (!isFree) msg += `\n💸 ${formatCurrency(cost)} has been deducted from your balance.`;
+        return api.sendMessage(msg, threadID, messageID);
+      }
     }
 
     if (action === "rem" || action === "remove") {
@@ -146,7 +181,7 @@ module.exports = {
 
     if (action === "list") {
       const allUsers = (await usersData.getAll()).filter(u => u.data?.birthday);
-      if (allUsers.length === 0) return api.sendMessage("Empty list.", threadID);
+      if (allUsers.length === 0) return api.sendMessage("The birthday list is empty.", threadID);
       
       let msg = "🎂 BIRTHDAY LIST 🎂\n━━━━━━━━━━━━━━\n";
       allUsers.forEach((u, i) => msg += `${i + 1}. ${u.name} (${u.data.birthday})\n`);
