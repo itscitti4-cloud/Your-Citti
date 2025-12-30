@@ -9,13 +9,13 @@ const baseApiUrl = async () => {
 
 module.exports.config = {
     name: "akhi",
-    aliases: ["akhi", "akh", "aki"],
+    aliases: ["bby", "baby"],
     version: "1.0.2",
     author: "AkHi",
     countDown: 5,
     role: 0,
     description: "Simsimi Chatbot with MongoDB Support & Custom Reply Format",
-    category: "CHARTING",
+    category: "chat",
     guide: {
         en: "{pn} [anyMessage] OR\nteach [YourMessage] - [Reply] OR\nremove [YourMessage] OR\nlist OR all"
     }
@@ -87,10 +87,10 @@ module.exports.onReply = async ({ api, event }) => {
 
 module.exports.onChat = async ({ api, event }) => {
     const body = event.body ? event.body.toLowerCase() : "";
-    const triggers = ["akhi", "akh", "aki", "jan", "babu", "janu"];
+    const triggers = ["bby", "baby", "jan", "babu", "janu"];
     
     if (triggers.some(trigger => body.startsWith(trigger))) {
-        const text = body.replace(/^(akhi|akh|aki|jan|babu|janu)\s*/, "").trim();
+        const text = body.replace(/^(bby|baby|jan|babu|janu)\s*/, "").trim();
         if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
 
         try {
