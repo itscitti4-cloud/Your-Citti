@@ -19,16 +19,16 @@ module.exports = {
     config: {
         name: "vip",
         aliases: ["premium"],
-        version: "2.1.0",
+        version: "2.1.1",
         author: "AkHi",
         countDown: 5,
         role: 0, 
         category: "Premium",
-        shortDescription: "Manage and view VIP status",
-        guide: "{pn} info | {pn} add [@tag] | {pn} rem [@tag] | {pn} list"
+        shortDescription: { en: "Manage and view VIP status" },
+        guide: { en: "{pn} info | {pn} add [@tag] | {pn} rem [@tag] | {pn} list" }
     },
 
-    onStart: async function ({ api, event, args, Users, role }) {
+    onStart: async function ({ api, event, args, role }) {
         const { threadID, messageID, senderID, mentions, messageReply } = event;
 
         if (!fs.existsSync(dbPath)) fs.writeJsonSync(dbPath, {});
@@ -36,7 +36,7 @@ module.exports = {
 
         const action = args[0]?.toLowerCase();
 
-        // 1. VIP LIST (সবাই দেখতে পারবে)
+        // 1. VIP LIST
         if (action === "list") {
             let msg = "🏆 VIP USER LIST 🏆\n━━━━━━━━━━━━━━━\n";
             const list = Object.entries(vips);
@@ -50,43 +50,62 @@ module.exports = {
             return api.sendMessage(msg, threadID, messageID);
         }
 
-        // 2. VIP INFO (সবাই দেখতে পারবে)
+        // 2. VIP INFO
         if (action === "info" || !action) {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || senderID);
-            const name = await Users.getName(targetID);
-            const userData = await Users.get(targetID);
-            const money = userData.money || 0;
-            const isVip = vips[targetID] ? "Premium User ★" : "Normal User";
-
-            let msg = `★ VIP INFORMATION ★\n━━━━━━━━━━━━━━━\n`;
-            msg += `👤 Name: ${name}\n`;
-            msg += `💰 Balance: $${formatCurrency(money)}\n`;
-            msg += `✨ Status: ${isVip}\n`;
-            msg += `━━━━━━━━━━━━━━━\n`;
-            msg += vips[targetID] ? "Thank you for being a VIP member!" : "Upgrade to VIP to get special perks!";
             
-            return api.sendMessage(msg, threadID, messageID);
+            try {
+                // api.getUserInfo ব্যবহার করা হয়েছে এরর এড়াতে
+                const info = await api.getUserInfo(targetID);
+                const name = info[targetID].name;
+                
+                // Balance fetch করার জন্য global controller ব্যবহার করা যেতে পারে
+                // যদি money না দেখায় তবে 0 দেখাবে
+                let money = 0;
+                try {
+                    const userData = await global.controllers.Users.get(targetID);
+                    money = userData.money || 0;
+                } catch(e) {}
+
+                const isVip = vips[targetID] ? "Premium User ★" : "Normal User";
+
+                let msg = `★ VIP INFORMATION ★\n━━━━━━━━━━━━━━━\n`;
+                msg += `👤 Name: ${name}\n`;
+                msg += `💰 Balance: $${formatCurrency(money)}\n`;
+                msg += `✨ Status: ${isVip}\n`;
+                msg += `━━━━━━━━━━━━━━━\n`;
+                msg += vips[targetID] ? "Thank you for being a VIP member!" : "Upgrade to VIP to get special perks!";
+                
+                return api.sendMessage(msg, threadID, messageID);
+            } catch (err) {
+                return api.sendMessage("❌ Failed to fetch user info.", threadID, messageID);
+            }
         }
 
         // --- ADMIN ONLY ACTIONS (Add/Rem) ---
-        // এখানে রোল ২ থেকে ৪ পর্যন্ত চেক করা হচ্ছে
         if (role < 2 || role > 4) {
-            return api.sendMessage("⚠️ Access Denied! Only AkHi Ma'am can manage VIP list.", threadID, messageID);
+            return api.sendMessage("⚠️ Access Denied! Only 'AkHi Ma'am' can manage VIP list.", threadID, messageID);
         }
 
-        // 3. VIP ADD (Admin Only)
+        // 3. VIP ADD
         if (action === "add") {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || args[1]);
-            if (!targetID) return api.sendMessage("❌ Please tag, reply, or provide UID to add.", threadID, messageID);
+            if (!targetID) return api.sendMessage("❌ Please tag, reply, or provide UID.", threadID, messageID);
             
-            const name = await Users.getName(targetID);
-            vips[targetID] = { name, addedDate: new Date().toLocaleDateString() };
-            fs.writeJsonSync(dbPath, vips);
-            
-            return api.sendMessage(`✅ Successfully added ${name} to the VIP list!`, threadID, messageID);
+            try {
+                const info = await api.getUserInfo(targetID);
+                const name = info[targetID].name;
+                
+                vips[targetID] = { name, addedDate: new Date().toLocaleDateString() };
+                fs.writeJsonSync(dbPath, vips);
+                
+                return api.sendMessage(`✅ Successfully added ${name} to the VIP list!`, threadID, messageID);
+            } catch (err) {
+                return api.sendMessage("❌ Error: Invalid UID or User not found.", threadID, messageID);
+            }
         }
 
-        // 4. VIP REMOVE (Admin Only)
+        // 4. VIP REMOVE
         if (action === "rem" || action === "remove") {
             const targetID = messageReply ? messageReply.senderID : (Object.keys(mentions)[0] || args[1]);
             if (!vips[targetID]) return api.sendMessage("❌ User is not in the VIP list.", threadID, messageID);
@@ -99,4 +118,3 @@ module.exports = {
         return api.sendMessage("❓ Use: !vip [info | add | rem | list]", threadID, messageID);
     }
 };
-                              
