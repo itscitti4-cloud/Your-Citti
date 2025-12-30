@@ -14,11 +14,11 @@ module.exports = {
   },
 
   onStart: async function ({ api, event, args, usersData }) {
-    const { senderID, threadID, messageID } = event; // event থেকে আইডি সংগ্রহ
+    const { senderID, threadID, messageID } = event;
 
     // ১. ডাটা চেক এবং বেট অ্যামাউন্ট নির্ধারণ
     const userData = await usersData.get(senderID);
-    if (!userData) return api.sendMessage("❌ ইউজার ডাটা পাওয়া যায়নি।", threadID, messageID);
+    if (!userData) return api.sendMessage("❌ User data not found.", threadID, messageID);
 
     const userMoney = userData.money || 0;
     const betAmount = parseInt(args[0]);
@@ -53,7 +53,7 @@ module.exports = {
           messageID
         );
       } else {
-        const winMoney = Math.floor(betAmount * 0.5); // ০.৫ গুণ লাভ (টোটাল ১.৫)
+        const winMoney = Math.floor(betAmount * 0.5); 
         await usersData.set(senderID, { money: userMoney + winMoney });
 
         return api.sendMessage(
@@ -63,8 +63,10 @@ module.exports = {
           `├‣ Profit: +$${winMoney}\n` +
           `╰‣ Balance: $${userMoney + winMoney} 📈`,
           threadID,
-          messageID);
+          messageID
+        ); // এখানে ব্র্যাকেট ক্লোজ করা হয়েছে
       }
-    }
-  };
-          
+    }, 2000); // setTimeout এর ক্লোজিং নিশ্চিত করা হয়েছে
+  } // onStart এর ক্লোজিং
+}; // module.exports এর ক্লোজিং
+  
