@@ -809,7 +809,7 @@ Welcome to ${BANK_NAME}!`,
                 await targetUser.save();
 
                 // ৭. ট্রানজেকশন রিসিপ্ট তৈরি ও রিপ্লাই
-                const receiptPath = await createTransactionReceipt(transaction, userData);
+                receiptPath = await createTransactionReceipt(transaction, userData);
                 return message.reply({
                     body: `✅ [ TRANSFER SUCCESS ]\n\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n👤 To: ${targetUser.name || targetID}\n🔖 Transaction ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
@@ -823,7 +823,7 @@ Welcome to ${BANK_NAME}!`,
                 targetUser.markModified('data'); // এখানে targetUser নিশ্চিত করুন
                 await targetUser.save();
 
-                const receiptPath = await createTransactionReceipt(transaction, userData, targetUser);
+                receiptPath = await createTransactionReceipt(transaction, userData, targetUser);
                 return message.reply({
                     body: `✅ [ TRANSFER SUCCESS ]\n\n🔄 TRANSFER DETAILS\n━━━━━━━━━━━━━━━━━\n📤 From: ${userData.name || "Sender"}\n📥 To: ${targetUser.name || "Recipient"}\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n💳 Your Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n🔖 ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
@@ -836,7 +836,7 @@ Welcome to ${BANK_NAME}!`,
                     return message.reply("⚠️ You don't have a bank account to view history.");
                 }
                 
-                const transactions = userData.data.bank.transactions || [];
+                transactions = userData.data.bank.transactions || [];
                 if (transactions.length === 0) {
                     return message.reply("📋 You have no transaction history yet.");
                 }
