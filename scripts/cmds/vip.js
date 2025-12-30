@@ -77,7 +77,7 @@ module.exports = {
 
         // --- অ্যাডমিন অ্যাকশন (অ্যাড/রিমুভ) ---
         if (role < 2 || role > 4) {
-            return api.sendMessage("⚠️ Access Denied! Only Bot Admins can manage VIP list.", threadID, messageID);
+            return api.sendMessage("⚠️ Access Denied! Only “AkHi Ma'am” can manage VIP list.", threadID, messageID);
         }
 
         if (action === "add") {
