@@ -10,7 +10,7 @@ module.exports = {
  role: 0,
  shortDescription: "Check NU admission result",
  longDescription: "Check National University admission test result by roll number",
- category: "other",
+ category: "tools",
  guide: "{pn} [admissionRoll]\n\nExample: {pn} 7056346"
  },
 
