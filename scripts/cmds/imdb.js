@@ -4,11 +4,11 @@ module.exports = {
   config: {
     name: "imdb",
     version: "1.0.0",
-    hasPermssion: 0,
-    credits: "AkHi",
-    description: "মুভির বিস্তারিত তথ্য জানার জন্য",
-    commandCategory: "utility",
-    usages: "[মুভির নাম]",
+    role: 0,
+    author: "AkHi",
+    description: "Movie information in imdb",
+    Category: "utility",
+    guide: "{pn} Movie name",
     cooldowns: 5
   },
 
