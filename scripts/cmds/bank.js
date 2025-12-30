@@ -141,7 +141,7 @@ module.exports = {
 
             switch (action) {
                 case "register": {
-                    if (userData?.data?.bank?.accountNumber) return message.reply("❌ আপনি ইতিমধ্যে নিবন্ধিত!");
+                    if (userData?.data?.bank?.accountNumber) return message.reply("❌ You are already registered!");
                     if (!userData) userData = new User({ userID: senderID, data: {} });
                     if (!userData.data) userData.data = {};
                     
@@ -163,16 +163,16 @@ module.exports = {
 
                 case "balance":
                 case "bal": {
-                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে ব্যাংক একাউন্ট খুলুন!");
+                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ Please open a bank account first!");
                     return message.reply(`🏦 [ ${BANK_NAME} ]\n💰 Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n💎 Savings: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings || 0)}`);
                 }
 
                 case "deposit":
                 case "dep": {
                     const amount = parseInt(args[1]);
-                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে একাউন্ট খুলুন!");
-                    if (isNaN(amount) || amount < MIN_DEPOSIT) return message.reply(`❌ সর্বনিম্ন ডিপোজিট ${MIN_DEPOSIT}`);
-                    if (userData.money < amount) return message.reply("❌ আপনার ওয়ালেটে পর্যাপ্ত টাকা নেই!");
+                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ Please open an account first!");
+                    if (isNaN(amount) || amount < MIN_DEPOSIT) return message.reply(`❌ Minimum deposit is ${MIN_DEPOSIT}`);
+                    if (userData.money < amount) return message.reply("❌ You don't have enough cash in your wallet!");
 
                     const transaction = { transactionId: generateTransactionId(), type: "deposit", amount, timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm") };
                     userData.money -= amount;
@@ -183,15 +183,15 @@ module.exports = {
                     userData.markModified('data');
                     await userData.save();
                     const pathR = await createTransactionReceipt(transaction, userData);
-                    return message.reply({ body: "✅ ডিপোজিট সফল হয়েছে!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
+                    return message.reply({ body: "✅ Deposit Successful!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
                 }
 
                 case "withdraw":
                 case "wd": {
                     const amount = parseInt(args[1]);
-                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে একাউন্ট খুলুন!");
-                    if (isNaN(amount) || amount < MIN_WITHDRAW) return message.reply(`❌ সর্বনিম্ন উত্তোলন ${MIN_WITHDRAW}`);
-                    if (userData.data.bank.balance < amount) return message.reply("❌ ব্যাংকে পর্যাপ্ত ব্যালেন্স নেই!");
+                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ Please open an account first!");
+                    if (isNaN(amount) || amount < MIN_WITHDRAW) return message.reply(`❌ Minimum withdrawal is ${MIN_WITHDRAW}`);
+                    if (userData.data.bank.balance < amount) return message.reply("❌ Insufficient bank balance!");
 
                     const transaction = { transactionId: generateTransactionId(), type: "withdraw", amount, timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm") };
                     userData.data.bank.balance -= amount;
@@ -202,19 +202,19 @@ module.exports = {
                     userData.markModified('data');
                     await userData.save();
                     const pathR = await createTransactionReceipt(transaction, userData);
-                    return message.reply({ body: "✅ টাকা উত্তোলন সফল হয়েছে!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
+                    return message.reply({ body: "✅ Withdrawal Successful!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
                 }
 
                 case "transfer":
                 case "tf": {
                     let targetID = Object.keys(event.mentions).length > 0 ? Object.keys(event.mentions)[0] : args[1];
                     const amount = parseInt(args[2]);
-                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে একাউন্ট খুলুন!");
-                    if (!targetID || isNaN(amount) || amount < MIN_TRANSFER) return message.reply("💡 ব্যবহার: bank transfer <@tag/UID> <amount>");
+                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ Please open an account first!");
+                    if (!targetID || isNaN(amount) || amount < MIN_TRANSFER) return message.reply("💡 Usage: bank transfer <@tag/UID> <amount>");
 
                     const targetUser = await User.findOne({ userID: targetID });
-                    if (!targetUser?.data?.bank?.accountNumber) return message.reply("❌ প্রাপকের ব্যাংক একাউন্ট নেই!");
-                    if (userData.data.bank.balance < amount) return message.reply("❌ পর্যাপ্ত ব্যালেন্স নেই!");
+                    if (!targetUser?.data?.bank?.accountNumber) return message.reply("❌ Recipient does not have a bank account!");
+                    if (userData.data.bank.balance < amount) return message.reply("❌ Insufficient balance!");
 
                     const transaction = { transactionId: generateTransactionId(), type: "transfer", amount, timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm") };
                     
@@ -231,39 +231,39 @@ module.exports = {
                     await targetUser.save();
 
                     const pathR = await createTransactionReceipt(transaction, userData);
-                    return message.reply({ body: "✅ ট্রান্সফার সফল হয়েছে!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
+                    return message.reply({ body: "✅ Transfer Successful!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
                 }
 
                 case "card": {
-                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে একাউন্ট খুলুন!");
+                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ Please open an account first!");
                     if (args[1] === "apply") {
-                        if (userData.data.bank.cards?.length > 0) return message.reply("❌ আপনার ইতিমধ্যে কার্ড আছে!");
+                        if (userData.data.bank.cards?.length > 0) return message.reply("❌ You already have a card!");
                         const pin = generatePIN();
                         const cardInfo = { cardNumber: generateCardNumber(), cvv: generateCVV(), pin: hashPIN(pin), expiryDate: getExpiryDate(), isActive: true };
                         userData.data.bank.cards = [cardInfo];
                         userData.markModified('data');
                         await userData.save();
                         const pathC = await createBankCard(cardInfo, userData);
-                        return message.reply({ body: `💳 কার্ড ইস্যু হয়েছে!\nPIN: ${pin} (গোপন রাখুন)`, attachment: fs.createReadStream(pathC) }, () => fs.unlinkSync(pathC));
+                        return message.reply({ body: `💳 Card Issued Successfully!\nPIN: ${pin} (Keep it secret)`, attachment: fs.createReadStream(pathC) }, () => fs.unlinkSync(pathC));
                     }
-                    if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) return message.reply("❌ কার্ড নেই! 'bank card apply' লিখুন।");
+                    if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) return message.reply("❌ No card found! Type 'bank card apply'.");
                     const pathC = await createBankCard(userData.data.bank.cards[0], userData);
-                    return message.reply({ body: "💳 আপনার ডেবিট কার্ড", attachment: fs.createReadStream(pathC) }, () => fs.unlinkSync(pathC));
+                    return message.reply({ body: "💳 Your Debit Card", attachment: fs.createReadStream(pathC) }, () => fs.unlinkSync(pathC));
                 }
 
                 case "statement": {
-                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ একাউন্ট নেই!");
+                    if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ No account found!");
                     const bank = userData.data.bank;
-                    let msg = `📑 [ STATEMENT - ${BANK_NAME} ]\n👤 নাম: ${userData.name}\n📋 একাউন্ট: ${bank.accountNumber}\n💰 ব্যালেন্স: ${CURRENCY_SYMBOL}${formatMoney(bank.balance)}\n💎 সেভিংস: ${CURRENCY_SYMBOL}${formatMoney(bank.savings || 0)}\n\n📊 পরিসংখ্যান:\n📥 মোট জমা: ${formatMoney(bank.totalDeposited || 0)}\n📤 মোট উত্তোলন: ${formatMoney(bank.totalWithdrawn || 0)}\n🔄 মোট ট্রান্সফার: ${formatMoney(bank.totalTransferred || 0)}`;
+                    let msg = `📑 [ STATEMENT - ${BANK_NAME} ]\n👤 Name: ${userData.name}\n📋 Acc: ${bank.accountNumber}\n💰 Balance: ${CURRENCY_SYMBOL}${formatMoney(bank.balance)}\n💎 Savings: ${CURRENCY_SYMBOL}${formatMoney(bank.savings || 0)}\n\n📊 Statistics:\n📥 Total Dep: ${formatMoney(bank.totalDeposited || 0)}\n📤 Total WD: ${formatMoney(bank.totalWithdrawn || 0)}\n🔄 Total TF: ${formatMoney(bank.totalTransferred || 0)}`;
                     return message.reply(msg);
                 }
 
                 default:
-                    return message.reply("💡 কমান্ডসমূহ: register, balance, deposit, withdraw, transfer, card, statement");
+                    return message.reply("💡 Commands: register, balance, deposit, withdraw, transfer, card, statement");
             }
         } catch (error) {
             console.error(error);
-            return message.reply("❌ ব্যাংক সার্ভারে সমস্যা হচ্ছে!");
+            return message.reply("❌ Error connecting to bank server!");
         }
     }
 };
