@@ -14,7 +14,7 @@ module.exports = {
     longDescription: {
       en: "Fetches and sends the current group chat profile picture."
     },
-    category: "group",
+    category: "box chat",
     guide: {
       en: "{p}gcimg"
     }
