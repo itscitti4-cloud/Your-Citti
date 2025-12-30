@@ -809,26 +809,20 @@ Welcome to ${BANK_NAME}!`,
                 await targetUser.save();
 
                 // ৭. ট্রানজেকশন রিসিপ্ট তৈরি ও রিপ্লাই
-                receiptPath = await createTransactionReceipt(transaction, userData);
-                return message.reply({
-                    body: `✅ [ TRANSFER SUCCESS ]\n\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n👤 To: ${targetUser.name || targetID}\n🔖 Transaction ID: ${transaction.transactionId}`,
-                    attachment: fs.createReadStream(receiptPath)
-                }, () => fs.unlinkSync(receiptPath));
-            }
-
-                                // ১. MongoDB তে ডাটা সেভ করা (প্রেরক এবং গ্রাহক উভয়ের জন্য)
-                userData.markModified('data');
-                await userData.save();
-                
-                targetUser.markModified('data'); // এখানে targetUser নিশ্চিত করুন
-                await targetUser.save();
-
-                receiptPath = await createTransactionReceipt(transaction, userData, targetUser);
+                receiptPath = await createTransactionReceipt(transaction, userData, targetUser); 
                 return message.reply({
                     body: `✅ [ TRANSFER SUCCESS ]\n\n🔄 TRANSFER DETAILS\n━━━━━━━━━━━━━━━━━\n📤 From: ${userData.name || "Sender"}\n📥 To: ${targetUser.name || "Recipient"}\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n💳 Your Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n🔖 ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
-                }, () => fs.unlinkSync(receiptPath));
+                }, () => {
+                    if (fs.existsSync(receiptPath)) fs.unlinkSync(receiptPath);
+                });
+
+            } catch (error) { // ৮৩০ নম্বর লাইনের আশেপাশে এই অংশটি নিশ্চিত করুন
+                console.error(error);
+                return message.reply("⚠️ An error occurred during the transaction!");
             }
+        }
+};
 
             case "history":
             case "his": {
