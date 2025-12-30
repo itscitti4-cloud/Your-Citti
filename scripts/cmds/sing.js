@@ -39,7 +39,7 @@ async function downloadSong(baseApi, url, api, event, title = null) {
 
 module.exports = {
   config: {
-    name: "song",
+    name: "sing",
     aliases: ["music", "sing"],
     version: "0.0.1",
     author: "AkHi",
@@ -47,7 +47,7 @@ module.exports = {
     role: 0,
     shortDescription: "Sing tomake chai",
     longDescription: "Search and download music from YouTube",
-    category: "music",
+    category: "media",
     guide: "/play <song name or YouTube URL>"
   },
 
