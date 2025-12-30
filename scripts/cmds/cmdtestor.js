@@ -4,66 +4,82 @@ module.exports = {
   config: {
     name: "command_testor",
     aliases: ["ct", "cmdtest"],
-    version: "1.2.0",
+    version: "2.0.0",
     author: "AkHi",
     countDown: 2,
     role: 2,
-    shortDescription: "Advanced Command Tester",
+    shortDescription: "Improved Command Tester with Debugging",
     category: "owner",
     guide: "{p}ct <javascript code>"
   },
 
-  onStart: async function ({ api, event, args }) {
+  onStart: async function ({ api, event, args, Users, Threads, Currencies }) {
     const { threadID, messageID } = event;
     let code = args.join(" ");
 
     if (!code) return api.sendMessage("❌ Please provide the code to test.", threadID, messageID);
 
     try {
-      // ১. কোড থেকে অপ্রয়োজনীয় অংশ পরিষ্কার করা
+      // কোড থেকে অপ্রয়োজনীয় অংশ পরিষ্কার করা
       let cleanCode = code
-        .replace(/const\s+.*=.*require\(.*\);?/g, "") // const require লাইনগুলো সরাবে
-        .replace(/module\.exports\s*=\s*/, "")        // module.exports সরাবে
+        .replace(/const\s+.*=.*require\(.*\);?/g, "")
+        .replace(/module\.exports\s*=\s*/, "")
         .trim();
 
-      // ২. কোডের শেষে সেমিকোলন থাকলে তা সরাবে (eval এরর এড়াতে)
-      if (cleanCode.endsWith(";")) {
-        cleanCode = cleanCode.slice(0, -1);
-      }
+      if (cleanCode.endsWith(";")) cleanCode = cleanCode.slice(0, -1);
 
-      // ৩. কোডটিকে অবজেক্টে রূপান্তর করা
       let tempCommand;
       try {
+        // নতুন Function কনস্ট্রাক্টর ব্যবহার করা হয়েছে এরর ডিবাগিং সহজ করতে
         tempCommand = eval(`(${cleanCode})`);
       } catch (e) {
-        return api.sendMessage(`❌ Syntax Error:\n${e.message}`, threadID, messageID);
+        // এরর এর স্ট্যাক ট্রেস থেকে লাইন নম্বর বের করা
+        const stack = e.stack.split('\n');
+        const lineInfo = stack[1] ? stack[1].match(/<anonymous>:(\d+):(\d+)/) : null;
+        const lineMsg = lineInfo ? `\n📍 Error at Line: ${lineInfo[1]}, Column: ${lineInfo[2]}` : "";
+        
+        return api.sendMessage(`❌ Syntax Error: ${e.message}${lineMsg}`, threadID, messageID);
       }
 
-      // ৪. ফরম্যাট চেক
       if (!tempCommand || !tempCommand.config || !tempCommand.onStart) {
-        return api.sendMessage("📝 Error: Missing 'config' or 'onStart' function in your code.", threadID, messageID);
+        return api.sendMessage("📝 Error: Missing 'config' or 'onStart' function.", threadID, messageID);
       }
 
-      api.sendMessage("⏳ AkHi Ma'am, testing the command... please wait.", threadID, async () => {
+      // স্যাম্পল আউটপুট দেখানোর জন্য একটি ইন্টারসেপ্টর
+      const originalSendMessage = api.sendMessage;
+      let sampleOutput = "";
+      
+      // ফেক sendMessage ফাংশন যাতে আউটপুট ক্যাপচার করা যায়
+      const fakeApi = {
+        ...api,
+        sendMessage: (msg, tid, mid) => {
+          sampleOutput = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+          return originalSendMessage(msg, tid, mid);
+        }
+      };
+
+      api.sendMessage("⏳ Testing execution & capturing sample output...", threadID, async () => {
         try {
-          // ফেক ডাটা দিয়ে টেস্ট রান
           await tempCommand.onStart({ 
-            api, 
+            api: fakeApi, 
             event, 
-            args: [], 
-            Threads: { setData: () => {}, getName: () => "Test Thread" }, 
-            Users: { setData: () => {}, getName: () => "Test User" }, 
-            Currencies: { setData: () => {}, get: () => 0 } 
+            args: ["test"], // স্যাম্পল আর্গুমেন্ট
+            Threads, 
+            Users, 
+            Currencies 
           });
           
-          api.sendMessage(`✅ Perfect! The code is valid.\n\n🔹 Name: ${tempCommand.config.name}\n🔹 Author: ${tempCommand.config.author}`, threadID);
+          let resultMsg = `✅ Code is Valid!\n\n🔹 Name: ${tempCommand.config.name}\n🔹 Author: ${tempCommand.config.author}\n\n🖼️ **Sample Output:**\n--------------------\n${sampleOutput || "No direct message sent during test."}`;
+          
+          api.sendMessage(resultMsg, threadID);
         } catch (runError) {
-          api.sendMessage(`⚠️ Code is valid but failed during execution:\n❌ ${runError.message}`, threadID);
+          const runStack = runError.stack.split('\n')[1];
+          api.sendMessage(`⚠️ Execution Error: ${runError.message}\n🔍 Trace: ${runStack}`, threadID);
         }
       }, messageID);
 
     } catch (globalError) {
-      api.sendMessage(`❌ Critical Error:\n${globalError.message}`, threadID, messageID);
+      api.sendMessage(`❌ Critical Error: ${globalError.message}`, threadID, messageID);
     }
   }
 };
