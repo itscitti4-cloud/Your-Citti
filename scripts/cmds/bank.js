@@ -661,7 +661,6 @@ Welcome to ${BANK_NAME}!`,
                     body: `✅ [ WITHDRAW SUCCESS ]\n\n💸 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}\n💳 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n👛 Wallet Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.money)}\n🔖 Transaction ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
                 }, () => fs.unlinkSync(receiptPath));
-            }
 
             case "transfer":
             case "tf": {
