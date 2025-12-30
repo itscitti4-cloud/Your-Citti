@@ -3,13 +3,14 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "imdb",
-    version: "1.0.0",
-    role: 0,
+    aliases: "",
+    version: "1.0",
     author: "AkHi",
-    description: "Movie information in imdb",
-    Category: "utility",
-    guide: "{pn} Movie name",
-    cooldowns: 5
+    countDown: 5,
+    role: 0,
+    shortDescription: "get movie information from imdb!",
+    category: "information",
+    guide: "{pn} movie name"
   },
 
   onStart: async function ({ api, event, args }) {
