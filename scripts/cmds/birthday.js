@@ -5,7 +5,6 @@ const cron = require("node-cron");
 const moment = require("moment-timezone");
 const jimp = require("jimp");
 
-// Currency formatting function (e.g., 10000 -> 10K)
 function formatCurrency(number) {
     if (number === undefined || number === null || isNaN(number)) return "0";
     if (number < 1000) return number.toString();
@@ -17,7 +16,6 @@ function formatCurrency(number) {
     return scaled.toFixed(1).replace(/\.0$/, "") + suffix;
 }
 
-// Age calculation function
 function getAge(dob) {
     const birthDate = moment(dob, "DD-MM-YYYY");
     const today = moment.tz("Asia/Dhaka");
@@ -28,11 +26,11 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.1",
+    version: "3.6.4",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Manage birthdays (Cost: 10K for users)",
+    shortDescription: "Manage birthdays with automatic wishing",
     category: "utility",
     guide: "{pn} add [tag/reply/uid] DD-MM-YYYY\n{pn} set [tag/reply/uid/list#] <message>\n{pn} rem [tag/reply/uid/list#]\n{pn} list\n{pn} upcoming\n{pn} check"
   },
@@ -91,13 +89,16 @@ module.exports = {
     }
   },
 
-  onReply: async function ({ api, event, Reply, usersData }) {
-    const { threadID, messageID, body } = event;
-    if (Reply.type === "view_sample") {
+  onReply: async function ({ api, event, handleReply }) {
+    const { threadID, messageID, body, senderID } = event;
+    if (handleReply.author != senderID) return;
+
+    if (handleReply.type === "view_sample") {
       const num = parseInt(body);
-      if (isNaN(num) || num > Reply.list.length || num <= 0) return;
+      const list = handleReply.list;
+      if (isNaN(num) || num > list.length || num <= 0) return api.sendMessage("❌ Invalid number!", threadID, messageID);
       
-      const targetUser = Reply.list[num - 1];
+      const targetUser = list[num - 1];
       const age = getAge(targetUser.data.birthday);
       
       let customMsg = targetUser.data.customWish || `✨ Wishing a wonderful day to: ${targetUser.name}\n🎂 May all your dreams come true!`;
@@ -112,10 +113,12 @@ module.exports = {
   onStart: async function ({ api, event, args, usersData, Currencies }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     const action = args[0]?.toLowerCase();
-    const cost = 10000; // 10K Taka
+    const cost = 10000;
 
-    const { adminIDs, developerID } = global.config;
-    const isAdmin = adminIDs.some(item => item.id == senderID);
+    const adminIDs = global.config?.adminIDs || [];
+    const developerID = global.config?.developerID || "";
+    
+    const isAdmin = adminIDs.some(item => (item.id || item) == senderID);
     const isDev = developerID == senderID;
     const user = await usersData.get(senderID);
     const isVIP = user.data?.isVIP || false;
@@ -128,7 +131,6 @@ module.exports = {
         if (userData.money < cost) {
           return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
         }
-        await Currencies.decreaseData(senderID, cost);
       }
 
       if (action === "add") {
@@ -137,7 +139,12 @@ module.exports = {
         else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
         else { uid = senderID; dob = args[1]; }
 
-        if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) return api.sendMessage("❌ Invalid Format! Use: DD-MM-YYYY", threadID, messageID);
+        // সঠিক তারিখ ফরম্যাট চেক করার সিস্টেম
+        if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
+            return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
+        }
+        
+        if (!isFree) await Currencies.decreaseData(senderID, cost);
         
         await usersData.set(uid, { birthday: dob }, "data");
         let msg = `✅ Birthday successfully set for ${uid} on ${dob}`;
@@ -149,34 +156,17 @@ module.exports = {
         let uid, wishText;
         if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
         else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
-        else if (!isNaN(args[1])) {
-            const all = (await usersData.getAll()).filter(u => u.data?.birthday);
-            uid = all[parseInt(args[1]) - 1]?.userID;
-            wishText = args.slice(2).join(" ");
-        } else { uid = senderID; wishText = args.slice(1).join(" "); }
+        else { uid = senderID; wishText = args.slice(1).join(" "); }
 
-        if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text> or !dob set <list#> <text>", threadID, messageID);
+        if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
+        
+        if (!isFree) await Currencies.decreaseData(senderID, cost);
         
         await usersData.set(uid, { customWish: wishText }, "data");
-        let msg = "✅ Custom wish format updated! You can use {name} and {age}.";
+        let msg = "✅ Custom wish format updated!";
         if (!isFree) msg += `\n💸 ${formatCurrency(cost)} has been deducted from your balance.`;
         return api.sendMessage(msg, threadID, messageID);
       }
-    }
-
-    if (action === "rem" || action === "remove") {
-      let uid;
-      if (messageReply) { uid = messageReply.senderID; }
-      else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; }
-      else if (!isNaN(args[1])) {
-          const all = (await usersData.getAll()).filter(u => u.data?.birthday);
-          uid = all[parseInt(args[1]) - 1]?.userID;
-      } else { uid = senderID; }
-
-      if (!uid) return api.sendMessage("❌ User not found.", threadID, messageID);
-      
-      await usersData.set(uid, { birthday: null, customWish: null }, "data");
-      return api.sendMessage("✅ Birthday record removed successfully.", threadID, messageID);
     }
 
     if (action === "list") {
@@ -200,30 +190,33 @@ module.exports = {
     }
 
     if (action === "upcoming") {
-      const allUsers = await usersData.getAll();
-      const upcoming = [];
-      const today = moment.tz("Asia/Dhaka");
+        const allUsers = await usersData.getAll();
+        const upcoming = [];
+        const today = moment.tz("Asia/Dhaka");
+        for (let i = 1; i <= 7; i++) {
+          const nextDay = today.clone().add(i, 'days').format("DD-MM");
+          allUsers.forEach(u => {
+            if (u.data?.birthday && u.data.birthday.startsWith(nextDay)) {
+              upcoming.push({ name: u.name, date: u.data.birthday.substring(0, 5) });
+            }
+          });
+        }
+        let msg = "📅 UPCOMING BIRTHDAYS (Next 7 Days) 📅\n━━━━━━━━━━━━━━\n";
+        if (upcoming.length === 0) msg += "No birthdays in the next 7 days.";
+        else upcoming.forEach(u => msg += `• ${u.name} - ${u.date}\n`);
+        return api.sendMessage(msg, threadID, messageID);
+    }
 
-      for (let i = 1; i <= 7; i++) {
-        const nextDay = today.clone().add(i, 'days').format("DD-MM");
-        allUsers.forEach(u => {
-          if (u.data?.birthday && u.data.birthday.startsWith(nextDay)) {
-            upcoming.push({ name: u.name, date: u.data.birthday.substring(0, 5) });
-          }
-        });
-      }
-
-      let msg = "📅 UPCOMING BIRTHDAYS (Next 7 Days) 📅\n━━━━━━━━━━━━━━\n";
-      if (upcoming.length === 0) msg += "No birthdays in the next 7 days.";
-      else upcoming.forEach(u => msg += `• ${u.name} - ${u.date}\n`);
-      
-      return api.sendMessage(msg, threadID, messageID);
+    if (action === "rem" || action === "remove") {
+        let uid = messageReply ? messageReply.senderID : (Object.keys(mentions).length > 0 ? Object.keys(mentions)[0] : senderID);
+        await usersData.set(uid, { birthday: null, customWish: null }, "data");
+        return api.sendMessage("✅ Birthday record removed successfully.", threadID, messageID);
     }
 
     if (action === "check") {
-      await this.checkAndWish({ api, usersData, targetThreadID: threadID });
-      return api.sendMessage("🔍 Scan complete.", threadID);
+        await this.checkAndWish({ api, usersData, targetThreadID: threadID });
+        return api.sendMessage("🔍 Scan complete.", threadID);
     }
   }
 };
-          
+            
