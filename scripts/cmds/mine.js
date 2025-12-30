@@ -63,5 +63,8 @@ module.exports = {
           `├‣ Profit: +$${winMoney}\n` +
           `╰‣ Balance: $${userMoney + winMoney} 📈`,
           threadID,
-          messageID
+          messageID);
+      }
+    }
+  };
           
