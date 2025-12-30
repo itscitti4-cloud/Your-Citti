@@ -62,34 +62,27 @@ function getExpiryDate() {
     const date = new Date();
     date.setFullYear(date.getFullYear() + CARD_VALIDITY_YEARS);
     return (date.getMonth() + 1).toString().padStart(2, "0") + "/" + date.getFullYear().toString().slice(-2);
-        }
+}
 async function createBankCard(cardData, userData) {
     const width = 850;
     const height = 540;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
-
     const gradient = ctx.createLinearGradient(0, 0, width, height);
     gradient.addColorStop(0, "#004e92");
     gradient.addColorStop(1, "#000428");
-
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.roundRect(0, 0, width, height, 30);
     ctx.fill();
-
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 32px Arial";
     ctx.fillText(BANK_NAME, 50, 80);
-
     ctx.font = "bold 42px Courier New";
     ctx.fillText(formatCardNumber(cardData.cardNumber), 50, 300);
-
     ctx.font = "24px Arial";
     ctx.fillText(userData.name.toUpperCase(), 50, 470);
-    
     ctx.fillText("VALID THRU: " + cardData.expiryDate, 550, 470);
-
     const buffer = canvas.toBuffer("image/png");
     const outputPath = path.join(__dirname, "tmp", `card_${Date.now()}.png`);
     await fs.ensureDir(path.join(__dirname, "tmp"));
@@ -102,17 +95,14 @@ async function createTransactionReceipt(transaction, userData) {
     const height = 800;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
-
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = "#004e92";
     ctx.fillRect(0, 0, width, 120);
-
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 35px Arial";
     ctx.textAlign = "center";
     ctx.fillText(BANK_NAME, width / 2, 70);
-
     ctx.textAlign = "left";
     ctx.fillStyle = "#333333";
     ctx.font = "18px Arial";
@@ -120,7 +110,6 @@ async function createTransactionReceipt(transaction, userData) {
     ctx.fillText(`Type: ${transaction.type.toUpperCase()}`, 40, 250);
     ctx.fillText(`Amount: ${CURRENCY_SYMBOL}${formatMoney(transaction.amount)}`, 40, 300);
     ctx.fillText(`Date: ${transaction.timestamp}`, 40, 350);
-
     const buffer = canvas.toBuffer("image/png");
     const outputPath = path.join(__dirname, "tmp", `receipt_${Date.now()}.png`);
     await fs.ensureDir(path.join(__dirname, "tmp"));
@@ -131,6 +120,7 @@ async function createTransactionReceipt(transaction, userData) {
 function generateTransactionId() {
     return `TXN${Date.now().toString(36).toUpperCase()}`;
 }
+
 module.exports = {
     config: {
         name: "bank",
@@ -152,6 +142,7 @@ module.exports = {
                 case "register": {
                     if (userData?.data?.bank?.accountNumber) return message.reply("❌ আপনি ইতিমধ্যে নিবন্ধিত!");
                     if (!userData) userData = new User({ userID: senderID, data: {} });
+                    if (!userData.data) userData.data = {};
                     
                     userData.data.bank = {
                         accountNumber: generateAccountNumber(),
@@ -194,7 +185,7 @@ module.exports = {
                     return message.reply({ body: "✅ ডিপোজিট সফল হয়েছে!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
                 }
 
-                            case "withdraw":
+                case "withdraw":
                 case "wd": {
                     const amount = parseInt(args[1]);
                     if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে একাউন্ট খুলুন!");
@@ -241,7 +232,8 @@ module.exports = {
                     const pathR = await createTransactionReceipt(transaction, userData);
                     return message.reply({ body: "✅ ট্রান্সফার সফল হয়েছে!", attachment: fs.createReadStream(pathR) }, () => fs.unlinkSync(pathR));
                 }
-                                    case "card": {
+
+                case "card": {
                     if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ আগে একাউন্ট খুলুন!");
                     if (args[1] === "apply") {
                         if (userData.data.bank.cards?.length > 0) return message.reply("❌ আপনার ইতিমধ্যে কার্ড আছে!");
@@ -253,7 +245,7 @@ module.exports = {
                         const pathC = await createBankCard(cardInfo, userData);
                         return message.reply({ body: `💳 কার্ড ইস্যু হয়েছে!\nPIN: ${pin} (গোপন রাখুন)`, attachment: fs.createReadStream(pathC) }, () => fs.unlinkSync(pathC));
                     }
-                    if (!userData.data.bank.cards?.length) return message.reply("❌ কার্ড নেই! 'bank card apply' লিখুন।");
+                    if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) return message.reply("❌ কার্ড নেই! 'bank card apply' লিখুন।");
                     const pathC = await createBankCard(userData.data.bank.cards[0], userData);
                     return message.reply({ body: "💳 আপনার ডেবিট কার্ড", attachment: fs.createReadStream(pathC) }, () => fs.unlinkSync(pathC));
                 }
@@ -261,7 +253,7 @@ module.exports = {
                 case "statement": {
                     if (!userData?.data?.bank?.accountNumber) return message.reply("⚠️ একাউন্ট নেই!");
                     const bank = userData.data.bank;
-                    let msg = `📑 [ STATEMENT - ${BANK_NAME} ]\n👤 নাম: ${userData.name}\n📋 একাউন্ট: ${bank.accountNumber}\n💰 ব্যালেন্স: ${CURRENCY_SYMBOL}${formatMoney(bank.balance)}\n💎 সেভিংস: ${CURRENCY_SYMBOL}${formatMoney(bank.savings || 0)}\n\n📊 পরিসংখ্যান:\n📥 মোট জমা: ${formatMoney(bank.totalDeposited)}\n📤 মোট উত্তোলন: ${formatMoney(bank.totalWithdrawn)}\n🔄 মোট ট্রান্সফার: ${formatMoney(bank.totalTransferred)}`;
+                    let msg = `📑 [ STATEMENT - ${BANK_NAME} ]\n👤 নাম: ${userData.name}\n📋 একাউন্ট: ${bank.accountNumber}\n💰 ব্যালেন্স: ${CURRENCY_SYMBOL}${formatMoney(bank.balance)}\n💎 সেভিংস: ${CURRENCY_SYMBOL}${formatMoney(bank.savings || 0)}\n\n📊 পরিসংখ্যান:\n📥 মোট জমা: ${formatMoney(bank.totalDeposited || 0)}\n📤 মোট উত্তোলন: ${formatMoney(bank.totalWithdrawn || 0)}\n🔄 মোট ট্রান্সফার: ${formatMoney(bank.totalTransferred || 0)}`;
                     return message.reply(msg);
                 }
 
@@ -274,3 +266,4 @@ module.exports = {
         }
     }
 };
+                                                                                                                                      
