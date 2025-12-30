@@ -1,3 +1,5 @@
+const mongoose = require("mongoose");
+const User = require("../../../database/model/mongodb/user.js");
 const { createCanvas, loadImage, registerFont } = require("canvas");
 const fs = require("fs-extra");
 const path = require("path");
@@ -446,66 +448,96 @@ Welcome to ${BANK_NAME}!`,
         }
     },
 
-    onStart: async function ({ args, message, event, usersData, getLang }) {
-        const { senderID } = event;
-        let userData = await usersData.get(senderID);
-        const action = args[0]?.toLowerCase();
+    onStart: async function ({ api, event, args, message, getLang }) {
+        const { senderID, threadID, messageID } = event;
 
-        if (!action) {
-            return message.reply(getLang("menu"));
-        }
+        try {
+            // ১. MongoDB থেকে ইউজার ডাটা কল করা
+            let userData = await User.findOne({ userID: senderID });
 
-        switch (action) {
-            case "register": {
-                userData = ensureDataStructure(userData);
-                if (isRegistered(userData)) {
-                    return message.reply(getLang("alreadyRegistered"));
+            // ২. অ্যাকশন নির্ধারণ (যেমন: register, bal)
+            const action = args[0]?.toLowerCase();
+
+            // ৩. switch case শুরু
+            switch (action) {
+                case "register": {
+                    // যদি ইউজার আগে থেকেই থাকে এবং তার ব্যাংকিং ডাটা থাকে
+                    if (userData && userData.data && userData.data.bank && userData.data.bank.accountNumber) {
+                        return message.reply("❌ You are already registered in our banking system!");
+                    }
+
+                    // নতুন অ্যাকাউন্ট ডিটেইলস জেনারেট করা
+                    const accountNumber = generateAccountNumber();
+                    const cardNumber = generateCardNumber();
+                    const createdAt = moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss");
+
+                    const transaction = {
+                        transactionId: generateTransactionId(),
+                        type: "account_opened",
+                        amount: 0,
+                        newBalance: 0,
+                        timestamp: createdAt,
+                        description: "Account opened"
+                    };
+
+                    // নতুন ইউজার তৈরি বা আপডেট করা
+                    if (!userData) {
+                        userData = new User({ userID: senderID, data: {} });
+                    }
+
+                    userData.data.bank = {
+                        accountNumber: accountNumber,
+                        cardNumber: cardNumber,
+                        balance: 0,
+                        savings: 0,
+                        totalDeposited: 0,
+                        totalWithdrawn: 0,
+                        createdAt: createdAt,
+                        transactions: [transaction]
+                    };
+
+                    userData.markModified('data'); // Object আপডেট করার জন্য জরুরি
+                    await userData.save(); // MongoDB তে সেভ
+
+                    return message.reply(`🏦 [ REGISTER SUCCESS ]\n━━━━━━━━━━━━━━━━━━\nAccount No: ${accountNumber}\nCreated At: ${createdAt}\n\nWelcome to ${BANK_NAME}!`);
                 }
-                userData = createBankAccount(userData);
-                const transaction = {
-                    transactionId: generateTransactionId(),
-                    type: "account_opened",
-                    amount: 0,
-                    newBalance: 0,
-                    timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
-                    description: "Account opened"
-                };
-                userData.data.bank.transactions.push(transaction);
-                await usersData.set(senderID, { data: userData.data });
-                return message.reply(getLang("registered", userData.data.bank.accountNumber, userData.data.bank.createdAt));
-            }
 
-            case "balance":
-            case "bal": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                case "balance":
+                case "bal": {
+                    if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                        return message.reply("⚠️ You don't have a bank account. Use 'bank register' to create one.");
+                    }
+
+                    const bank = userData.data.bank;
+                    return message.reply(
+                        `🏦 [ BANK STATEMENT ]\n━━━━━━━━━━━━━━━━━━\n` +
+                        `👤 Name: ${userData.name || "User"}\n` +
+                        `💳 Acc No: ${bank.accountNumber}\n` +
+                        `💰 Balance: ${formatMoney(bank.balance)}\n` +
+                        `🏦 Savings: ${formatMoney(bank.savings || 0)}\n` +
+                        `📥 Total Dep: ${formatMoney(bank.totalDeposited || 0)}\n` +
+                        `📤 Total With: ${formatMoney(bank.totalWithdrawn || 0)}`
+                    );
                 }
-                return message.reply(getLang("balance", 
-                    userData.name,
-                    userData.data.bank.accountNumber,
-                    formatMoney(userData.data.bank.balance),
-                    formatMoney(userData.data.bank.savings || 0),
-                    formatMoney(userData.data.bank.totalDeposited || 0),
-                    formatMoney(userData.data.bank.totalWithdrawn || 0)
-                ));
-            }
 
-            case "deposit":
+                        case "deposit":
             case "dep": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                // ১. রেজিস্ট্রেশন চেক
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account. Use 'bank register' to create one.");
                 }
+
                 const amount = parseInt(args[1]);
                 if (isNaN(amount) || amount <= 0) {
-                    return message.reply(getLang("invalidAmount"));
+                    return message.reply("❌ Please provide a valid amount to deposit.");
                 }
                 if (amount < MIN_DEPOSIT) {
-                    return message.reply(getLang("minDeposit"));
+                    return message.reply(`❌ Minimum deposit amount is ${CURRENCY_SYMBOL}${formatMoney(MIN_DEPOSIT)}.`);
                 }
+                
+                // আপনার স্কিমা অনুযায়ী userData.money চেক (হাতের ক্যাশ)
                 if (userData.money < amount) {
-                    return message.reply(getLang("insufficientWallet"));
+                    return message.reply("❌ You don't have enough cash in your wallet!");
                 }
 
                 const transaction = {
@@ -518,50 +550,55 @@ Welcome to ${BANK_NAME}!`,
                     description: "Wallet to Bank deposit"
                 };
 
-                userData.data.bank.balance += amount;
+                // ২. ডাটা আপডেট
+                userData.money -= amount; // হাতের টাকা কমানো
+                userData.data.bank.balance += amount; // ব্যাংকের টাকা বাড়ানো
                 userData.data.bank.totalDeposited = (userData.data.bank.totalDeposited || 0) + amount;
+                
+                // ট্রানজেকশন লিস্ট আপডেট
+                if (!userData.data.bank.transactions) userData.data.bank.transactions = [];
                 userData.data.bank.transactions.unshift(transaction);
                 if (userData.data.bank.transactions.length > 50) {
                     userData.data.bank.transactions = userData.data.bank.transactions.slice(0, 50);
                 }
 
-                await usersData.set(senderID, {
-                    money: userData.money - amount,
-                    data: userData.data
-                });
+                // ৩. MongoDB তে সেভ
+                userData.markModified('data');
+                await userData.save();
 
                 const receiptPath = await createTransactionReceipt(transaction, userData);
                 return message.reply({
-                    body: `${getLang("depositSuccess")}
-
-💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}
-💳 New Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}
-🔖 Transaction ID: ${transaction.transactionId}`,
+                    body: `✅ [ DEPOSIT SUCCESS ]\n\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}\n💳 New Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n🔖 Transaction ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
                 }, () => fs.unlinkSync(receiptPath));
             }
 
             case "withdraw":
             case "wd": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
-                }
-                const amount = parseInt(args[1]);
-                if (isNaN(amount) || amount <= 0) {
-                    return message.reply(getLang("invalidAmount"));
-                }
-                if (amount < MIN_WITHDRAW) {
-                    return message.reply(getLang("minWithdraw"));
-                }
-                if (userData.data.bank.balance < amount) {
-                    return message.reply(getLang("insufficientBalance"));
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account to withdraw money.");
                 }
 
+                const amount = parseInt(args[1]);
+                if (isNaN(amount) || amount <= 0) {
+                    return message.reply("❌ Please provide a valid amount to withdraw.");
+                }
+                if (amount < MIN_WITHDRAW) {
+                    return message.reply(`❌ Minimum withdrawal amount is ${CURRENCY_SYMBOL}${formatMoney(MIN_WITHDRAW)}.`);
+                }
+                if (userData.data.bank.balance < amount) {
+                    return message.reply("❌ Insufficient bank balance!");
+                }
+
+                // ৪. ডেইলি লিমিট চেক
                 const today = moment().tz("Asia/Dhaka").format("DD/MM/YYYY");
+                if (!userData.data.bank.dailyWithdraw) {
+                    userData.data.bank.dailyWithdraw = { date: today, amount: 0 };
+                }
+
                 if (userData.data.bank.dailyWithdraw.date === today) {
                     if (userData.data.bank.dailyWithdraw.amount + amount > DAILY_WITHDRAW_LIMIT) {
-                        return message.reply(`${getLang("dailyLimitReached")}\nRemaining: ${CURRENCY_SYMBOL}${formatMoney(DAILY_WITHDRAW_LIMIT - userData.data.bank.dailyWithdraw.amount)}`);
+                        return message.reply(`❌ Daily limit reached!\nRemaining today: ${CURRENCY_SYMBOL}${formatMoney(DAILY_WITHDRAW_LIMIT - userData.data.bank.dailyWithdraw.amount)}`);
                     }
                     userData.data.bank.dailyWithdraw.amount += amount;
                 } else {
@@ -572,151 +609,242 @@ Welcome to ${BANK_NAME}!`,
                     transactionId: generateTransactionId(),
                     type: "withdraw",
                     amount: amount,
+                    newBalance: userData.data.bank.balance - amount,
+                    timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
+                    description: "Bank to Wallet withdrawal"
+                };
+
+                // ৫. ডাটা আপডেট ও সেভ
+                userData.data.bank.balance -= amount;
+                userData.money += amount;
+                userData.data.bank.totalWithdrawn = (userData.data.bank.totalWithdrawn || 0) + amount;
+                
+                userData.data.bank.transactions.unshift(transaction);
+                
+                userData.markModified('data');
+                await userData.save();
+
+                const receiptPath = await createTransactionReceipt(transaction, userData);
+                return message.reply({
+                    body: `✅ [ WITHDRAW SUCCESS ]\n\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}\n💳 New Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n🔖 Transaction ID: ${transaction.transactionId}`,
+                    attachment: fs.createReadStream(receiptPath)
+                }, () => fs.unlinkSync(receiptPath));
+            }
+
+                                const transaction = {
+                    transactionId: generateTransactionId(),
+                    type: "withdraw",
+                    amount: amount,
                     fromAccount: userData.data.bank.accountNumber,
                     newBalance: userData.data.bank.balance - amount,
                     timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
                     description: "Bank to Wallet withdrawal"
                 };
 
+                // ১. ডাটা আপডেট
                 userData.data.bank.balance -= amount;
+                userData.money += amount; // হাতের ক্যাশ বাড়ানো
                 userData.data.bank.totalWithdrawn = (userData.data.bank.totalWithdrawn || 0) + amount;
+                
+                if (!userData.data.bank.transactions) userData.data.bank.transactions = [];
                 userData.data.bank.transactions.unshift(transaction);
                 if (userData.data.bank.transactions.length > 50) {
                     userData.data.bank.transactions = userData.data.bank.transactions.slice(0, 50);
                 }
 
-                await usersData.set(senderID, {
-                    money: userData.money + amount,
-                    data: userData.data
-                });
+                // ২. MongoDB তে সেভ
+                userData.markModified('data');
+                await userData.save();
 
                 const receiptPath = await createTransactionReceipt(transaction, userData);
                 return message.reply({
-                    body: `${getLang("withdrawSuccess")}
-
-💸 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}
-💳 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}
-👛 Wallet Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.money + amount)}
-🔖 Transaction ID: ${transaction.transactionId}`,
+                    body: `✅ [ WITHDRAW SUCCESS ]\n\n💸 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}\n💳 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n👛 Wallet Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.money)}\n🔖 Transaction ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
                 }, () => fs.unlinkSync(receiptPath));
             }
 
             case "transfer":
             case "tf": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account. Register first!");
                 }
 
                 let targetID;
-                let amount;
+                let transferAmount;
 
+                // মেনশন বা ইউআইডি হ্যান্ডেল করা
                 if (Object.keys(event.mentions).length > 0) {
                     targetID = Object.keys(event.mentions)[0];
-                    amount = parseInt(args[2]) || parseInt(args[1]);
+                    transferAmount = parseInt(args[2]) || parseInt(args[1]);
                 } else {
                     targetID = args[1];
-                    amount = parseInt(args[2]);
+                    transferAmount = parseInt(args[2]);
                 }
 
-                if (!targetID || isNaN(amount) || amount <= 0) {
-                    return message.reply("Usage: bank transfer <@user or UID> <amount>");
+                if (!targetID || isNaN(transferAmount) || transferAmount <= 0) {
+                    return message.reply("💡 Usage: bank transfer <@user or UID> <amount>");
                 }
-                if (amount < MIN_TRANSFER) {
-                    return message.reply(getLang("minTransfer"));
+                if (transferAmount < MIN_TRANSFER) {
+                    return message.reply(`❌ Minimum transfer amount is ${CURRENCY_SYMBOL}${formatMoney(MIN_TRANSFER)}.`);
                 }
-                if (userData.data.bank.balance < amount) {
-                    return message.reply(getLang("insufficientBalance"));
+                if (userData.data.bank.balance < transferAmount) {
+                    return message.reply("❌ Your bank balance is insufficient for this transfer.");
                 }
                 if (targetID == senderID) {
-                    return message.reply("❌ You cannot transfer to yourself!");
+                    return message.reply("❌ You cannot transfer money to yourself!");
                 }
 
+                // ৩. যাকে টাকা পাঠাবেন তাকে MongoDB তে খোঁজা
+                const targetUser = await User.findOne({ userID: targetID });
+
+                if (!targetUser || !targetUser.data || !targetUser.data.bank || !targetUser.data.bank.accountNumber) {
+                    return message.reply("❌ The recipient does not have a bank account or is not registered.");
+                }
+
+                // ৪. ট্রানজেকশন তৈরি (প্রেরক এবং গ্রাহক উভয়ের জন্য)
+                const senderTransaction = {
+                    transactionId: generateTransactionId(),
+                    type: "transfer_sent",
+                    amount: transferAmount,
+                    toAccount: targetUser.data.bank.accountNumber,
+                    newBalance: userData.data.bank.balance - transferAmount,
+                    timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
+                    description: `Transferred to ${targetUser.name || targetID}`
+                };
+
+                const receiverTransaction = {
+                    transactionId: generateTransactionId(),
+                    type: "transfer_received",
+                    amount: transferAmount,
+                    fromAccount: userData.data.bank.accountNumber,
+                    newBalance: targetUser.data.bank.balance + transferAmount,
+                    timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
+                    description: `Received from ${userData.name || senderID}`
+                };
+
+                // ৫. প্রেরকের ব্যালেন্স আপডেট ও সেভ
+                userData.data.bank.balance -= transferAmount;
+                userData.data.bank.transactions.unshift(senderTransaction);
+                userData.markModified('data');
+                await userData.save();
+
+                // ৬. গ্রাহকের ব্যালেন্স আপডেট ও সেভ
+                targetUser.data.bank.balance += transferAmount;
+                if (!targetUser.data.bank.transactions) targetUser.data.bank.transactions = [];
+                targetUser.data.bank.transactions.unshift(receiverTransaction);
+                targetUser.markModified('data');
+                await targetUser.save();
+
+                return message.reply(`✅ [ TRANSFER SUCCESS ]\n\n👤 Sent to: ${targetUser.name || targetID}\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n🔖 Transaction ID: ${senderTransaction.transactionId}`);
+            }
+
+                                // ১. ডেইলি ট্রান্সফার লিমিট চেক করা
                 const today = moment().tz("Asia/Dhaka").format("DD/MM/YYYY");
+                if (!userData.data.bank.dailyTransfer) {
+                    userData.data.bank.dailyTransfer = { date: today, amount: 0 };
+                }
+
                 if (userData.data.bank.dailyTransfer.date === today) {
-                    if (userData.data.bank.dailyTransfer.amount + amount > DAILY_TRANSFER_LIMIT) {
-                        return message.reply(`${getLang("dailyLimitReached")}\nRemaining: ${CURRENCY_SYMBOL}${formatMoney(DAILY_TRANSFER_LIMIT - userData.data.bank.dailyTransfer.amount)}`);
+                    if (userData.data.bank.dailyTransfer.amount + transferAmount > DAILY_TRANSFER_LIMIT) {
+                        return message.reply(`❌ Daily transfer limit reached!\nRemaining today: ${CURRENCY_SYMBOL}${formatMoney(DAILY_TRANSFER_LIMIT - userData.data.bank.dailyTransfer.amount)}`);
                     }
-                    userData.data.bank.dailyTransfer.amount += amount;
+                    userData.data.bank.dailyTransfer.amount += transferAmount;
                 } else {
-                    userData.data.bank.dailyTransfer = { date: today, amount: amount };
+                    userData.data.bank.dailyTransfer = { date: today, amount: transferAmount };
                 }
 
-                let targetData = await usersData.get(targetID);
-                targetData = ensureDataStructure(targetData);
-                if (!isRegistered(targetData)) {
-                    return message.reply("❌ Recipient doesn't have a bank account!");
+                // ২. যাকে টাকা পাঠাবেন তাকে MongoDB তে খোঁজা (যদি আগে না খোঁজা হয়ে থাকে)
+                let targetUser = await User.findOne({ userID: targetID });
+                
+                if (!targetUser || !targetUser.data || !targetUser.data.bank || !targetUser.data.bank.accountNumber) {
+                    return message.reply("❌ Recipient doesn't have a bank account or is not registered!");
                 }
 
+                // ৩. ট্রানজেকশন অবজেক্ট তৈরি করা
                 const transaction = {
                     transactionId: generateTransactionId(),
                     type: "transfer",
-                    amount: amount,
+                    amount: transferAmount,
                     fromAccount: userData.data.bank.accountNumber,
-                    toAccount: targetData.data.bank.accountNumber,
-                    newBalance: userData.data.bank.balance - amount,
+                    toAccount: targetUser.data.bank.accountNumber,
+                    newBalance: userData.data.bank.balance - transferAmount,
                     timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
-                    description: `Transfer to ${targetData.name}`
+                    description: `Transfer to ${targetUser.name || targetID}`
                 };
 
                 const receiverTransaction = {
                     transactionId: transaction.transactionId,
                     type: "received",
-                    amount: amount,
+                    amount: transferAmount,
                     fromAccount: userData.data.bank.accountNumber,
-                    toAccount: targetData.data.bank.accountNumber,
-                    newBalance: targetData.data.bank.balance + amount,
+                    toAccount: targetUser.data.bank.accountNumber,
+                    newBalance: targetUser.data.bank.balance + transferAmount,
                     timestamp: transaction.timestamp,
-                    description: `Received from ${userData.name}`
+                    description: `Received from ${userData.name || senderID}`
                 };
 
-                userData.data.bank.balance -= amount;
-                userData.data.bank.totalTransferred = (userData.data.bank.totalTransferred || 0) + amount;
+                // ৪. প্রেরকের ডাটা আপডেট (Sender Data Update)
+                userData.data.bank.balance -= transferAmount;
+                userData.data.bank.totalTransferred = (userData.data.bank.totalTransferred || 0) + transferAmount;
+                
+                if (!userData.data.bank.transactions) userData.data.bank.transactions = [];
                 userData.data.bank.transactions.unshift(transaction);
-
-                targetData.data.bank.balance += amount;
-                targetData.data.bank.transactions.unshift(receiverTransaction);
-
                 if (userData.data.bank.transactions.length > 50) {
                     userData.data.bank.transactions = userData.data.bank.transactions.slice(0, 50);
                 }
-                if (targetData.data.bank.transactions.length > 50) {
-                    targetData.data.bank.transactions = targetData.data.bank.transactions.slice(0, 50);
+
+                // ৫. গ্রাহকের ডাটা আপডেট (Receiver Data Update)
+                targetUser.data.bank.balance += transferAmount;
+                if (!targetUser.data.bank.transactions) targetUser.data.bank.transactions = [];
+                targetUser.data.bank.transactions.unshift(receiverTransaction);
+                if (targetUser.data.bank.transactions.length > 50) {
+                    targetUser.data.bank.transactions = targetUser.data.bank.transactions.slice(0, 50);
                 }
 
-                await usersData.set(senderID, { data: userData.data });
-                await usersData.set(targetID, { data: targetData.data });
+                // ৬. MongoDB তে সেভ করা (Save both users)
+                userData.markModified('data');
+                await userData.save();
+                
+                targetUser.markModified('data');
+                await targetUser.save();
 
-                const receiptPath = await createTransactionReceipt(transaction, userData, targetData);
+                // ৭. ট্রানজেকশন রিসিপ্ট তৈরি ও রিপ্লাই
+                const receiptPath = await createTransactionReceipt(transaction, userData);
                 return message.reply({
-                    body: `${getLang("transferSuccess")}
+                    body: `✅ [ TRANSFER SUCCESS ]\n\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n👤 To: ${targetUser.name || targetID}\n🔖 Transaction ID: ${transaction.transactionId}`,
+                    attachment: fs.createReadStream(receiptPath)
+                }, () => fs.unlinkSync(receiptPath));
+            }
 
-🔄 TRANSFER DETAILS
-━━━━━━━━━━━━━━━━━
-📤 From: ${userData.name}
-📥 To: ${targetData.name}
-💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(amount)}
-💳 Your Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}
-🔖 ID: ${transaction.transactionId}`,
+                                // ১. MongoDB তে ডাটা সেভ করা (প্রেরক এবং গ্রাহক উভয়ের জন্য)
+                userData.markModified('data');
+                await userData.save();
+                
+                targetUser.markModified('data'); // এখানে targetUser নিশ্চিত করুন
+                await targetUser.save();
+
+                const receiptPath = await createTransactionReceipt(transaction, userData, targetUser);
+                return message.reply({
+                    body: `✅ [ TRANSFER SUCCESS ]\n\n🔄 TRANSFER DETAILS\n━━━━━━━━━━━━━━━━━\n📤 From: ${userData.name || "Sender"}\n📥 To: ${targetUser.name || "Recipient"}\n💰 Amount: ${CURRENCY_SYMBOL}${formatMoney(transferAmount)}\n💳 Your Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n🔖 ID: ${transaction.transactionId}`,
                     attachment: fs.createReadStream(receiptPath)
                 }, () => fs.unlinkSync(receiptPath));
             }
 
             case "history":
             case "his": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account to view history.");
                 }
-                if (userData.data.bank.transactions.length === 0) {
-                    return message.reply(getLang("noTransactions"));
+                
+                const transactions = userData.data.bank.transactions || [];
+                if (transactions.length === 0) {
+                    return message.reply("📋 You have no transaction history yet.");
                 }
 
-                const transactions = userData.data.bank.transactions.slice(0, 10);
+                const displayLimit = transactions.slice(0, 10);
                 let historyMsg = `📜 TRANSACTION HISTORY\n━━━━━━━━━━━━━━━━━\n`;
                 
-                transactions.forEach((tx, i) => {
+                displayLimit.forEach((tx, i) => {
                     const icon = tx.type === "deposit" ? "💰" : 
                                 tx.type === "withdraw" ? "💸" : 
                                 tx.type === "transfer" ? "📤" : 
@@ -730,52 +858,52 @@ Welcome to ${BANK_NAME}!`,
             }
 
             case "card": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account to manage cards.");
                 }
 
                 const cardAction = args[1]?.toLowerCase();
 
                 if (!cardAction) {
+                    // কার্ড না থাকলে জেনারেট করা বা মেসেজ দেওয়া
                     if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) {
-                        return message.reply(getLang("noCard"));
+                        return message.reply("❌ You don't have any ATM cards. Use 'bank card issue' to get one.");
                     }
+
                     const card = userData.data.bank.cards[0];
                     const cardPath = await createBankCard(card, userData);
+                    
                     return message.reply({
-                        body: `💳 YOUR ATM CARD
-━━━━━━━━━━━━━━━━━
-📋 Card No: ${formatCardNumber(card.cardNumber)}
-📅 Expiry: ${card.expiryDate}
-🔒 Status: ${card.isActive ? "Active ✅" : "Blocked ❌"}
-💎 Type: ${card.cardType.toUpperCase()}
-━━━━━━━━━━━━━━━━━
-⚠️ CVV and PIN shown on card back`,
+                        body: `💳 YOUR ATM CARD\n━━━━━━━━━━━━━━━━━\n📋 Card No: ${formatCardNumber(card.cardNumber)}\n📅 Expiry: ${card.expiryDate}\n🔒 Status: ${card.isActive ? "Active ✅" : "Blocked ❌"}\n💎 Type: ${card.cardType.toUpperCase()}\n━━━━━━━━━━━━━━━━━\n⚠️ CVV and PIN shown on card back`,
                         attachment: fs.createReadStream(cardPath)
                     }, () => fs.unlinkSync(cardPath));
                 }
 
-                switch (cardAction) {
-                    case "apply": {
+                                switch (cardAction) {
+                    case "apply":
+                    case "issue": {
+                        // ১. চেক করা যে ইউজারের আগে থেকে কার্ড আছে কিনা
                         if (userData.data.bank.cards && userData.data.bank.cards.length > 0) {
-                            return message.reply("❌ You already have a card!");
+                            return message.reply("❌ You already have an active card! You cannot apply for a new one.");
                         }
+
                         const cardType = args[2]?.toLowerCase() || "standard";
                         if (!["standard", "gold", "platinum"].includes(cardType)) {
-                            return message.reply("❌ Card types: standard, gold, platinum");
+                            return message.reply("❌ Invalid card type! Available types: Standard, Gold, Platinum.");
                         }
 
+                        // ২. কার্ড টাইপ অনুযায়ী মিনিমাম ব্যালেন্স চেক
                         const minBalance = cardType === "platinum" ? 50000 : cardType === "gold" ? 10000 : 0;
                         if (userData.data.bank.balance < minBalance) {
-                            return message.reply(`❌ Minimum balance for ${cardType} card: ${CURRENCY_SYMBOL}${formatMoney(minBalance)}`);
+                            return message.reply(`❌ Insufficient balance! Minimum balance required for a ${cardType.toUpperCase()} card is ${CURRENCY_SYMBOL}${formatMoney(minBalance)}.`);
                         }
 
-                        const pin = generatePIN();
+                        // ৩. নতুন কার্ডের তথ্য জেনারেট করা
+                        const pin = generatePIN(); // এটি আপনার ফাংশন থেকে পিন তৈরি করবে
                         const newCard = {
                             cardNumber: generateCardNumber(),
                             cvv: generateCVV(),
-                            pin: hashPIN(pin),
+                            pin: hashPIN(pin), // পিন হ্যাশ করা
                             expiryDate: getExpiryDate(),
                             cardType: cardType,
                             isActive: true,
@@ -783,125 +911,131 @@ Welcome to ${BANK_NAME}!`,
                             accountNumber: userData.data.bank.accountNumber
                         };
 
+                        // ৪. ডাটাবেসে কার্ড পুশ করা
+                        if (!userData.data.bank.cards) userData.data.bank.cards = [];
+                        userData.data.bank.cards.push(newCard);
+
+                        // ৫. MongoDB তে সেভ করা
+                        userData.markModified('data');
+                        await userData.save();
+
+                        // ৬. ইউজারকে পিন সহ কনফার্মেশন দেওয়া
+                        return message.reply(
+                            `🎉 [ CARD ISSUED SUCCESS ]\n━━━━━━━━━━━━━━━━━━\n` +
+                            `💳 Card Type: ${cardType.toUpperCase()}\n` +
+                            `🔢 Card No: ${formatCardNumber(newCard.cardNumber)}\n` +
+                            `🔐 Default PIN: ${pin}\n` +
+                            `📅 Expiry: ${newCard.expiryDate}\n` +
+                            `━━━━━━━━━━━━━━━━━━\n` +
+                            `⚠️ Please remember your PIN. Do not share it with anyone!`
+                        );
+                    }
+
+                                                // কার্ড সেভ এবং রিসিপ্ট পাঠানো (Apply এর বাকি অংশ)
                         userData.data.bank.cards = [newCard];
-                        await usersData.set(senderID, { data: userData.data });
+                        userData.markModified('data');
+                        await userData.save();
 
                         const cardPath = await createBankCard(newCard, userData);
                         return message.reply({
-                            body: `${getLang("cardApplied", pin)}
-
-💳 NEW CARD ISSUED
-━━━━━━━━━━━━━━━━━
-📋 Card No: ${formatCardNumber(newCard.cardNumber)}
-📅 Expiry: ${newCard.expiryDate}
-🔐 CVV: ${newCard.cvv}
-🔑 PIN: ${pin}
-💎 Type: ${cardType.toUpperCase()}
-━━━━━━━━━━━━━━━━━
-⚠️ Keep your PIN safe! Don't share it.`,
+                            body: `🎉 [ NEW CARD ISSUED ]\n━━━━━━━━━━━━━━━━━━\n` +
+                            `📋 Card No: ${formatCardNumber(newCard.cardNumber)}\n` +
+                            `📅 Expiry: ${newCard.expiryDate}\n` +
+                            `🔐 CVV: ${newCard.cvv}\n` +
+                            `🔑 PIN: ${pin}\n` +
+                            `💎 Type: ${cardType.toUpperCase()}\n` +
+                            `━━━━━━━━━━━━━━━━━━\n` +
+                            `⚠️ Keep your PIN safe! Do not share it with anyone.`,
                             attachment: fs.createReadStream(cardPath)
                         }, () => fs.unlinkSync(cardPath));
                     }
 
                     case "activate": {
                         if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) {
-                            return message.reply(getLang("noCard"));
+                            return message.reply("❌ You don't have any ATM card to activate.");
                         }
+                        
                         userData.data.bank.cards[0].isActive = true;
-                        await usersData.set(senderID, { data: userData.data });
-                        return message.reply(getLang("cardActivated"));
+                        userData.markModified('data');
+                        await userData.save();
+                        
+                        return message.reply("✅ Your card has been successfully activated!");
                     }
 
                     case "block": {
                         if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) {
-                            return message.reply(getLang("noCard"));
+                            return message.reply("❌ You don't have any ATM card to block.");
                         }
+                        
                         userData.data.bank.cards[0].isActive = false;
-                        await usersData.set(senderID, { data: userData.data });
-                        return message.reply(getLang("cardBlocked"));
+                        userData.markModified('data');
+                        await userData.save();
+                        
+                        return message.reply("🔒 Your card has been blocked for security reasons.");
                     }
 
                     case "pin": {
                         if (!userData.data.bank.cards || userData.data.bank.cards.length === 0) {
-                            return message.reply(getLang("noCard"));
+                            return message.reply("❌ You don't have any ATM card to change PIN.");
                         }
+                        
                         const newPin = args[2];
                         if (!newPin || !/^\d{4}$/.test(newPin)) {
-                            return message.reply(getLang("invalidPin"));
+                            return message.reply("❌ Invalid PIN! Please provide a 4-digit numeric PIN.");
                         }
+                        
                         userData.data.bank.cards[0].pin = hashPIN(newPin);
-                        await usersData.set(senderID, { data: userData.data });
-                        return message.reply(getLang("pinChanged"));
+                        userData.markModified('data');
+                        await userData.save();
+                        
+                        return message.reply("✅ Your ATM PIN has been changed successfully!");
                     }
 
                     default:
-                        return message.reply(`💳 Card Commands:
-• card - View your card
-• card apply <type> - Apply for card
-• card activate - Activate card
-• card block - Block card  
-• card pin <4 digits> - Change PIN
-
-Card Types: standard, gold, platinum`);
+                        return message.reply(`💳 [ CARD SERVICES ]\n━━━━━━━━━━━━━━━━━━\n` +
+                            `• card - View your current card\n` +
+                            `• card apply <type> - Apply for a card\n` +
+                            `• card activate - Activate your card\n` +
+                            `• card block - Block your card\n` +
+                            `• card pin <4 digits> - Change PIN\n\n` +
+                            `💎 Card Types: Standard, Gold, Platinum`);
                 }
             }
 
-            case "savings":
+                        case "savings":
             case "save": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account. Register first!");
                 }
 
                 const savingsAction = args[1]?.toLowerCase();
 
                 if (!savingsAction) {
-                    return message.reply(`🏧 SAVINGS ACCOUNT
-━━━━━━━━━━━━━━━━━
-💎 Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings || 0)}
-📈 Interest Rate: ${INTEREST_RATE * 100}% daily
-━━━━━━━━━━━━━━━━━
-Commands:
-• savings deposit <amount>
-• savings withdraw`);
+                    return message.reply(`🏧 [ SAVINGS ACCOUNT ]\n━━━━━━━━━━━━━━━━━━\n` +
+                        `💎 Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings || 0)}\n` +
+                        `📈 Interest Rate: ${INTEREST_RATE * 100}% daily\n` +
+                        `━━━━━━━━━━━━━━━━━━\n` +
+                        `Commands:\n` +
+                        `• savings deposit <amount>\n` +
+                        `• savings withdraw`);
                 }
 
-                switch (savingsAction) {
-                    case "deposit":
-                    case "dep": {
-                        const amount = parseInt(args[2]);
-                        if (isNaN(amount) || amount <= 0) {
-                            return message.reply(getLang("invalidAmount"));
-                        }
-                        if (userData.data.bank.balance < amount) {
-                            return message.reply(getLang("insufficientBalance"));
-                        }
+                            case "savings":
+            case "save": {
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account. Register first to use savings!");
+                }
 
-                        userData.data.bank.balance -= amount;
-                        userData.data.bank.savings = (userData.data.bank.savings || 0) + amount;
-                        userData.data.bank.lastInterest = moment().tz("Asia/Dhaka").format("DD/MM/YYYY");
+                const savingsAction = args[1]?.toLowerCase();
 
-                        const transaction = {
-                            transactionId: generateTransactionId(),
-                            type: "savings_deposit",
-                            amount: amount,
-                            newBalance: userData.data.bank.balance,
-                            timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
-                            description: "Transfer to Savings"
-                        };
-                        userData.data.bank.transactions.unshift(transaction);
+                if (!savingsAction) {
+                    return message.reply(`🏧 [ SAVINGS ACCOUNT ]\n━━━━━━━━━━━━━━━━━\n💎 Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings || 0)}\n📈 Interest Rate: ${INTEREST_RATE * 100}% daily\n━━━━━━━━━━━━━━━━━\nCommands:\n• savings deposit <amount>\n• savings withdraw`);
+                }
 
-                        await usersData.set(senderID, { data: userData.data });
-                        return message.reply(`${getLang("savingsDeposited")}
-
-💎 Savings Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings)}
-💰 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}`);
-                    }
-
-                    case "withdraw":
+                                        case "withdraw":
                     case "wd": {
                         if (!userData.data.bank.savings || userData.data.bank.savings <= 0) {
-                            return message.reply(getLang("noSavings"));
+                            return message.reply("❌ You don't have any savings to withdraw.");
                         }
 
                         const lastInterest = userData.data.bank.lastInterest;
@@ -912,7 +1046,10 @@ Commands:
                         }
 
                         const total = userData.data.bank.savings + interest;
+                        
+                        // ডাটা আপডেট
                         userData.data.bank.balance += total;
+                        const withdrawnAmount = userData.data.bank.savings; // মেসেজের জন্য রাখা হলো
                         userData.data.bank.savings = 0;
                         userData.data.bank.lastInterest = null;
 
@@ -924,65 +1061,45 @@ Commands:
                             timestamp: moment().tz("Asia/Dhaka").format("DD/MM/YYYY HH:mm:ss"),
                             description: `Savings withdrawal + ${CURRENCY_SYMBOL}${formatMoney(interest)} interest`
                         };
+                        
+                        if (!userData.data.bank.transactions) userData.data.bank.transactions = [];
                         userData.data.bank.transactions.unshift(transaction);
 
-                        await usersData.set(senderID, { data: userData.data });
-                        return message.reply(`${getLang("savingsWithdrawn")}
+                        // MongoDB তে সেভ
+                        userData.markModified('data');
+                        await userData.save();
 
-💎 Withdrawn: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings)}
-📈 Interest Earned: ${CURRENCY_SYMBOL}${formatMoney(interest)}
-💰 Total Added: ${CURRENCY_SYMBOL}${formatMoney(total)}
-💳 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}`);
+                        return message.reply(`✅ [ SAVINGS WITHDRAWN ]\n\n💎 Withdrawn: ${CURRENCY_SYMBOL}${formatMoney(withdrawnAmount)}\n📈 Interest Earned: ${CURRENCY_SYMBOL}${formatMoney(interest)}\n💰 Total Added: ${CURRENCY_SYMBOL}${formatMoney(total)}\n💳 Bank Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}`);
                     }
 
                     default:
-                        return message.reply(`🏧 Savings Commands:
-• savings deposit <amount>
-• savings withdraw`);
+                        return message.reply(`🏧 [ SAVINGS COMMANDS ]\n• savings deposit <amount>\n• savings withdraw`);
                 }
             }
 
-            case "statement":
+                        case "statement":
             case "stmt": {
-                userData = ensureDataStructure(userData);
-                if (!isRegistered(userData)) {
-                    return message.reply(getLang("notRegistered"));
+                if (!userData || !userData.data || !userData.data.bank || !userData.data.bank.accountNumber) {
+                    return message.reply("⚠️ You don't have a bank account. Register first to view statement!");
                 }
 
-                let statementMsg = `📑 ACCOUNT STATEMENT
-━━━━━━━━━━━━━━━━━━━━━
-🏦 ${BANK_NAME}
-👤 ${userData.name}
-📋 ${userData.data.bank.accountNumber}
-━━━━━━━━━━━━━━━━━━━━━
-
-💰 Current Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}
-💎 Savings: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings || 0)}
-
-📊 STATISTICS
-━━━━━━━━━━━━━━━━━━━━━
-📥 Total Deposited: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.totalDeposited || 0)}
-📤 Total Withdrawn: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.totalWithdrawn || 0)}
-🔄 Total Transferred: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.totalTransferred || 0)}
-
-💳 CARDS: ${userData.data.bank.cards?.length || 0}
-📋 Transactions: ${userData.data.bank.transactions.length}
-
-📅 Account Opened: ${userData.data.bank.createdAt}
-━━━━━━━━━━━━━━━━━━━━━
-Thank you for banking with us!`;
+                let statementMsg = `📑 [ ACCOUNT STATEMENT ]\n━━━━━━━━━━━━━━━━━━━━━\n🏦 ${BANK_NAME}\n👤 ${userData.name}\n📋 ${userData.data.bank.accountNumber}\n━━━━━━━━━━━━━━━━━━━━━\n\n💰 Current Balance: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.balance)}\n💎 Savings: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.savings || 0)}\n\n📊 STATISTICS\n━━━━━━━━━━━━━━━━━━━━━\n📥 Total Deposited: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.totalDeposited || 0)}\n📤 Total Withdrawn: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.totalWithdrawn || 0)}\n🔄 Total Transferred: ${CURRENCY_SYMBOL}${formatMoney(userData.data.bank.totalTransferred || 0)}\n\n💳 CARDS: ${userData.data.bank.cards?.length || 0}\n📋 Transactions: ${userData.data.bank.transactions?.length || 0}\n\n📅 Account Opened: ${userData.data.bank.createdAt}\n━━━━━━━━━━━━━━━━━━━━━\nThank you for banking with us!`;
 
                 return message.reply(statementMsg);
             }
 
             default:
-                return message.reply(getLang("menu"));
+                return message.reply("💡 Invalid command! Use 'bank help' to see all options.");
 
-                // টাকা বিয়োগ বা যোগ করার পর এভাবে সেভ করতে হয়
-await usersData.set(userID, { 
-    money: newBalance 
-});
-                
-        }
+        } // switch শেষ
+
+        // টাকা বিয়োগ বা যোগ করার পর MongoDB তে সেভ করার পদ্ধতি
+        userData.markModified('data');
+        await userData.save();
+
+    } catch (error) {
+        console.error(error);
+        return message.reply("❌ An error occurred while accessing the banking system.");
     }
+}
 };
