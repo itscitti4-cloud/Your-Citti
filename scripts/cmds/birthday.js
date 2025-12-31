@@ -26,7 +26,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.5",
+    version: "3.6.6",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -110,13 +110,13 @@ module.exports = {
     }
   },
 
-  onStart: async function (args) { 
-    const { api, event, usersData } = args;
-    // কারেন্সি সিস্টেম শনাক্তকরণ (Currencies অথবা currenciesData)
-    const Currencies = args.Currencies || args.currenciesData || args.currencies;
+  onStart: async function (obj) { 
+    const { api, event, args, usersData, Currencies, currenciesData } = obj;
+    // ডাইনামিক কারেন্সি অবজেক্ট ডিটেকশন
+    const curSystem = Currencies || currenciesData;
     
     const { threadID, messageID, senderID, mentions, messageReply } = event;
-    const action = args.args[0]?.toLowerCase();
+    const action = args[0]?.toLowerCase();
     const cost = 10000;
 
     const adminIDs = global.config?.adminIDs || [];
@@ -131,10 +131,9 @@ module.exports = {
 
     if (action === "add" || action === "set") {
       if (!isFree) {
-        if (!Currencies) return api.sendMessage("❌ Money system not found!", threadID, messageID);
+        if (!curSystem) return api.sendMessage("❌ Money system not found!", threadID, messageID);
         
-        // getData অথবা get ব্যবহার করা
-        const userDataMoney = await (Currencies.getData ? Currencies.getData(senderID) : Currencies.get(senderID));
+        const userDataMoney = await (curSystem.getData ? curSystem.getData(senderID) : curSystem.get(senderID));
         if (userDataMoney.money < cost) {
           return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
         }
@@ -142,17 +141,17 @@ module.exports = {
 
       if (action === "add") {
         let uid, dob;
-        if (messageReply) { uid = messageReply.senderID; dob = args.args[1]; }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args.args[args.args.length - 1]; }
-        else { uid = senderID; dob = args.args[1]; }
+        if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
+        else { uid = senderID; dob = args[1]; }
 
         if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
             return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
         }
         
         if (!isFree) {
-            if (Currencies.decreaseData) await Currencies.decreaseData(senderID, cost);
-            else if (Currencies.decreaseMoney) await Currencies.decreaseMoney(senderID, cost);
+            if (curSystem.decreaseData) await curSystem.decreaseData(senderID, cost);
+            else if (curSystem.decreaseMoney) await curSystem.decreaseMoney(senderID, cost);
         }
         
         const currentData = (await usersData.get(uid)).data || {};
@@ -166,15 +165,15 @@ module.exports = {
 
       if (action === "set") {
         let uid, wishText;
-        if (messageReply) { uid = messageReply.senderID; wishText = args.args.slice(1).join(" "); }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.args.slice(2).join(" "); }
-        else { uid = senderID; wishText = args.args.slice(1).join(" "); }
+        if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
+        else { uid = senderID; wishText = args.slice(1).join(" "); }
 
         if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
         
         if (!isFree) {
-            if (Currencies.decreaseData) await Currencies.decreaseData(senderID, cost);
-            else if (Currencies.decreaseMoney) await Currencies.decreaseMoney(senderID, cost);
+            if (curSystem.decreaseData) await curSystem.decreaseData(senderID, cost);
+            else if (curSystem.decreaseMoney) await curSystem.decreaseMoney(senderID, cost);
         }
         
         const currentData = (await usersData.get(uid)).data || {};
@@ -240,4 +239,4 @@ module.exports = {
     }
   }
 };
-                                                                              
+            
