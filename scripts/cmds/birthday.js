@@ -26,7 +26,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.8",
+    version: "3.6.9",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -110,13 +110,13 @@ module.exports = {
     }
   },
 
-  onStart: async function (args) { 
-    const { api, event, usersData } = args;
-    const Currencies = args.Currencies || args.currenciesData || args.currencies;
-    
+  onStart: async function ({ api, event, args, usersData, currenciesData, Currencies }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
-    const action = args.args[0]?.toLowerCase();
+    const action = args[0]?.toLowerCase();
     const cost = 10000;
+    
+    // Currencies অবজেক্টটি ঠিক করা
+    const currencySystem = currenciesData || Currencies;
 
     const adminIDs = global.config?.ADMINBOT || global.config?.adminIDs || [];
     const developerID = global.config?.NDH || global.config?.developerID || "";
@@ -125,13 +125,12 @@ module.exports = {
     const isDev = developerID == senderID;
     const user = await usersData.get(senderID);
     const isVIP = user.data?.isVIP || false;
-
     const isFree = isAdmin || isDev || isVIP;
 
     if (action === "add" || action === "set") {
       if (!isFree) {
-        if (!Currencies) return api.sendMessage("❌ Currency system not found!", threadID, messageID);
-        const userData = await Currencies.get(senderID);
+        if (!currencySystem) return api.sendMessage("❌ Money system is not available in this bot.", threadID, messageID);
+        const userData = await currencySystem.get(senderID);
         if (!userData || userData.money < cost) {
           return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
         }
@@ -139,15 +138,15 @@ module.exports = {
 
       if (action === "add") {
         let uid, dob;
-        if (messageReply) { uid = messageReply.senderID; dob = args.args[1]; }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args.args[args.args.length - 1]; }
-        else { uid = senderID; dob = args.args[1]; }
+        if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
+        else { uid = senderID; dob = args[1]; }
 
         if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
             return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
         }
         
-        if (!isFree) await Currencies.decreaseMoney(senderID, cost);
+        if (!isFree) await currencySystem.decreaseMoney(senderID, cost);
         
         const currentData = (await usersData.get(uid)).data || {};
         currentData.birthday = dob;
@@ -160,13 +159,13 @@ module.exports = {
 
       if (action === "set") {
         let uid, wishText;
-        if (messageReply) { uid = messageReply.senderID; wishText = args.args.slice(1).join(" "); }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.args.slice(2).join(" "); }
-        else { uid = senderID; wishText = args.args.slice(1).join(" "); }
+        if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
+        else { uid = senderID; wishText = args.slice(1).join(" "); }
 
         if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
         
-        if (!isFree) await Currencies.decreaseMoney(senderID, cost);
+        if (!isFree) await currencySystem.decreaseMoney(senderID, cost);
         
         const currentData = (await usersData.get(uid)).data || {};
         currentData.customWish = wishText;
@@ -220,15 +219,11 @@ module.exports = {
         let uid;
         if (messageReply) { uid = messageReply.senderID; }
         else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; }
-        else if (args.args[1]) { uid = args.args[1]; }
+        else if (args[1]) { uid = args[1]; }
         else { uid = senderID; }
 
         const userData = await usersData.get(uid);
-        if (!userData || !userData.data || !userData.data.birthday) {
-          return api.sendMessage(`❌ No birthday record found for ${uid}.`, threadID, messageID);
-        }
-
-        const currentData = userData.data;
+        const currentData = userData.data || {};
         currentData.birthday = null;
         currentData.customWish = null;
         await usersData.set(uid, currentData, "data");
@@ -241,4 +236,4 @@ module.exports = {
     }
   }
 };
-          
+        
