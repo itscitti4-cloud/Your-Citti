@@ -26,7 +26,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.9",
+    version: "3.6.4",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -110,28 +110,25 @@ module.exports = {
     }
   },
 
-  onStart: async function ({ api, event, args, usersData, currenciesData, Currencies }) { 
+  onStart: async function ({ api, event, args, usersData, Currencies }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     const action = args[0]?.toLowerCase();
     const cost = 10000;
-    
-    // Currencies অবজেক্টটি ঠিক করা
-    const currencySystem = currenciesData || Currencies;
 
-    const adminIDs = global.config?.ADMINBOT || global.config?.adminIDs || [];
-    const developerID = global.config?.NDH || global.config?.developerID || "";
+    const adminIDs = global.config?.adminIDs || [];
+    const developerID = global.config?.developerID || "";
     
-    const isAdmin = Array.isArray(adminIDs) ? adminIDs.some(id => (id.id || id) == senderID) : adminIDs == senderID;
+    const isAdmin = adminIDs.some(item => (item.id || item) == senderID);
     const isDev = developerID == senderID;
-    const user = await usersData.get(senderID);
-    const isVIP = user.data?.isVIP || false;
+    const userDataObj = await usersData.get(senderID);
+    const isVIP = userDataObj.data?.isVIP || false;
+
     const isFree = isAdmin || isDev || isVIP;
 
     if (action === "add" || action === "set") {
       if (!isFree) {
-        if (!currencySystem) return api.sendMessage("❌ Money system is not available in this bot.", threadID, messageID);
-        const userData = await currencySystem.get(senderID);
-        if (!userData || userData.money < cost) {
+        const userDataMoney = await Currencies.getData(senderID);
+        if (userDataMoney.money < cost) {
           return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
         }
       }
@@ -146,7 +143,7 @@ module.exports = {
             return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
         }
         
-        if (!isFree) await currencySystem.decreaseMoney(senderID, cost);
+        if (!isFree) await Currencies.decreaseData(senderID, cost);
         
         const currentData = (await usersData.get(uid)).data || {};
         currentData.birthday = dob;
@@ -165,7 +162,7 @@ module.exports = {
 
         if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
         
-        if (!isFree) await currencySystem.decreaseMoney(senderID, cost);
+        if (!isFree) await Currencies.decreaseData(senderID, cost);
         
         const currentData = (await usersData.get(uid)).data || {};
         currentData.customWish = wishText;
@@ -216,18 +213,12 @@ module.exports = {
     }
 
     if (action === "rem" || action === "remove") {
-        let uid;
-        if (messageReply) { uid = messageReply.senderID; }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; }
-        else if (args[1]) { uid = args[1]; }
-        else { uid = senderID; }
-
-        const userData = await usersData.get(uid);
-        const currentData = userData.data || {};
+        let uid = messageReply ? messageReply.senderID : (Object.keys(mentions).length > 0 ? Object.keys(mentions)[0] : senderID);
+        const currentData = (await usersData.get(uid)).data || {};
         currentData.birthday = null;
         currentData.customWish = null;
         await usersData.set(uid, currentData, "data");
-        return api.sendMessage(`✅ Birthday record removed successfully for ${uid}.`, threadID, messageID);
+        return api.sendMessage("✅ Birthday record removed successfully.", threadID, messageID);
     }
 
     if (action === "check") {
@@ -236,4 +227,4 @@ module.exports = {
     }
   }
 };
-        
+                                                
