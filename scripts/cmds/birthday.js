@@ -117,4 +117,76 @@ module.exports = {
       
       const currentData = (await usersData.get(uid)).data || {};
       currentData.birthday = dob;
-        
+      await usersData.set(uid, currentData, "data");
+
+      return api.sendMessage(`✅ Birthday successfully set for ${uid} on ${dob}`, threadID, messageID);
+    }
+
+    if (action === "set") {
+      let uid, wishText;
+      if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
+      else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
+      else { uid = senderID; wishText = args.slice(1).join(" "); }
+
+      if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
+      
+      const currentData = (await usersData.get(uid)).data || {};
+      currentData.customWish = wishText;
+      await usersData.set(uid, currentData, "data");
+
+      return api.sendMessage("✅ Custom wish format updated!", threadID, messageID);
+    }
+
+    if (action === "list") {
+      const allUsers = (await usersData.getAll()).filter(u => u.data?.birthday);
+      if (allUsers.length === 0) return api.sendMessage("The birthday list is empty.", threadID);
+      
+      let msg = "🎂 BIRTHDAY LIST 🎂\n━━━━━━━━━━━━━━\n";
+      allUsers.forEach((u, i) => msg += `${i + 1}. ${u.name} (${u.data.birthday})\n`);
+      msg += "\n💬 Reply with a number to see a sample wish.";
+      
+      return api.sendMessage(msg, threadID, (err, info) => {
+        if (!global.client.handleReply) global.client.handleReply = [];
+        global.client.handleReply.push({
+          name: this.config.name,
+          messageID: info.messageID,
+          author: senderID,
+          type: "view_sample",
+          list: allUsers
+        });
+      }, messageID);
+    }
+
+    if (action === "upcoming") {
+        const allUsers = await usersData.getAll();
+        const upcoming = [];
+        const today = moment.tz("Asia/Dhaka");
+        for (let i = 1; i <= 7; i++) {
+          const nextDay = today.clone().add(i, 'days').format("DD-MM");
+          allUsers.forEach(u => {
+            if (u.data?.birthday && u.data.birthday.startsWith(nextDay)) {
+              upcoming.push({ name: u.name, date: u.data.birthday.substring(0, 5) });
+            }
+          });
+        }
+        let msg = "📅 UPCOMING BIRTHDAYS (Next 7 Days) 📅\n━━━━━━━━━━━━━━\n";
+        if (upcoming.length === 0) msg += "No birthdays in the next 7 days.";
+        else upcoming.forEach(u => msg += `• ${u.name} - ${u.date}\n`);
+        return api.sendMessage(msg, threadID, messageID);
+    }
+
+    if (action === "rem" || action === "remove") {
+        let uid = messageReply ? messageReply.senderID : (Object.keys(mentions).length > 0 ? Object.keys(mentions)[0] : senderID);
+        const currentData = (await usersData.get(uid)).data || {};
+        currentData.birthday = null;
+        currentData.customWish = null;
+        await usersData.set(uid, currentData, "data");
+        return api.sendMessage("✅ Birthday record removed successfully.", threadID, messageID);
+    }
+
+    if (action === "check") {
+        await this.checkAndWish({ api, usersData, targetThreadID: threadID });
+        return api.sendMessage("🔍 Scan complete.", threadID);
+    }
+  }
+};
