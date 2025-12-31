@@ -5,16 +5,7 @@ const cron = require("node-cron");
 const moment = require("moment-timezone");
 const jimp = require("jimp");
 
-function formatCurrency(number) {
-    if (number === undefined || number === null || isNaN(number)) return "0";
-    if (number < 1000) return number.toString();
-    const units = ["", "K", "M", "B", "T"];
-    const tier = Math.floor(Math.log10(Math.abs(number)) / 3);
-    const suffix = units[tier];
-    const scale = Math.pow(10, tier * 3);
-    const scaled = number / scale;
-    return scaled.toFixed(1).replace(/\.0$/, "") + suffix;
-}
+// অপ্রয়োজনীয় formatCurrency ফাংশনটি সরিয়ে ফেলা হয়েছে
 
 function getAge(dob) {
     const birthDate = moment(dob, "DD-MM-YYYY");
@@ -26,7 +17,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.7",
+    version: "3.7.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -110,135 +101,20 @@ module.exports = {
     }
   },
 
-  onStart: async function (context) { 
-    const { api, event, args, usersData } = context;
-    // কারেন্সি সিস্টেমের সব সম্ভাব্য নাম চেক করা
-    const Currencies = context.Currencies || context.currenciesData || context.currencies || global.currencies;
-    
+  onStart: async function ({ api, event, args, usersData }) { 
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     const action = args[0]?.toLowerCase();
-    const cost = 10000;
 
-    const adminIDs = global.config?.adminIDs || global.config?.ADMINBOT || [];
-    const developerID = global.config?.developerID || global.config?.NDH || "";
-    
-    const isAdmin = adminIDs.some(item => (item.id || item) == senderID);
-    const isDev = developerID == senderID;
-    const userDataObj = await usersData.get(senderID);
-    const isVIP = userDataObj.data?.isVIP || false;
+    if (action === "add") {
+      let uid, dob;
+      if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
+      else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
+      else { uid = senderID; dob = args[1]; }
 
-    const isFree = isAdmin || isDev || isVIP;
-
-    if (action === "add" || action === "set") {
-      if (!isFree) {
-        if (!Currencies) return api.sendMessage("❌ Money system not found!", threadID, messageID);
-        
-        const userDataMoney = await (Currencies.getData ? Currencies.getData(senderID) : Currencies.get(senderID));
-        const money = userDataMoney?.money ?? 0;
-
-        if (money < cost) {
-          return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
-        }
+      if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
+          return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
       }
-
-      if (action === "add") {
-        let uid, dob;
-        if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
-        else { uid = senderID; dob = args[1]; }
-
-        if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
-            return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
-        }
-        
-        if (!isFree && Currencies) {
-            if (Currencies.decreaseData) await Currencies.decreaseData(senderID, cost);
-            else if (Currencies.decreaseMoney) await Currencies.decreaseMoney(senderID, cost);
-        }
-        
-        const currentData = (await usersData.get(uid)).data || {};
-        currentData.birthday = dob;
-        await usersData.set(uid, currentData, "data");
-
-        let msg = `✅ Birthday successfully set for ${uid} on ${dob}`;
-        if (!isFree) msg += `\n💸 ${formatCurrency(cost)} has been deducted from your balance.`;
-        return api.sendMessage(msg, threadID, messageID);
-      }
-
-      if (action === "set") {
-        let uid, wishText;
-        if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.slice(2).join(" "); }
-        else { uid = senderID; wishText = args.slice(1).join(" "); }
-
-        if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
-        
-        if (!isFree && Currencies) {
-            if (Currencies.decreaseData) await Currencies.decreaseData(senderID, cost);
-            else if (Currencies.decreaseMoney) await Currencies.decreaseMoney(senderID, cost);
-        }
-        
-        const currentData = (await usersData.get(uid)).data || {};
-        currentData.customWish = wishText;
-        await usersData.set(uid, currentData, "data");
-
-        let msg = "✅ Custom wish format updated!";
-        if (!isFree) msg += `\n💸 ${formatCurrency(cost)} has been deducted from your balance.`;
-        return api.sendMessage(msg, threadID, messageID);
-      }
-    }
-
-    if (action === "list") {
-      const allUsers = (await usersData.getAll()).filter(u => u.data?.birthday);
-      if (allUsers.length === 0) return api.sendMessage("The birthday list is empty.", threadID);
       
-      let msg = "🎂 BIRTHDAY LIST 🎂\n━━━━━━━━━━━━━━\n";
-      allUsers.forEach((u, i) => msg += `${i + 1}. ${u.name} (${u.data.birthday})\n`);
-      msg += "\n💬 Reply with a number to see a sample wish.";
-      
-      return api.sendMessage(msg, threadID, (err, info) => {
-        if (!global.client.handleReply) global.client.handleReply = [];
-        global.client.handleReply.push({
-          name: this.config.name,
-          messageID: info.messageID,
-          author: senderID,
-          type: "view_sample",
-          list: allUsers
-        });
-      }, messageID);
-    }
-
-    if (action === "upcoming") {
-        const allUsers = await usersData.getAll();
-        const upcoming = [];
-        const today = moment.tz("Asia/Dhaka");
-        for (let i = 1; i <= 7; i++) {
-          const nextDay = today.clone().add(i, 'days').format("DD-MM");
-          allUsers.forEach(u => {
-            if (u.data?.birthday && u.data.birthday.startsWith(nextDay)) {
-              upcoming.push({ name: u.name, date: u.data.birthday.substring(0, 5) });
-            }
-          });
-        }
-        let msg = "📅 UPCOMING BIRTHDAYS (Next 7 Days) 📅\n━━━━━━━━━━━━━━\n";
-        if (upcoming.length === 0) msg += "No birthdays in the next 7 days.";
-        else upcoming.forEach(u => msg += `• ${u.name} - ${u.date}\n`);
-        return api.sendMessage(msg, threadID, messageID);
-    }
-
-    if (action === "rem" || action === "remove") {
-        let uid = messageReply ? messageReply.senderID : (Object.keys(mentions).length > 0 ? Object.keys(mentions)[0] : senderID);
-        const currentData = (await usersData.get(uid)).data || {};
-        currentData.birthday = null;
-        currentData.customWish = null;
-        await usersData.set(uid, currentData, "data");
-        return api.sendMessage("✅ Birthday record removed successfully.", threadID, messageID);
-    }
-
-    if (action === "check") {
-        await this.checkAndWish({ api, usersData, targetThreadID: threadID });
-        return api.sendMessage("🔍 Scan complete.", threadID);
-    }
-  }
-};
-            
+      const currentData = (await usersData.get(uid)).data || {};
+      currentData.birthday = dob;
+        
