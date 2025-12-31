@@ -26,7 +26,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.7",
+    version: "3.6.8",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -89,7 +89,7 @@ module.exports = {
     }
   },
 
-  onReply: async function ({ api, event, handleReply, usersData }) {
+  onReply: async function ({ api, event, handleReply }) {
     const { threadID, messageID, body, senderID } = event;
     if (handleReply.author != senderID) return;
 
@@ -125,6 +125,7 @@ module.exports = {
     const isDev = developerID == senderID;
     const user = await usersData.get(senderID);
     const isVIP = user.data?.isVIP || false;
+
     const isFree = isAdmin || isDev || isVIP;
 
     if (action === "add" || action === "set") {
@@ -217,31 +218,17 @@ module.exports = {
 
     if (action === "rem" || action === "remove") {
         let uid;
-        const allUsersWithBD = (await usersData.getAll()).filter(u => u.data?.birthday);
-        const listNum = parseInt(args.args[1]);
+        if (messageReply) { uid = messageReply.senderID; }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; }
+        else if (args.args[1]) { uid = args.args[1]; }
+        else { uid = senderID; }
 
-        // ১. লিস্ট নম্বর দিয়ে রিমুভ (যেমন: !dob rem 1)
-        if (!isNaN(listNum) && listNum > 0 && listNum <= allUsersWithBD.length) {
-            uid = allUsersWithBD[listNum - 1].userID;
-        } 
-        // ২. রিপ্লাই দিয়ে রিমুভ
-        else if (messageReply) {
-            uid = messageReply.senderID;
-        } 
-        // ৩. মেনশন দিয়ে রিমুভ
-        else if (Object.keys(mentions).length > 0) {
-            uid = Object.keys(mentions)[0];
-        } 
-        // ৪. সরাসরি UID দিয়ে রিমুভ
-        else if (args.args[1] && args.args[1].length > 5) {
-            uid = args.args[1];
-        }
-        // ৫. নিজেরটা রিমুভ
-        else {
-            uid = senderID;
+        const userData = await usersData.get(uid);
+        if (!userData || !userData.data || !userData.data.birthday) {
+          return api.sendMessage(`❌ No birthday record found for ${uid}.`, threadID, messageID);
         }
 
-        const currentData = (await usersData.get(uid)).data || {};
+        const currentData = userData.data;
         currentData.birthday = null;
         currentData.customWish = null;
         await usersData.set(uid, currentData, "data");
@@ -254,4 +241,4 @@ module.exports = {
     }
   }
 };
-        
+          
