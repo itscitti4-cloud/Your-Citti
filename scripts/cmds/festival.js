@@ -116,6 +116,6 @@ module.exports = {
       }
     }
 
-    return api.sendMessage("ℹ️ Usage Guide:\n1. !ny text <message> (Set wish message)\n2. !ny set DD-MM-YYYY HH:mmAM/PM (Set specific time)\n3. !ny reset (Reset all settings)\n4. !ny check (Preview message)", threadID, messageID);
+    return api.sendMessage("ℹ️ Usage Guide:\n1. {pn} text <message> (Set wish message)\n2. {pn} set DD-MM-YYYY HH:mmAM/PM (Set specific time)\n3. {pn} reset (Reset all settings)\n4. {pn} check (Preview message)", threadID, messageID);
   }
 };
