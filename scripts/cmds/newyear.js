@@ -79,7 +79,7 @@ module.exports = {
       const year = moment.tz("Asia/Dhaka").format("YYYY");
       const customMsg = globalData.message || `🌟 Goodbye 2025, Welcome 2026! 🌟\n\nMay the new year bring endless joy, peace, and success to your life. ✨`;
       
-      const sampleMsg = `🎁 [GLOBAL PREVIEW]\n━━━━━━━━━━━━━━\n🎊 HAPPY NEW YEAR ${year} 🎊\n━━━━━━━━━━━━━━\n${customMsg}\n━━━━━━━━━━━━━━\n💖 Wish you a great year ahead!`;
+      const sampleMsg = `🎁 [GLOBAL PREVIEW]\n${customMsg}`;
 
       if (fs.existsSync(localImgPath)) {
         return api.sendMessage({ body: sampleMsg, attachment: fs.createReadStream(localImgPath) }, threadID, messageID);
