@@ -26,7 +26,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.6",
+    version: "3.6.7",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -110,17 +110,17 @@ module.exports = {
     }
   },
 
-  onStart: async function (obj) { 
-    const { api, event, args, usersData, Currencies, currenciesData } = obj;
-    // ডাইনামিক কারেন্সি অবজেক্ট ডিটেকশন
-    const curSystem = Currencies || currenciesData;
+  onStart: async function (context) { 
+    const { api, event, args, usersData } = context;
+    // কারেন্সি সিস্টেমের সব সম্ভাব্য নাম চেক করা
+    const Currencies = context.Currencies || context.currenciesData || context.currencies || global.currencies;
     
     const { threadID, messageID, senderID, mentions, messageReply } = event;
     const action = args[0]?.toLowerCase();
     const cost = 10000;
 
-    const adminIDs = global.config?.adminIDs || [];
-    const developerID = global.config?.developerID || "";
+    const adminIDs = global.config?.adminIDs || global.config?.ADMINBOT || [];
+    const developerID = global.config?.developerID || global.config?.NDH || "";
     
     const isAdmin = adminIDs.some(item => (item.id || item) == senderID);
     const isDev = developerID == senderID;
@@ -131,10 +131,12 @@ module.exports = {
 
     if (action === "add" || action === "set") {
       if (!isFree) {
-        if (!curSystem) return api.sendMessage("❌ Money system not found!", threadID, messageID);
+        if (!Currencies) return api.sendMessage("❌ Money system not found!", threadID, messageID);
         
-        const userDataMoney = await (curSystem.getData ? curSystem.getData(senderID) : curSystem.get(senderID));
-        if (userDataMoney.money < cost) {
+        const userDataMoney = await (Currencies.getData ? Currencies.getData(senderID) : Currencies.get(senderID));
+        const money = userDataMoney?.money ?? 0;
+
+        if (money < cost) {
           return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
         }
       }
@@ -149,9 +151,9 @@ module.exports = {
             return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
         }
         
-        if (!isFree) {
-            if (curSystem.decreaseData) await curSystem.decreaseData(senderID, cost);
-            else if (curSystem.decreaseMoney) await curSystem.decreaseMoney(senderID, cost);
+        if (!isFree && Currencies) {
+            if (Currencies.decreaseData) await Currencies.decreaseData(senderID, cost);
+            else if (Currencies.decreaseMoney) await Currencies.decreaseMoney(senderID, cost);
         }
         
         const currentData = (await usersData.get(uid)).data || {};
@@ -171,9 +173,9 @@ module.exports = {
 
         if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
         
-        if (!isFree) {
-            if (curSystem.decreaseData) await curSystem.decreaseData(senderID, cost);
-            else if (curSystem.decreaseMoney) await curSystem.decreaseMoney(senderID, cost);
+        if (!isFree && Currencies) {
+            if (Currencies.decreaseData) await Currencies.decreaseData(senderID, cost);
+            else if (Currencies.decreaseMoney) await Currencies.decreaseMoney(senderID, cost);
         }
         
         const currentData = (await usersData.get(uid)).data || {};
