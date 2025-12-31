@@ -26,7 +26,7 @@ module.exports = {
   config: {
     name: "birthday",
     aliases: ["dob"],
-    version: "3.6.5",
+    version: "3.6.7",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -89,7 +89,7 @@ module.exports = {
     }
   },
 
-  onReply: async function ({ api, event, handleReply }) {
+  onReply: async function ({ api, event, handleReply, usersData }) {
     const { threadID, messageID, body, senderID } = event;
     if (handleReply.author != senderID) return;
 
@@ -110,40 +110,43 @@ module.exports = {
     }
   },
 
-  onStart: async function ({ api, event, args, usersData, currenciesData }) { 
+  onStart: async function (args) { 
+    const { api, event, usersData } = args;
+    const Currencies = args.Currencies || args.currenciesData || args.currencies;
+    
     const { threadID, messageID, senderID, mentions, messageReply } = event;
-    const action = args[0]?.toLowerCase();
+    const action = args.args[0]?.toLowerCase();
     const cost = 10000;
 
-    const adminIDs = global.config?.ADMINBOT || [];
-    const developerID = global.config?.NDH || "";
+    const adminIDs = global.config?.ADMINBOT || global.config?.adminIDs || [];
+    const developerID = global.config?.NDH || global.config?.developerID || "";
     
-    const isAdmin = adminIDs.includes(senderID);
-    const isDev = developerID.includes(senderID);
+    const isAdmin = Array.isArray(adminIDs) ? adminIDs.some(id => (id.id || id) == senderID) : adminIDs == senderID;
+    const isDev = developerID == senderID;
     const user = await usersData.get(senderID);
     const isVIP = user.data?.isVIP || false;
-
     const isFree = isAdmin || isDev || isVIP;
 
     if (action === "add" || action === "set") {
       if (!isFree) {
-        const userDataMoney = await currenciesData.get(senderID);
-        if (!userDataMoney || userDataMoney.money < cost) {
+        if (!Currencies) return api.sendMessage("❌ Currency system not found!", threadID, messageID);
+        const userData = await Currencies.get(senderID);
+        if (!userData || userData.money < cost) {
           return api.sendMessage(`❌ You don't have enough balance. This command costs ${formatCurrency(cost)}.`, threadID, messageID);
         }
       }
 
       if (action === "add") {
         let uid, dob;
-        if (messageReply) { uid = messageReply.senderID; dob = args[1]; }
-        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args[args.length - 1]; }
-        else { uid = senderID; dob = args[1]; }
+        if (messageReply) { uid = messageReply.senderID; dob = args.args[1]; }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; dob = args.args[args.args.length - 1]; }
+        else { uid = senderID; dob = args.args[1]; }
 
         if (!dob || !/^\d{2}-\d{2}-\d{4}$/.test(dob)) {
             return api.sendMessage("⚠️ Incorrect Date Format!\n💡 Please use: DD-MM-YYYY\nExample: 31-12-2001", threadID, messageID);
         }
         
-        if (!isFree) await currenciesData.decreaseMoney(senderID, cost);
+        if (!isFree) await Currencies.decreaseMoney(senderID, cost);
         
         const currentData = (await usersData.get(uid)).data || {};
         currentData.birthday = dob;
@@ -156,16 +159,13 @@ module.exports = {
 
       if (action === "set") {
         let uid, wishText;
-        if (messageReply) { uid = messageReply.senderID; wishText = args.slice(1).join(" "); }
-        else if (Object.keys(mentions).length > 0) { 
-            uid = Object.keys(mentions)[0]; 
-            wishText = args.slice(2).join(" "); 
-        }
-        else { uid = senderID; wishText = args.slice(1).join(" "); }
+        if (messageReply) { uid = messageReply.senderID; wishText = args.args.slice(1).join(" "); }
+        else if (Object.keys(mentions).length > 0) { uid = Object.keys(mentions)[0]; wishText = args.args.slice(2).join(" "); }
+        else { uid = senderID; wishText = args.args.slice(1).join(" "); }
 
         if (!uid || !wishText) return api.sendMessage("❌ Usage: !dob set <text>", threadID, messageID);
         
-        if (!isFree) await currenciesData.decreaseMoney(senderID, cost);
+        if (!isFree) await Currencies.decreaseMoney(senderID, cost);
         
         const currentData = (await usersData.get(uid)).data || {};
         currentData.customWish = wishText;
@@ -186,7 +186,7 @@ module.exports = {
       msg += "\n💬 Reply with a number to see a sample wish.";
       
       return api.sendMessage(msg, threadID, (err, info) => {
-        if (err) return;
+        if (!global.client.handleReply) global.client.handleReply = [];
         global.client.handleReply.push({
           name: this.config.name,
           messageID: info.messageID,
@@ -216,12 +216,36 @@ module.exports = {
     }
 
     if (action === "rem" || action === "remove") {
-        let uid = messageReply ? messageReply.senderID : (Object.keys(mentions).length > 0 ? Object.keys(mentions)[0] : senderID);
+        let uid;
+        const allUsersWithBD = (await usersData.getAll()).filter(u => u.data?.birthday);
+        const listNum = parseInt(args.args[1]);
+
+        // ১. লিস্ট নম্বর দিয়ে রিমুভ (যেমন: !dob rem 1)
+        if (!isNaN(listNum) && listNum > 0 && listNum <= allUsersWithBD.length) {
+            uid = allUsersWithBD[listNum - 1].userID;
+        } 
+        // ২. রিপ্লাই দিয়ে রিমুভ
+        else if (messageReply) {
+            uid = messageReply.senderID;
+        } 
+        // ৩. মেনশন দিয়ে রিমুভ
+        else if (Object.keys(mentions).length > 0) {
+            uid = Object.keys(mentions)[0];
+        } 
+        // ৪. সরাসরি UID দিয়ে রিমুভ
+        else if (args.args[1] && args.args[1].length > 5) {
+            uid = args.args[1];
+        }
+        // ৫. নিজেরটা রিমুভ
+        else {
+            uid = senderID;
+        }
+
         const currentData = (await usersData.get(uid)).data || {};
         currentData.birthday = null;
         currentData.customWish = null;
         await usersData.set(uid, currentData, "data");
-        return api.sendMessage("✅ Birthday record removed successfully.", threadID, messageID);
+        return api.sendMessage(`✅ Birthday record removed successfully for ${uid}.`, threadID, messageID);
     }
 
     if (action === "check") {
@@ -230,4 +254,4 @@ module.exports = {
     }
   }
 };
-      
+        
