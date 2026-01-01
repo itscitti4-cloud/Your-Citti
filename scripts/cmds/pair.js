@@ -130,7 +130,7 @@ module.exports = {
       fs.writeFileSync(tempImgPath, canvas.toBuffer("image/png"));
 
       const partnerList = partnerData.map(p => p.name).join(", ");
-      const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with ${partnerList}\n~ Match percentage: ${percent}%`;
+      const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with ${partnerList}\n~ Match percentage: ${pctList}%`;
 
       return api.sendMessage({ body: msg, attachment: fs.createReadStream(tempImgPath) }, threadID, () => fs.unlinkSync(tempImgPath), messageID);
     } catch (e) { return api.sendMessage(`Error: ${e.message}`, threadID, messageID); }
