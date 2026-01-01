@@ -48,7 +48,7 @@ module.exports = {
       }
 
       // ২. গ্রুপ এডমিন প্রসেসিং (এটি বর্তমান থ্রেড থেকে ডাটা নেবে)
-      msg += `⚙️ ─── GROUP ADMINS ───\n`;
+      msg += `⚙️ ─── GROUP ADMINS (Role 1) ───\n`;
       const threadInfo = await api.getThreadInfo(event.threadID);
       const adminIDs = threadInfo.adminIDs.map(item => item.id);
 
