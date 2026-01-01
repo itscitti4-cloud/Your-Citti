@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "pair",
     version: "3.1.0",
-    author: "AkHi & Gemini",
+    author: "AkHi",
     countDown: 5,
     role: 0,
     shortDescription: "Pair with perfectly centered heart UI",
@@ -136,4 +136,3 @@ module.exports = {
     } catch (e) { return api.sendMessage(`Error: ${e.message}`, threadID, messageID); }
   }
 };
-          ।
