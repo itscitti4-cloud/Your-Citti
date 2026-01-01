@@ -11,14 +11,14 @@ module.exports = {
     shortDescription: "বাংলাদেশ বিষয়ক কুইজ গেম",
     longDescription: "বাংলাদেশ সংক্রান্ত প্রশ্ন এবং উত্তরের মাধ্যমে কয়েন জিতুন।",
     category: "game",
-    guide: "{pn} - for play", "{pn} auto on/off for continue quiz control"
+    guide: "{pn} - for play, {pn} auto on/off for continue quiz control"
   },
 
-  onStart: async function ({ api, event, usersData }) {
+  onStart: async function ({ api, event, usersData, args }) {
     const { threadID, messageID, senderID } = event;
     // Auto-continue toggle logic
     if (!global.quizAuto) global.quizAuto = new Map();
-    if (args[0] === "auto") {
+    if (args && args[0] === "auto") {
       if (args[1] === "on") {
         global.quizAuto.set(threadID, true);
         return api.sendMessage("✅ কুইজ অটো-মোড অন করা হয়েছে। এখন থেকে প্রশ্ন চলতেই থাকবে।", threadID, messageID);
@@ -331,7 +331,6 @@ module.exports = {
       { q: "বাংলাদেশের প্রথম মহিলা ব্যারিস্টার রাবেয়া ভূঁইয়া কোন জেলার?", a: "নরসিংদী", options: ["ঢাকা", "নরসিংদী", "নারায়ণগঞ্জ", "গাজীপুর"] },
       { q: "বাংলাদেশের বৃহত্তম হাওড় হাকালুকি কোন জেলায়?", a: "মৌলভীবাজার", options: ["সিলেট", "মৌলভীবাজার", "সুনামগঞ্জ", "হবিগঞ্জ"] }
       ];
-
     const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const { q, options, a: ans } = randomQuiz;
 
@@ -414,4 +413,6 @@ module.exports = {
         this.onStart({ api, event, args, usersData });
       }, 2000);
     }
-  };
+  }
+};
+    
