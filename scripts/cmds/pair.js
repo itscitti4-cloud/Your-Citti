@@ -6,11 +6,11 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   config: {
     name: "pair",
-    version: "3.1.0",
+    version: "3.2.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Pair with perfectly centered heart UI",
+    shortDescription: "Pair with fixed centered heart UI",
     longDescription: "Pairs with opposite gender, shows custom hearts perfectly centered on connection lines.",
     category: "fun",
     guide: "{pn} or {pn} 3/4/5"
@@ -77,26 +77,19 @@ module.exports = {
         } catch (e) { return "User"; }
       };
 
-      // পারফেক্টলি সেন্টার্ড হার্ট ড্র ফাংশন
       const drawHeart = (x, y, size, percent) => {
         ctx.save();
-        ctx.translate(x, y); // এই পয়েন্টটি এখন হার্টের কেন্দ্র
+        ctx.translate(x, y);
         ctx.beginPath();
         ctx.fillStyle = "#FF0000";
-        const d = size / 2;
-        
-        // হার্ট শেপ ড্রয়িং (সেন্টার এডজাস্ট করা হয়েছে)
-        ctx.moveTo(0, d / 2);
-        ctx.bezierCurveTo(0, -d, -size, -d, -size, d / 2);
-        ctx.bezierCurveTo(-size, size, 0, size * 1.5, 0, size * 1.8);
-        ctx.bezierCurveTo(0, size * 1.5, size, size, size, d / 2);
-        ctx.bezierCurveTo(size, -d, 0, -d, 0, d / 2);
+        ctx.moveTo(0, size * 0.4);
+        ctx.bezierCurveTo(-size * 0.8, -size * 0.1, -size * 0.5, -size * 0.7, 0, -size * 0.3);
+        ctx.bezierCurveTo(size * 0.5, -size * 0.7, size * 0.8, -size * 0.1, 0, size * 0.4);
         ctx.fill();
-
-        // পার্সেন্টেজ টেক্সট (হার্টের ঠিক মাঝখানে)
-        ctx.font = `bold ${size/1.5}px Arial`;
+        ctx.font = `bold ${size/2.5}px Arial`;
         ctx.fillStyle = "white"; ctx.textAlign = "center";
-        ctx.fillText(`${percent}%`, 0, size * 0.8);
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${percent}%`, 0, -size * 0.05);
         ctx.restore();
       };
 
@@ -107,32 +100,35 @@ module.exports = {
         await drawUser(id1, 320, 360, 180, 40);
         const pName = await drawUser(selectedPartners[0], 960, 360, 180, 40);
         const pct = Math.floor(Math.random() * 51) + 50;
-        // সিঙ্গেল পেয়ারের ক্ষেত্রে একদম সেন্টারে
-        drawHeart(centerX, centerY - 80, 80, pct); 
+        drawHeart(centerX, centerY, 90, pct); 
         partnerData.push({ name: pName, pct: pct });
       } else {
         await drawUser(id1, centerX, centerY, 140, 35);
-        const radius = 270;
+        const radius = 280;
         for (let i = 0; i < selectedPartners.length; i++) {
           const angle = (i * 2 * Math.PI) / selectedPartners.length;
           const x = centerX + radius * Math.cos(angle);
           const y = centerY + radius * Math.sin(angle);
           const pName = await drawUser(selectedPartners[i], x, y, 85, 22);
           const pct = Math.floor(Math.random() * 51) + 50;
-          // কানেকশন লাইনের ঠিক মাঝখানে হার্ট
-          drawHeart((centerX + x) / 2, (centerY + y) / 2 - 40, 35, pct);
+          drawHeart((centerX + x) / 2, (centerY + y) / 2, 45, pct);
           partnerData.push({ name: pName, pct: pct });
         }
       }
 
-      const tempImgPath = path.join(__dirname, "cache", `pair_${Date.now()}.png`);
-      fs.ensureDirSync(path.join(__dirname, "cache"));
+      const cacheDir = path.join(__dirname, "cache");
+      if (!fs.existsSync(cacheDir)) fs.ensureDirSync(cacheDir);
+      const tempImgPath = path.join(cacheDir, `pair_${Date.now()}.png`);
       fs.writeFileSync(tempImgPath, canvas.toBuffer("image/png"));
 
+      // এখানে পরিবর্তন করা হয়েছে যাতে pctList পাওয়া যায়
       const partnerList = partnerData.map(p => p.name).join(", ");
-      const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with ${partnerList}\n~ Match percentage: ${pctList}%`;
+      const pctList = partnerData.map(p => `${p.pct}%`).join(", ");
+      
+      const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with ${partnerList}\n~ Match percentage: ${pctList}`;
 
       return api.sendMessage({ body: msg, attachment: fs.createReadStream(tempImgPath) }, threadID, () => fs.unlinkSync(tempImgPath), messageID);
     } catch (e) { return api.sendMessage(`Error: ${e.message}`, threadID, messageID); }
   }
 };
+          
