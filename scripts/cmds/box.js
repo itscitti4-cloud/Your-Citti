@@ -27,7 +27,7 @@ const fs = require("fs");
          if (args[0] == "name") { 
  var content = args.join(" "); 
  var c = content.slice(4, 99) || event.messageReply.body; 
- api.setTitle(`${c } `, event.threadID); 
+ api.changeThreadName(`${c } `, event.threadID); 
   } 
          if (args[0] == "emoji") { 
  const name = args[1] || event.messageReply.body; 
