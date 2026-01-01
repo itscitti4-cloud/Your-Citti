@@ -6,12 +6,12 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   config: {
     name: "pair",
-    version: "2.7.0",
-    author: "AkHi",
+    version: "2.8.0",
+    author: "AkHi & Gemini",
     countDown: 5,
     role: 0,
-    shortDescription: "Pair with improved heart-percentage UI",
-    longDescription: "Pairs you with opposite gender. Display matching % inside heart for all modes.",
+    shortDescription: "Pair with Heart-Percentage UI",
+    longDescription: "Pairs you with opposite gender. Display matching % inside heart emoji for all modes.",
     category: "fun",
     guide: "{pn} or {pn} 3/4/5 (for males)"
   },
@@ -62,7 +62,7 @@ module.exports = {
       const token = "6628568379%7Cc1e620fa708a1d5696fb991c1bde5662";
       const getAvatarUrl = (id) => `https://graph.facebook.com/${id}/picture?width=512&height=512&access_token=${token}`;
 
-      // ড্রয়িং ফাংশন (নাম এবং ছবি)
+      // ড্রয়িং ফাংশন (ছবি এবং নাম)
       const drawUser = async (id, x, y, radius, fontSize) => {
         try {
           const info = await api.getUserInfo(id);
@@ -75,29 +75,31 @@ module.exports = {
           ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
           ctx.restore();
 
-          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 4; ctx.stroke();
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 5; ctx.stroke();
 
           ctx.font = `bold ${fontSize}px Arial`;
           ctx.fillStyle = "white"; ctx.textAlign = "center";
-          ctx.shadowColor = "black"; ctx.shadowBlur = 8;
-          ctx.fillText(name, x, y + radius + fontSize + 5);
+          ctx.shadowColor = "black"; ctx.shadowBlur = 10;
+          ctx.fillText(name, x, y + radius + fontSize + 10);
           ctx.shadowBlur = 0;
           return info[id].name;
         } catch (e) { return "User"; }
       };
 
-      // লাভ + পার্সেন্টেজ ড্রয়িং ফাংশন
-      const drawMatchUI = (x, y, heartSize, fontSize) => {
+      // লাভ + পার্সেন্টেজ ড্রয়িং ফাংশন (সেন্টার এলাইনড)
+      const drawMatchInsideHeart = (x, y, heartSize, percentFontSize) => {
         const matchPercent = Math.floor(Math.random() * 51) + 50;
         ctx.textAlign = "center";
-        // হার্ট ড্রয়িং
+        
+        // হার্ট ইমোজি
         ctx.font = `${heartSize}px Arial`;
         ctx.fillStyle = "red";
-        ctx.fillText("❤️", x, y + (heartSize/3));
-        // পার্সেন্টেজ টেক্সট (হার্টের ঠিক ভেতরে)
-        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.fillText("❤️", x, y + (heartSize / 3.5)); 
+
+        // পার্সেন্টেজ (সাদা রঙে হার্টের ভেতরে)
+        ctx.font = `bold ${percentFontSize}px Arial`;
         ctx.fillStyle = "white";
-        ctx.fillText(`${matchPercent}%`, x, y + (heartSize/10));
+        ctx.fillText(`${matchPercent}%`, x, y + (heartSize / 15)); 
       };
 
       const centerX = 640;
@@ -105,23 +107,28 @@ module.exports = {
       let partnerFullNames = [];
 
       if (selectedPartners.length === 1) {
-        await drawUser(id1, 320, 360, 180, 35);
-        const pName = await drawUser(selectedPartners[0], 960, 360, 180, 35);
+        // সিঙ্গেল পেয়ার লেআউট
+        await drawUser(id1, 320, 360, 180, 40);
+        const pName = await drawUser(selectedPartners[0], 960, 360, 180, 40);
         partnerFullNames.push(pName);
-        drawMatchUI(centerX, centerY, 150, 40); // মেইন সেন্টারে বড় লাভ
+        
+        // সেন্টারে বড় হার্ট ও পার্সেন্টেজ
+        drawMatchInsideHeart(centerX, centerY, 160, 45);
       } else {
-        await drawUser(id1, centerX, centerY - 20, 140, 30);
-        const arrangementRadius = 260;
+        // মাল্টিপল পেয়ার লেআউট
+        await drawUser(id1, centerX, centerY - 20, 140, 35);
+        const arrangementRadius = 270;
+
         for (let i = 0; i < selectedPartners.length; i++) {
           const angle = (i * 2 * Math.PI) / selectedPartners.length;
           const x = centerX + arrangementRadius * Math.cos(angle);
           const y = centerY + arrangementRadius * Math.sin(angle);
           
-          const pName = await drawUser(selectedPartners[i], x, y, 80, 20);
+          const pName = await drawUser(selectedPartners[i], x, y, 85, 22);
           partnerFullNames.push(pName);
 
-          // প্রতি পার্টনারের কানেকশনে ছোট লাভ ও পার্সেন্টেজ
-          drawMatchUI((centerX + x) / 2, (centerY + y) / 2, 60, 15);
+          // প্রতি পার্টনারের লাইনের ওপর ছোট হার্ট ও পার্সেন্টেজ
+          drawMatchInsideHeart((centerX + x) / 2, (centerY + y) / 2, 70, 18);
         }
       }
 
@@ -143,3 +150,4 @@ module.exports = {
     }
   }
 };
+                                                   
