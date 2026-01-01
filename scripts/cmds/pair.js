@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "pair",
     version: "2.7.0",
-    author: "AkHi",
+    author: "AkHi & Gemini",
     countDown: 5,
     role: 0,
     shortDescription: "Pair with improved heart-percentage UI",
