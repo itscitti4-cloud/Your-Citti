@@ -11,7 +11,7 @@ module.exports = {
     shortDescription: "বাংলাদেশ বিষয়ক কুইজ গেম",
     longDescription: "বাংলাদেশ সংক্রান্ত প্রশ্ন এবং উত্তরের মাধ্যমে কয়েন জিতুন।",
     category: "game",
-    guide: "{pn}"
+    guide: "{pn} - for play", "{pn} auto on/off for continue quiz control"
   },
 
   onStart: async function ({ api, event, usersData }) {
