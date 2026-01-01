@@ -1,50 +1,50 @@
-const axios = require("axios");
-
 module.exports = {
-  config: {
-    name: "role",
-    version: "2.7.0",
-    role: 4,
-    author: "AkHi",
-    description: "Searches Rule 34 for an image.",
-    category: "fun",
-    usages: "[tag]",
-    cooldowns: 5
-  },
+    config: {
+        name: "role",
+        version: "1.0.0",
+        role: 0,
+        author: "Gemini",
+        description: "See who can use which role levels",
+        category: "system",
+        guide: "{pn}"
+    },
 
-  onStart: async function ({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const tag = args.join("_");
+    onStart: async function ({ api, event }) {
+        const { threadID, messageID } = event;
 
-    if (!tag) {
-      return api.sendMessage("অনুগ্রহ করে একটি ট্যাগ প্রদান করুন। যেমন: !bby naruto", threadID, messageID);
+        // Goatbot এর কনফিগারেশন থেকে ডাটা খোঁজা
+        const adminIDs = global.GoatBot.config.adminBot || [];
+        const operatorIDs = global.GoatBot.config.operators || [];
+
+        let msg = "╔══════════════════╗\n";
+        msg += "       👑 ROLE PERMISSIONS\n";
+        msg += "╚══════════════════╝\n\n";
+
+        // Role 0: Everyone
+        msg += "👤 [ ROLE 0 ] — Everyone\n";
+        msg += "» Accessible by all group members.\n\n";
+
+        // Role 1: Moderators (যদি আপনার বটে আলাদাভাবে মডারেটর সেট করা থাকে)
+        msg += "🛡️ [ ROLE 1 ] — Group admin\n";
+        msg += "» Only for admin of current group.\n\n";
+
+        // Role 2: Bot Admins
+        msg += "⚙️ [ ROLE 2 ] — Bot Admins\n";
+        msg += `» Total Admins: ${adminIDs.length}\n`;
+        msg += "» Users listed in bot's admin config.\n\n";
+
+        // Role 3: Group Admins
+        msg += "👥 [ ROLE 3 ] — Premium\n";
+        msg += "» Only premium user's use this.\n\n";
+
+        // Role 4: Bot Owners/Operators
+        msg += "💎 [ ROLE 4 ] — Bot Developers\n";
+        msg += `» Total Developers: ${developerIDs.length}\n`;
+        msg += "» Main developers and owners of the bot.\n";
+
+        msg += "━━━━━━━━━━━━━━━━━━\n";
+        msg += "💡 Use !cmdrole <number> to see commands for a specific role.";
+
+        return api.sendMessage(msg, threadID, messageID);
     }
-
-    try {
-      // Rule34 API URL (JSON ফরম্যাটে)
-      const apiUrl = `https://api.rule34.xxx/index.php?page=dapi&s=post&q=index&tags=${encodeURIComponent(tag)}&limit=100&json=1`;
-      
-      const res = await axios.get(apiUrl);
-      const data = res.data;
-
-      if (data && data.length > 0) {
-        // র‍্যান্ডম একটি ছবি সিলেক্ট করা
-        const randomIndex = Math.floor(Math.random() * data.length);
-        const imageUrl = data[randomIndex].file_url;
-
-        // ইমেজ ডাউনলোড করে স্ট্রিম তৈরি করা
-        const imageStream = (await axios.get(imageUrl, { responseType: 'stream' })).data;
-
-        return api.sendMessage({
-          body: `✅ এই নাও তোমার জন্য ফলাফল!\nট্যাগ: ${tag.replace(/_/g, " ")}`,
-          attachment: imageStream
-        }, threadID, messageID);
-      } else {
-        return api.sendMessage(`❌ দুঃখিত সোনা, "${tag}" এই ট্যাগে কোনো ছবি খুঁজে পাইনি। অন্য কিছু ট্রাই করো!`, threadID, messageID);
-      }
-    } catch (error) {
-      console.error("R34 Error:", error.message);
-      return api.sendMessage("সার্ভার একটু বিজি অথবা এপিআই কাজ করছে না জানু! পরে ট্রাই করো। 🤧", threadID, messageID);
-    }
-  }
 };
