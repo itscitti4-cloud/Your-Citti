@@ -24,8 +24,8 @@ module.exports = {
       const roles = [
         { name: "DEVELOPERS (Role 4)", key: "devUsers", icon: "👑" },
         { name: "PREMIUM USERS (Role 3)", key: "premiumUsers", icon: "💎" },
-        { name: "BOT ADMINS (Role 2)", key: "adminBot", icon: "🛡️" },
-        { name: "OPERATORS (Role 1)", key: "operators", icon: "⚙️" }
+        { name: "BOT ADMINS (Role 2)", key: "adminBot", icon: "⚙️" },
+        { name: "GROUP ADMIN (Role 1), key: "threadInfo.adminIDs.length", icon: "🛡️"}
       ];
 
       let msg = "✨ ━━━━ [ 𝗔𝗨𝗧𝗛𝗢𝗥𝗜𝗧𝗬 ] ━━━━ ✨\n\n";
