@@ -6,14 +6,14 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   config: {
     name: "pair",
-    version: "1.3.0",
-    author: "AkHi",
+    version: "2.6.0",
+    author: "AkHi & Gemini",
     countDown: 5,
     role: 0,
-    shortDescription: "Create a pair between group members with image",
-    longDescription: "Pairs you or a mentioned person with a random group member.",
+    shortDescription: "Pair with names and dynamic layout",
+    longDescription: "Pairs you with opposite gender. Supports single/multiple partners with names displayed on image.",
     category: "fun",
-    guide: "{pn} or {pn} @mention/reply/uid"
+    guide: "{pn} or {pn} 3/4/5 (for males)"
   },
 
   onStart: async function ({ api, event, args }) {
@@ -21,86 +21,130 @@ module.exports = {
 
     try {
       const threadInfo = await api.getThreadInfo(threadID);
-      const participantIDs = threadInfo.participantIDs;
+      const { userInfo: allUsers } = threadInfo;
 
-      if (participantIDs.length < 2) {
-        return api.sendMessage("Group needs at least 2 members to make a pair!", threadID, messageID);
-      }
-
-      // ১. টার্গেট ইউজার নির্ধারণ (যাকে নিয়ে পেয়ার হবে)
+      // ১. টার্গেট ইউজার নির্ধারণ
       let id1;
-      if (type === "message_reply") {
-        id1 = messageReply.senderID;
-      } else if (Object.keys(mentions).length > 0) {
-        id1 = Object.keys(mentions)[0];
-      } else if (args.length > 0 && !isNaN(args[0])) {
-        id1 = args[0];
-      } else {
-        id1 = senderID; // যদি কিছু না থাকে তবে নিজের সাথে
+      if (type === "message_reply") id1 = messageReply.senderID;
+      else if (Object.keys(mentions).length > 0) id1 = Object.keys(mentions)[0];
+      else id1 = senderID;
+
+      const user1Info = await api.getUserInfo(id1);
+      const gender1 = user1Info[id1].gender;
+      const name1 = user1Info[id1].name.split(" ")[0]; // শুধু প্রথম নাম ইমেজের জন্য
+
+      // ২. জেন্ডার অনুযায়ী ফিল্টার
+      let targetGender = gender1 === 2 ? 1 : 2; 
+      let partners = threadInfo.participantIDs.filter(id => {
+          const u = allUsers.find(x => x.id == id);
+          return u && u.gender == targetGender && id !== id1;
+      });
+
+      if (partners.length === 0) partners = threadInfo.participantIDs.filter(id => id !== id1);
+
+      // ৩. মাল্টিপল পেয়ার সংখ্যা নির্ধারণ (ছেলেদের জন্য)
+      let pairCount = 1;
+      if (gender1 === 2 && args[0] && !isNaN(args[0])) {
+          pairCount = Math.min(parseInt(args[0]), 5);
       }
 
-      // ২. দ্বিতীয় ইউজার (র‍্যান্ডম পার্টনার)
-      let remainingIDs = participantIDs.filter(id => id !== id1);
-      if (remainingIDs.length === 0) remainingIDs = participantIDs; // সেফটি চেক
-      
-      let id2 = remainingIDs[Math.floor(Math.random() * remainingIDs.length)];
+      let selectedPartners = [];
+      for (let i = 0; i < pairCount; i++) {
+          if (partners.length === 0) break;
+          const randomIndex = Math.floor(Math.random() * partners.length);
+          selectedPartners.push(partners.splice(randomIndex, 1)[0]);
+      }
 
-      // ইউজার ডাটা এবং নাম
-      const userData = await api.getUserInfo([id1, id2]);
-      const name1 = userData[id1]?.name || "Facebook User";
-      const name2 = userData[id2]?.name || "Facebook User";
-      const matchPercent = Math.floor(Math.random() * 51) + 50;
-
-      // ইমেজ তৈরির প্রস্তুতি
+      // ৪. ক্যানভাস এবং ইমেজ সেটআপ
       const bgPath = path.join(__dirname, "assets", "image", "background.jpg");
-      if (!fs.existsSync(bgPath)) {
-        return api.sendMessage("Background image not found in assets/image/background.jpg", threadID, messageID);
-      }
+      if (!fs.existsSync(bgPath)) return api.sendMessage("Background image missing!", threadID, messageID);
 
       const canvas = createCanvas(1280, 720);
       const ctx = canvas.getContext("2d");
-
-      // ব্যাকগ্রাউন্ড
       const background = await loadImage(bgPath);
       ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-      // প্রোফাইল পিকচার (নতুন Access Token সহ যা সাধারণত কাজ করে)
       const token = "6628568379%7Cc1e620fa708a1d5696fb991c1bde5662";
-      const avatar1 = await loadImage(`https://graph.facebook.com/${id1}/picture?width=512&height=512&access_token=${token}`);
-      const avatar2 = await loadImage(`https://graph.facebook.com/${id2}/picture?width=512&height=512&access_token=${token}`);
+      const getAvatarUrl = (id) => `https://graph.facebook.com/${id}/picture?width=512&height=512&access_token=${token}`;
 
-      // বাম দিকের ছবি
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(320, 360, 180, 0, Math.PI * 2, true);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(avatar1, 140, 180, 360, 360);
-      ctx.restore();
+      // সার্কেল এবং নাম ড্রয়িং ফাংশন
+      const drawUser = async (id, x, y, radius, fontSize) => {
+        try {
+          const info = await api.getUserInfo(id);
+          const name = info[id].name.split(" ")[0];
+          const url = getAvatarUrl(id);
+          const img = await loadImage(url);
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2, true);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(img, x - radius, y - radius, radius * 2, radius * 2);
+          ctx.restore();
 
-      // ডান দিকের ছবি
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(960, 360, 180, 0, Math.PI * 2, true);
-      ctx.closePath();
-      ctx.clip();
-      ctx.drawImage(avatar2, 780, 180, 360, 360);
-      ctx.restore();
+          // বর্ডার
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 4;
+          ctx.stroke();
 
-      // মাঝখানে হার্ট
-      ctx.font = "bold 150px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("💞", 640, 410);
+          // নাম লেখা (ছবির ঠিক নিচে)
+          ctx.font = `bold ${fontSize}px Arial`;
+          ctx.fillStyle = "white";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "black";
+          ctx.shadowBlur = 10;
+          ctx.fillText(name, x, y + radius + fontSize + 5);
+          ctx.shadowBlur = 0; // শ্যাডো রিসেট
+          return info[id].name;
+        } catch (e) { return "User"; }
+      };
 
-      // ইমেজ সেভ
+      const centerX = 640;
+      const centerY = 360;
+      let partnerFullNames = [];
+
+      if (selectedPartners.length === 1) {
+        // সিঙ্গেল পেয়ার লেআউট
+        await drawUser(id1, 320, 360, 180, 35);
+        const pName = await drawUser(selectedPartners[0], 960, 360, 180, 35);
+        partnerFullNames.push(pName);
+        
+        // মাঝখানে হার্ট এবং পার্সেন্টেজ
+        const matchPercent = Math.floor(Math.random() * 51) + 50;
+        ctx.font = "bold 150px Arial";
+        ctx.fillStyle = "red";
+        ctx.textAlign = "center";
+        ctx.fillText("❤️", centerX, centerY + 50);
+        ctx.font = "bold 40px Arial";
+        ctx.fillStyle = "white";
+        ctx.fillText(`${matchPercent}%`, centerX, centerY + 35);
+      } else {
+        // মাল্টিপল পেয়ার লেআউট
+        await drawUser(id1, centerX, centerY - 20, 140, 30);
+
+        const arrangementRadius = 260;
+        for (let i = 0; i < selectedPartners.length; i++) {
+          const angle = (i * 2 * Math.PI) / selectedPartners.length;
+          const x = centerX + arrangementRadius * Math.cos(angle);
+          const y = centerY + arrangementRadius * Math.sin(angle);
+          
+          const pName = await drawUser(selectedPartners[i], x, y, 80, 20);
+          partnerFullNames.push(pName);
+
+          // ছোট লাভ কানেকশন
+          ctx.font = "30px Arial";
+          ctx.fillText("❤️", (centerX + x) / 2, (centerY + y) / 2);
+        }
+      }
+
+      // ৫. আউটপুট মেসেজ ও ফাইল পাঠানো
       const cacheDir = path.join(__dirname, "cache");
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
-      const tempImgPath = path.join(cacheDir, `pair_${id1}_${id2}.png`);
-      
-      const buffer = canvas.toBuffer("image/png");
-      fs.writeFileSync(tempImgPath, buffer);
+      const tempImgPath = path.join(cacheDir, `pair_${Date.now()}.png`);
+      fs.writeFileSync(tempImgPath, canvas.toBuffer("image/png"));
 
-      const msg = `~ Successful Pair! 🥰\n~ ${name1} paired with ${name2}\n~ Match percentage: ${matchPercent}%`;
+      const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with: ${partnerFullNames.join(", ")}`;
 
       return api.sendMessage({
         body: msg,
@@ -113,3 +157,4 @@ module.exports = {
     }
   }
 };
+        
