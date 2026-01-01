@@ -12,10 +12,7 @@ const fs = require("fs");
                  shortDescription: "set admin/change group photo,emoji,name", 
                  longDescription: "", 
                  category: "Box Chat", 
-                 guide:  { 
-                         vi: "{pn} [admin,emoji,image,name]", 
-                         en: "{pn} name <name> to change box mame\n{pn} emoji <emoji> to change box emoji\n{pn} image <reply to image> to chnge box image\n{pn} add [@tag] to add group admin \n{pn} del [@tag]  to remove group admin \n{pn} info to see group info" 
-                 } 
+                 guide: "{pn} name <name> to change box mame\n{pn} emoji <emoji> to change box emoji\n{pn} image <reply to image> to chnge box image\n{pn} add [@tag] to add group admin \n{pn} del [@tag]  to remove group admin \n{pn} info to see group info"
          }, 
          onStart: async function ({ message, api, event, args, getText }) { 
          const axios = require('axios'); 
@@ -27,11 +24,11 @@ const fs = require("fs");
          if (args[0] == "name") { 
  var content = args.join(" "); 
  var c = content.slice(4, 99) || event.messageReply.body; 
- api.changeThreadName(`${c } `, event.threadID); 
+ api.gcname(`${c } `, event.threadID); 
   } 
          if (args[0] == "emoji") { 
  const name = args[1] || event.messageReply.body; 
- api.changeThreadEmoji(name, event.threadID)   
+ api.emoji(name, event.threadID)   
   } 
  if (args[0] == "add") { 
    if (Object.keys(event.mentions) == 0) return api.changeAdminStatus(event.threadID, args.join(" "), true); 
