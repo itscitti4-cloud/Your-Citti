@@ -16,6 +16,17 @@ module.exports = {
 
   onStart: async function ({ api, event, usersData }) {
     const { threadID, messageID, senderID } = event;
+    // Auto-continue toggle logic
+    if (!global.quizAuto) global.quizAuto = new Map();
+    if (args[0] === "auto") {
+      if (args[1] === "on") {
+        global.quizAuto.set(threadID, true);
+        return api.sendMessage("✅ কুইজ অটো-মোড অন করা হয়েছে। এখন থেকে প্রশ্ন চলতেই থাকবে।", threadID, messageID);
+      } else if (args[1] === "off") {
+        global.quizAuto.delete(threadID);
+        return api.sendMessage("❌ কুইজ অটো-মোড অফ করা হয়েছে।", threadID, messageID);
+      }
+    }
 
     // বাংলাদেশ সংক্রান্ত প্রশ্নের ডাটাবেস
     const questions = [
@@ -324,7 +335,6 @@ module.exports = {
     const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const { q, options, a: ans } = randomQuiz;
 
-    // সঠিক উত্তরের লেবেল (A, B, C, D) বের করা
     const labels = ["A", "B", "C", "D"];
     const correctOptionLabel = labels[options.indexOf(ans)];
 
@@ -347,43 +357,61 @@ module.exports = {
         messageID: info.messageID,
         author: senderID,
         correctLabel: correctOptionLabel,
-        actualAnswer: ans
+        actualAnswer: ans,
+        isEnded: false
       });
 
-      setTimeout(() => {
-        if (global.GoatBot.onReply.has(info.messageID)) {
+      // ২০ সেকেন্ড পর টাইম আউট হ্যান্ডলার
+      setTimeout(async () => {
+        const replyData = global.GoatBot.onReply.get(info.messageID);
+        if (replyData && !replyData.isEnded) {
           global.GoatBot.onReply.delete(info.messageID);
+          api.sendMessage(`⏰ সময় শেষ! সঠিক উত্তর ছিল: ${correctOptionLabel} (${ans})`, threadID);
+          
+          // অটো মোড অন থাকলে পরের প্রশ্ন পাঠাবে
+          if (global.quizAuto.has(threadID)) {
+            setTimeout(() => this.onStart({ api, event, args, usersData }), 2000);
+          }
         }
       }, 20000);
     }, messageID);
   },
 
-  onReply: async function ({ api, event, Reply, usersData }) {
+  onReply: async function ({ api, event, Reply, usersData, args }) {
     const { senderID, body, messageID, threadID } = event;
-
     if (senderID !== Reply.author) return;
 
     const userAnswer = body.trim().toUpperCase();
     const { correctLabel, actualAnswer } = Reply;
 
+    // টাইম আউট চেক
+    if (Reply.isEnded) return; 
+
     if (!["A", "B", "C", "D"].includes(userAnswer)) {
       return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
     }
 
+    Reply.isEnded = true; // উত্তর দেওয়া হয়েছে মার্ক করা হলো
     const userData = await usersData.get(senderID);
     let currentMoney = userData.money || 0;
 
     if (userAnswer === correctLabel) {
       currentMoney += 500;
       await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
+      await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
     } else {
       currentMoney -= 200;
       if (currentMoney < 0) currentMoney = 0;
       await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -200 কয়েন কাটা হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
+      await api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -200 কয়েন কাটা হয়েছে।\n🏦 বর্তমান ব্যালেন্স: ${currentMoney}`, threadID, messageID);
     }
 
     global.GoatBot.onReply.delete(Reply.messageID);
-  }
-};
+
+    // অটো মোড অন থাকলে ২ সেকেন্ড পর নতুন প্রশ্ন আসবে
+    if (global.quizAuto.has(threadID)) {
+      setTimeout(() => {
+        this.onStart({ api, event, args, usersData });
+      }, 2000);
+    }
+  };
