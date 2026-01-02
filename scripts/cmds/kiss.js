@@ -7,12 +7,10 @@ module.exports = {
   config: {
     name: "kiss",
     aliases: ["ki"],
-    version: "2.9",
+    version: "3.6",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Create a kiss image",
-    longDescription: "Merges profile pictures onto a 16:9 background.",
     category: "fun",
     guide: "{pn} @mention or reply"
   },
@@ -21,26 +19,50 @@ module.exports = {
     const { threadID, senderID, messageReply, type, mentions } = event;
     let targetID;
 
+    // বিশেষ UID জোড়া
+    const specialUser1 = "61583939430347";
+    const specialUser2 = "61585634146171";
+    const specialList = [specialUser1, specialUser2];
+
+    // ১. টার্গেট আইডি নির্ধারণ
     if (type === "message_reply") {
       targetID = messageReply.senderID;
     } else if (Object.keys(mentions).length > 0) {
       targetID = Object.keys(mentions)[0];
-    } else {
-      try {
-        const threadInfo = await api.getThreadInfo(threadID);
-        const listID = threadInfo.participantIDs.filter(id => id != senderID && id != api.getCurrentUserID());
-        targetID = listID.length > 0 ? listID[Math.floor(Math.random() * listID.length)] : senderID;
-      } catch (e) {
-        targetID = senderID;
+    } 
+    else {
+      // যদি কেউ মেনশন/রিপ্লাই না দেয় এবং সে বিশেষ ইউজার হয়
+      if (senderID === specialUser1) {
+        targetID = specialUser2;
+      } else if (senderID === specialUser2) {
+        targetID = specialUser1;
+      } else {
+        // সাধারণ ইউজারদের জন্য র্যান্ডম বাছাই (বিশেষ ২ জন বাদে)
+        try {
+          const threadInfo = await api.getThreadInfo(threadID);
+          const listID = threadInfo.participantIDs.filter(id => 
+            id != senderID && 
+            id != api.getCurrentUserID() && 
+            !specialList.includes(id)
+          );
+          targetID = listID.length > 0 ? listID[Math.floor(Math.random() * listID.length)] : senderID;
+        } catch (e) {
+          targetID = senderID;
+        }
       }
     }
 
+    // ২. ডেভেলপার রেস্ট্রিকশন চেক (মূল নিরাপত্তা)
+    // যদি সেন্ডার সাধারণ ইউজার হয় কিন্তু সে বিশেষ কাউকে টার্গেট করে
+    if (!specialList.includes(senderID) && specialList.includes(targetID)) {
+      return message.reply("❌ Access Denied for Developer Restriction");
+    }
+
     const bgPath = path.join(__dirname, "assets/image/kiss.jpg");
-    // Path ফিক্স: মেইন ডিরেক্টরিতে tmp ফোল্ডার ব্যবহার করা নিরাপদ
     const tempPath = path.join(process.cwd(), "tmp", `kiss_${Date.now()}.png`);
 
     if (!fs.existsSync(bgPath)) {
-      return message.reply("❌ Error: 'assets/image/kiss.jpg' file not found!");
+      return message.reply("❌ Error: 'assets/image/kiss.jpg' not found!");
     }
 
     try {
@@ -51,9 +73,8 @@ module.exports = {
       const avatarSenderUrl = `https://graph.facebook.com/${senderID}/picture?width=512&height=512`;
       const avatarTargetUrl = `https://graph.facebook.com/${targetID}/picture?width=512&height=512`;
 
-      message.reply("⏳ Processing image, please wait...");
+      message.reply("⏳ Processing image...");
 
-      // Header যোগ করা হয়েছে যাতে Download fail না হয়
       const getImg = async (url) => {
         const res = await axios.get(url, { 
           responseType: "arraybuffer",
@@ -71,21 +92,25 @@ module.exports = {
       const imgSender = await Jimp.read(bufSender);
       const imgTarget = await Jimp.read(bufTarget);
 
+      // Jimp v1.x Resize
+      await imgSender.resize({ w: 200, h: 200 });
+      await imgTarget.resize({ w: 200, h: 200 });
+      
       imgSender.circle();
       imgTarget.circle();
-      imgSender.resize(200, 200);
-      imgTarget.resize(200, 200);
 
-      // ১৬:৯ পজিশন (Center Y-axis)
-      const yAxis = (bg.getHeight() / 2) - 100;
-      const leftX = (bg.getWidth() * 0.15);
-      const rightX = (bg.getWidth() * 0.70);
+      const bgW = bg.bitmap.width;
+      const bgH = bg.bitmap.height;
+      const yAxis = Math.floor((bgH / 2) - 100);
+      const leftX = Math.floor(bgW * 0.15);
+      const rightX = Math.floor(bgW * 0.70);
 
       bg.composite(imgSender, leftX, yAxis);
       bg.composite(imgTarget, rightX, yAxis);
 
       await fs.ensureDir(path.dirname(tempPath));
-      await bg.writeAsync(tempPath);
+      const buffer = await bg.getBuffer("image/png");
+      await fs.writeFile(tempPath, buffer);
 
       await message.reply({
         body: `😘 ${senderName} kissed ${targetName}!`,
