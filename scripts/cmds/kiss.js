@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "kiss",
     aliases: ["ki"],
-    version: "3.6",
+    version: "3.8",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -19,41 +19,30 @@ module.exports = {
     const { threadID, senderID, messageReply, type, mentions } = event;
     let targetID;
 
-    // বিশেষ UID জোড়া
     const specialUser1 = "61583939430347";
     const specialUser2 = "61585634146171";
     const specialList = [specialUser1, specialUser2];
 
-    // ১. টার্গেট আইডি নির্ধারণ
+    // টার্গেট আইডি সিলেকশন
     if (type === "message_reply") {
       targetID = messageReply.senderID;
     } else if (Object.keys(mentions).length > 0) {
       targetID = Object.keys(mentions)[0];
-    } 
-    else {
-      // যদি কেউ মেনশন/রিপ্লাই না দেয় এবং সে বিশেষ ইউজার হয়
-      if (senderID === specialUser1) {
-        targetID = specialUser2;
-      } else if (senderID === specialUser2) {
-        targetID = specialUser1;
-      } else {
-        // সাধারণ ইউজারদের জন্য র্যান্ডম বাছাই (বিশেষ ২ জন বাদে)
+    } else {
+      if (senderID === specialUser1) targetID = specialUser2;
+      else if (senderID === specialUser2) targetID = specialUser1;
+      else {
         try {
           const threadInfo = await api.getThreadInfo(threadID);
           const listID = threadInfo.participantIDs.filter(id => 
-            id != senderID && 
-            id != api.getCurrentUserID() && 
-            !specialList.includes(id)
+            id != senderID && id != api.getCurrentUserID() && !specialList.includes(id)
           );
           targetID = listID.length > 0 ? listID[Math.floor(Math.random() * listID.length)] : senderID;
-        } catch (e) {
-          targetID = senderID;
-        }
+        } catch (e) { targetID = senderID; }
       }
     }
 
-    // ২. ডেভেলপার রেস্ট্রিকশন চেক (মূল নিরাপত্তা)
-    // যদি সেন্ডার সাধারণ ইউজার হয় কিন্তু সে বিশেষ কাউকে টার্গেট করে
+    // ডেভেলপার রেস্ট্রিকশন চেক
     if (!specialList.includes(senderID) && specialList.includes(targetID)) {
       return message.reply("❌ Access Denied for Developer Restriction");
     }
@@ -61,41 +50,32 @@ module.exports = {
     const bgPath = path.join(__dirname, "assets/image/kiss.jpg");
     const tempPath = path.join(process.cwd(), "tmp", `kiss_${Date.now()}.png`);
 
-    if (!fs.existsSync(bgPath)) {
-      return message.reply("❌ Error: 'assets/image/kiss.jpg' not found!");
-    }
+    if (!fs.existsSync(bgPath)) return message.reply("❌ Error: 'assets/image/kiss.jpg' not found!");
 
     try {
       const info = await api.getUserInfo([senderID, targetID]);
       const senderName = info[senderID]?.name || "Someone";
       const targetName = info[targetID]?.name || "Someone";
 
-      const avatarSenderUrl = `https://graph.facebook.com/${senderID}/picture?width=512&height=512`;
-      const avatarTargetUrl = `https://graph.facebook.com/${targetID}/picture?width=512&height=512`;
+      message.reply("⏳ Kissing in progress...");
 
-      message.reply("⏳ Processing image...");
-
-      const getImg = async (url) => {
-        const res = await axios.get(url, { 
-          responseType: "arraybuffer",
-          headers: { 'User-Agent': 'Mozilla/5.0' } 
-        });
+      const getImg = async (id) => {
+        const url = `https://graph.facebook.com/${id}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        const res = await axios.get(url, { responseType: "arraybuffer" });
         return res.data;
       };
 
-      const [bufSender, bufTarget] = await Promise.all([
-        getImg(avatarSenderUrl),
-        getImg(avatarTargetUrl)
-      ]);
+      const [bufSender, bufTarget] = await Promise.all([getImg(senderID), getImg(targetID)]);
 
       const bg = await Jimp.read(bgPath);
       const imgSender = await Jimp.read(bufSender);
       const imgTarget = await Jimp.read(bufTarget);
-
-      // Jimp v1.x Resize
+      
+      // লাভ ইমোজি (সরাসরি টেক্সট না লিখে ইমোজি রিড করা ভালো, অথবা এটি একটি ছোট ইমেজ হতে পারে)
+      // এখানে আমরা একটি সিম্পল লাভ সাইন কল্পনা করছি।
+      
       await imgSender.resize({ w: 200, h: 200 });
       await imgTarget.resize({ w: 200, h: 200 });
-      
       imgSender.circle();
       imgTarget.circle();
 
@@ -105,15 +85,20 @@ module.exports = {
       const leftX = Math.floor(bgW * 0.15);
       const rightX = Math.floor(bgW * 0.70);
 
+      // ছবিগুলো বসানো
       bg.composite(imgSender, leftX, yAxis);
       bg.composite(imgTarget, rightX, yAxis);
 
-      await fs.ensureDir(path.dirname(tempPath));
+      // লাভ ইমোজি বসানো (দুই ছবির মাঝখানে)
+      // যদি আপনার কাছে কোনো হৃদয়ের ইমেজ থাকে তবে সেটি এখানে লোড করে বসাতে পারেন।
+      // বর্তমানে আমরা একটি হার্ট ইমোজি প্রিন্ট করার চেষ্টা করছি (Jimp এ ইমোজি ফন্ট ছাড়া সরাসরি আসে না)
+
       const buffer = await bg.getBuffer("image/png");
+      await fs.ensureDir(path.dirname(tempPath));
       await fs.writeFile(tempPath, buffer);
 
       await message.reply({
-        body: `😘 ${senderName} kissed ${targetName}!`,
+        body: `😘 ${senderName} kissed ${targetName}! ❤️`,
         attachment: fs.createReadStream(tempPath)
       });
 
@@ -121,7 +106,7 @@ module.exports = {
 
     } catch (err) {
       console.error(err);
-      message.reply(`❌ Failed to process image: ${err.message}`);
+      message.reply(`❌ Error: ${err.message}`);
     }
   }
 };
