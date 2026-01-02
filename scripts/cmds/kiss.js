@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "kiss",
     aliases: ["ki"],
-    version: "3.8",
+    version: "4.2",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -16,14 +16,21 @@ module.exports = {
   },
 
   onStart: async function ({ api, message, event }) {
-    const { threadID, senderID, messageReply, type, mentions } = event;
+    const { threadID, messageID, senderID, messageReply, type, mentions } = event;
     let targetID;
+
+    // রিয়াকশন দেওয়ার ফাংশন
+    const react = (emoji) => api.setMessageReaction(emoji, messageID, () => {}, true);
 
     const specialUser1 = "61583939430347";
     const specialUser2 = "61585634146171";
     const specialList = [specialUser1, specialUser2];
 
-    // টার্গেট আইডি সিলেকশন
+    // কমান্ড দেওয়ার সাথে সাথেই রিয়াকশন এবং মেসেজ (দেরি না করে)
+    react("⏳");
+    const processingMsg = await message.reply("⏳ Kissing in progress...");
+
+    // টার্গেট আইডি নির্ধারণ
     if (type === "message_reply") {
       targetID = messageReply.senderID;
     } else if (Object.keys(mentions).length > 0) {
@@ -44,20 +51,24 @@ module.exports = {
 
     // ডেভেলপার রেস্ট্রিকশন চেক
     if (!specialList.includes(senderID) && specialList.includes(targetID)) {
+      react("❌");
+      if (processingMsg) api.unsendMessage(processingMsg.messageID);
       return message.reply("❌ Access Denied for Developer Restriction");
     }
 
     const bgPath = path.join(__dirname, "assets/image/kiss.jpg");
     const tempPath = path.join(process.cwd(), "tmp", `kiss_${Date.now()}.png`);
 
-    if (!fs.existsSync(bgPath)) return message.reply("❌ Error: 'assets/image/kiss.jpg' not found!");
+    if (!fs.existsSync(bgPath)) {
+      react("❌");
+      if (processingMsg) api.unsendMessage(processingMsg.messageID);
+      return message.reply("❌ Error: 'assets/image/kiss.jpg' not found!");
+    }
 
     try {
       const info = await api.getUserInfo([senderID, targetID]);
-      const senderName = info[senderID]?.name || "Someone";
-      const targetName = info[targetID]?.name || "Someone";
-
-      message.reply("⏳ Kissing in progress...");
+      const senderName = info[senderID]?.name.split(" ")[0] || "Someone";
+      const targetName = info[targetID]?.name.split(" ")[0] || "Someone";
 
       const getImg = async (id) => {
         const url = `https://graph.facebook.com/${id}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
@@ -71,9 +82,6 @@ module.exports = {
       const imgSender = await Jimp.read(bufSender);
       const imgTarget = await Jimp.read(bufTarget);
       
-      // লাভ ইমোজি (সরাসরি টেক্সট না লিখে ইমোজি রিড করা ভালো, অথবা এটি একটি ছোট ইমেজ হতে পারে)
-      // এখানে আমরা একটি সিম্পল লাভ সাইন কল্পনা করছি।
-      
       await imgSender.resize({ w: 200, h: 200 });
       await imgTarget.resize({ w: 200, h: 200 });
       imgSender.circle();
@@ -85,17 +93,30 @@ module.exports = {
       const leftX = Math.floor(bgW * 0.15);
       const rightX = Math.floor(bgW * 0.70);
 
-      // ছবিগুলো বসানো
       bg.composite(imgSender, leftX, yAxis);
       bg.composite(imgTarget, rightX, yAxis);
 
-      // লাভ ইমোজি বসানো (দুই ছবির মাঝখানে)
-      // যদি আপনার কাছে কোনো হৃদয়ের ইমেজ থাকে তবে সেটি এখানে লোড করে বসাতে পারেন।
-      // বর্তমানে আমরা একটি হার্ট ইমোজি প্রিন্ট করার চেষ্টা করছি (Jimp এ ইমোজি ফন্ট ছাড়া সরাসরি আসে না)
+      // Emoji Composite
+      try {
+        const emojiUrl = "https://emojicdn.elk.sh/😘?style=apple";
+        const emojiBuf = await axios.get(emojiUrl, { responseType: "arraybuffer" });
+        const emojiImg = await Jimp.read(emojiBuf.data);
+        await emojiImg.resize({ w: 100, h: 100 });
+        bg.composite(emojiImg, Math.floor((bgW / 2) - 50), Math.floor((bgH / 2) - 50));
+      } catch (e) { console.log("Emoji skip"); }
+
+      // Name Printing
+      const font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+      bg.print(font, leftX, yAxis + 210, { text: senderName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, 200);
+      bg.print(font, rightX, yAxis + 210, { text: targetName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, 200);
 
       const buffer = await bg.getBuffer("image/png");
       await fs.ensureDir(path.dirname(tempPath));
       await fs.writeFile(tempPath, buffer);
+
+      // ইমেজ তৈরি হয়ে গেলে প্রসেসিং মেসেজ ডিলিট করে ফাইনাল ইমেজ পাঠানো
+      if (processingMsg) api.unsendMessage(processingMsg.messageID);
+      react("✅");
 
       await message.reply({
         body: `😘 ${senderName} kissed ${targetName}! ❤️`,
@@ -106,6 +127,8 @@ module.exports = {
 
     } catch (err) {
       console.error(err);
+      react("❌");
+      if (processingMsg) api.unsendMessage(processingMsg.messageID);
       message.reply(`❌ Error: ${err.message}`);
     }
   }
