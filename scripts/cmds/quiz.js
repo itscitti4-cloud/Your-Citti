@@ -3,15 +3,15 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "quiz",
-    aliases: ["কুইজ", "game"],
-    version: "2.0",
+    aliases: ["কুইজ", "qz"],
+    version: "2.5",
     author: "AkHi",
     countDown: 5,
     role: 0,
     shortDescription: "বাংলাদেশ বিষয়ক কুইজ গেম",
-    longDescription: "সঠিক উত্তর দিলে গেম চলতে থাকবে এবং কয়েন জিতবেন।",
+    longDescription: "সঠিক উত্তর দিলে গেম চলতে থাকবে এবং কয়েন জিতবেন। 'quiz list' দিলে প্রশ্নের তালিকা পাবেন।",
     category: "game",
-    guide: "{pn}"
+    guide: "{pn} or {pn} list"
   },
 
   onStart: async function ({ api, event, usersData, args }) {
@@ -322,21 +322,28 @@ module.exports = {
       { q: "বাংলাদেশের বৃহত্তম হাওড় হাকালুকি কোন জেলায়?", a: "মৌলভীবাজার", options: ["সিলেট", "মৌলভীবাজার", "সুনামগঞ্জ", "হবিগঞ্জ"] }
       ];
     
-const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
+// 'list' হ্যান্ডলার
+    if (args[0] === "list" || args[0] === "লিস্ট") {
+      let listMsg = "╭───✦ [ 𝗤𝗨𝗜𝗭 𝗟𝗜𝗦𝗧 ]\n";
+      questions.forEach((item, index) => {
+        listMsg += `├‣ ${index + 1}. ${item.q}\n`;
+      });
+      listMsg += `╰──────────────◊\nTotal Questions: ${questions.length}`;
+      return api.sendMessage(listMsg, threadID);
+    }
+
+    const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const correctAnswer = randomQuiz.a;
 
-    // ভুল উত্তর তৈরির লজিক (র্যান্ডম ৩টি)
     const allAnswers = questions.map(item => item.a);
     let wrongAnswers = allAnswers.filter(ans => ans !== correctAnswer);
+    wrongAnswers = [...new Set(wrongAnswers)]; 
     wrongAnswers = wrongAnswers.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-    // অপশন তৈরি এবং র‍্যান্ডমাইজ করা
     let options = [correctAnswer, ...wrongAnswers];
     options = options.sort(() => 0.5 - Math.random());
 
-    // সঠিক উত্তরের শেষে ডট (.) যোগ করা
     const finalOptions = options.map(opt => opt === correctAnswer ? opt + "." : opt);
-    
     const labels = ["A", "B", "C", "D"];
     const correctLabel = labels[options.indexOf(correctAnswer)];
 
@@ -349,7 +356,7 @@ const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
       `├‣ D. ${finalOptions[3]}\n` +
       `╰──────────────◊\n\n` +
       `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে রিপ্লাই দিন।\n` +
-      `⏰ ২০ সেকেন্ডের মধ্যে উঃ দিন (সঠিক হলে গেম চলবে)।`;
+      `⏰ ২০ সেকেন্ড সময় (সঠিক হলে গেম চলবে)।`;
 
     return api.sendMessage(quizMsg, threadID, (err, info) => {
       if (err) return;
@@ -361,17 +368,16 @@ const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
         correctLabel: correctLabel,
         actualAnswer: correctAnswer,
         isEnded: false,
-        timer: Date.now() + 20000 // ২০ সেকেন্ড সময়
+        timer: Date.now() + 20000 
       });
 
-      // টাইম আউট হ্যান্ডলার
+      // টাইম আউট হ্যান্ডলার (মেসেজ দিবে না, শুধু মেমোরি থেকে মুছে দিবে)
       setTimeout(async () => {
         const replyData = global.GoatBot.onReply.get(info.messageID);
         if (replyData && !replyData.isEnded) {
           global.GoatBot.onReply.delete(info.messageID);
-          api.sendMessage(`⏰ সময় শেষ! সঠিক উত্তর ছিল: ${correctLabel} (${correctAnswer})\nগেমটি এখানেই শেষ হলো।`, threadID);
         }
-      }, 20000);
+      }, 20500); 
     }, messageID);
   },
 
@@ -379,14 +385,14 @@ const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const { senderID, body, messageID, threadID } = event;
     if (senderID !== Reply.author) return;
 
+    if (Reply.isEnded) return;
+
     // সময় শেষ হয়েছে কিনা চেক
     if (Date.now() > Reply.timer) {
         Reply.isEnded = true;
         global.GoatBot.onReply.delete(Reply.messageID);
         return api.sendMessage("❌ দুঃখিত, উঃ দেওয়ার সময় শেষ হওয়ার কারণে আপনার উঃ টি গ্রহণ করা যাচ্ছে না!", threadID, messageID);
     }
-
-    if (Reply.isEnded) return;
 
     const userAnswer = body.trim().toUpperCase();
     const { correctLabel, actualAnswer } = Reply;
@@ -396,6 +402,8 @@ const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     }
 
     Reply.isEnded = true;
+    global.GoatBot.onReply.delete(Reply.messageID);
+    
     const userData = await usersData.get(senderID);
     let currentMoney = userData.money || 0;
 
@@ -404,7 +412,6 @@ const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
       await usersData.set(senderID, { money: currentMoney });
       await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 ব্যালেন্স: ${currentMoney}\n\n⏳ পরবর্তী প্রশ্ন আসছে...`, threadID, messageID);
       
-      // সঠিক হলে অটোমেটিক পরের প্রশ্ন শুরু হবে
       setTimeout(() => {
         this.onStart({ api, event, usersData, args });
       }, 2000);
@@ -414,9 +421,6 @@ const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
       if (currentMoney < 0) currentMoney = 0;
       await usersData.set(senderID, { money: currentMoney });
       api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -200 কয়েন কাটা হয়েছে।\nগেমটি শেষ হলো।`, threadID, messageID);
-      
-      // ভুল হলে মেমোরি থেকে সরিয়ে দিবে, আর কন্টিনিউ হবে না
-      global.GoatBot.onReply.delete(Reply.messageID);
     }
   }
 };
