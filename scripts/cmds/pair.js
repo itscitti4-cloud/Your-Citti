@@ -6,12 +6,12 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   config: {
     name: "pair",
-    version: "3.5.0",
+    version: "3.6.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Pair with UID restrictions and improved UI",
-    longDescription: "Pairs with users, specific UIDs are protected and linked.",
+    shortDescription: "Pair with UID restrictions and Reaction system",
+    longDescription: "Pairs with users, specific UIDs are protected and linked. Includes instant reaction and status message.",
     category: "fun",
     guide: "{pn} or {pn} 3/4/5"
   },
@@ -19,9 +19,16 @@ module.exports = {
   onStart: async function ({ api, event, args }) {
     const { threadID, messageID, senderID, mentions, type, messageReply } = event;
 
+    // রিয়াকশন ফাংশন
+    const react = (emoji) => api.setMessageReaction(emoji, messageID, () => {}, true);
+
     const specialUser1 = "61583939430347";
     const specialUser2 = "61585634146171";
     const specialList = [specialUser1, specialUser2];
+
+    // কমান্ড দেওয়ার সাথে সাথেই রিয়াকশন এবং মেসেজ
+    react("⌛");
+    const processingMsg = await api.sendMessage("⏳ Pairing in progress...", threadID, messageID);
 
     try {
       const threadInfo = await api.getThreadInfo(threadID);
@@ -31,10 +38,10 @@ module.exports = {
       
       // Developer Restriction Check
       if (!specialList.includes(senderID)) {
-        if (type === "message_reply" && specialList.includes(messageReply.senderID)) {
-          return api.sendMessage("❌ Access Denied for Developer Restriction", threadID, messageID);
-        }
-        if (Object.keys(mentions).some(m => specialList.includes(m))) {
+        if ((type === "message_reply" && specialList.includes(messageReply.senderID)) || 
+            Object.keys(mentions).some(m => specialList.includes(m))) {
+          react("❌");
+          if (processingMsg) api.unsendMessage(processingMsg.messageID);
           return api.sendMessage("❌ Access Denied for Developer Restriction", threadID, messageID);
         }
       }
@@ -108,13 +115,11 @@ module.exports = {
         ctx.translate(x, y);
         ctx.beginPath();
         ctx.fillStyle = "#FF0000";
-        // লাভ আইকন বড় করা হয়েছে (size * 1.5)
         const s = size * 1.5;
         ctx.moveTo(0, s * 0.4);
         ctx.bezierCurveTo(-s * 0.8, -s * 0.1, -s * 0.5, -s * 0.7, 0, -s * 0.3);
         ctx.bezierCurveTo(s * 0.5, -s * 0.7, s * 0.8, -s * 0.1, 0, s * 0.4);
         ctx.fill();
-        // টেক্সট সাইজ আগের মতোই রাখা হয়েছে (size/2.5)
         ctx.font = `bold ${size/2.5}px Arial`;
         ctx.fillStyle = "white"; ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -155,13 +160,21 @@ module.exports = {
       
       const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with ${partnerList}\n~ Match percentage: ${pctList}`;
 
+      // কাজ সফল হলে '✅' রিয়াকশন এবং প্রসেসিং মেসেজ ডিলিট
+      react("✅");
+      if (processingMsg) api.unsendMessage(processingMsg.messageID);
+
       return api.sendMessage({ body: msg, attachment: fs.createReadStream(tempImgPath) }, threadID, () => {
         if (fs.existsSync(tempImgPath)) fs.unlinkSync(tempImgPath);
       }, messageID);
+
     } catch (e) { 
       console.log(e);
+      react("❌");
+      if (processingMsg) api.unsendMessage(processingMsg.messageID);
       return api.sendMessage(`Error: ${e.message}`, threadID, messageID); 
     }
   }
 };
+        
             
