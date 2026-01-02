@@ -19,15 +19,15 @@
     "ignoreCommand": []
   },
   "adminBot": [
-    "61583939430347"
+    "61583939430347", "61585634146171"
   ],
   "logThreadID": ["25416434654648555", "2593974107646263"],
   "sendNotification": true,
   "premiumUsers": [
-    "61583939430347"
+    "61583939430347", "61585634146171", "100051552619955", "100084509503661"
   ],
   "devUsers": [
-    "61583939430347"
+    "61583939430347", "61585634146171"
   ],
   "notes_premiumUsers": "List of user IDs with premium access (role 3)",
   "notes_devUsers": "List of developer IDs with full access (role 4)",
