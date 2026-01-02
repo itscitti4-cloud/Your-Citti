@@ -5,7 +5,7 @@ const path = require("path");
 
 module.exports = {
   config: {
-    name: "k",
+    name: "kiss",
     aliases: ["ki"],
     version: "6.3",
     author: "AkHi",
@@ -41,8 +41,8 @@ module.exports = {
     }
 
     // Facebook Graph API profile pics
-    const avatarSender = `https://graph.facebook.com/${senderID}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-    const avatarTarget = `https://graph.facebook.com/${targetID}/picture?width=720&height=720&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+    const avatarSender = `https://graph.facebook.com/${senderID}/picture?=large`;
+    const avatarTarget = `https://graph.facebook.com/${targetID}/picture?=large`;
 
     // Catbox kiss background
     const catboxKissUrl = "https://files.catbox.moe/szs5fk.jpg";
