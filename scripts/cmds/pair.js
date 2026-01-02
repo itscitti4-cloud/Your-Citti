@@ -6,12 +6,12 @@ const { createCanvas, loadImage } = require("canvas");
 module.exports = {
   config: {
     name: "pair",
-    version: "3.6.0",
+    version: "3.7.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    shortDescription: "Pair with UID restrictions and Reaction system",
-    longDescription: "Pairs with users, specific UIDs are protected and linked. Includes instant reaction and status message.",
+    shortDescription: "Pair with custom percentage for special users",
+    longDescription: "Pairs with users. Specific UIDs have 97-100% match and larger hearts.",
     category: "fun",
     guide: "{pn} or {pn} 3/4/5"
   },
@@ -19,14 +19,12 @@ module.exports = {
   onStart: async function ({ api, event, args }) {
     const { threadID, messageID, senderID, mentions, type, messageReply } = event;
 
-    // রিয়াকশন ফাংশন
     const react = (emoji) => api.setMessageReaction(emoji, messageID, () => {}, true);
 
     const specialUser1 = "61583939430347";
     const specialUser2 = "61585634146171";
     const specialList = [specialUser1, specialUser2];
 
-    // কমান্ড দেওয়ার সাথে সাথেই রিয়াকশন এবং মেসেজ
     react("⌛");
     const processingMsg = await api.sendMessage("⏳ Pairing in progress...", threadID, messageID);
 
@@ -36,7 +34,6 @@ module.exports = {
 
       let id1 = type === "message_reply" ? messageReply.senderID : (Object.keys(mentions).length > 0 ? Object.keys(mentions)[0] : senderID);
       
-      // Developer Restriction Check
       if (!specialList.includes(senderID)) {
         if ((type === "message_reply" && specialList.includes(messageReply.senderID)) || 
             Object.keys(mentions).some(m => specialList.includes(m))) {
@@ -50,14 +47,15 @@ module.exports = {
       const gender1 = user1Info[id1].gender;
 
       let selectedPartners = [];
+      let isSpecialPair = false;
 
-      // Special Pairing Logic
       if (id1 === specialUser1) {
         selectedPartners = [specialUser2];
+        isSpecialPair = true;
       } else if (id1 === specialUser2) {
         selectedPartners = [specialUser1];
+        isSpecialPair = true;
       } else {
-        // Normal Pairing Logic
         let targetGender = gender1 === 2 ? 1 : 2; 
         let partners = threadInfo.participantIDs.filter(id => {
             const u = allUsers.find(x => x.id == id);
@@ -115,7 +113,8 @@ module.exports = {
         ctx.translate(x, y);
         ctx.beginPath();
         ctx.fillStyle = "#FF0000";
-        const s = size * 1.5;
+        // লাভ আইকন আরও বড় করা হয়েছে (size * 1.8)
+        const s = size * 1.8;
         ctx.moveTo(0, s * 0.4);
         ctx.bezierCurveTo(-s * 0.8, -s * 0.1, -s * 0.5, -s * 0.7, 0, -s * 0.3);
         ctx.bezierCurveTo(s * 0.5, -s * 0.7, s * 0.8, -s * 0.1, 0, s * 0.4);
@@ -133,7 +132,8 @@ module.exports = {
       if (selectedPartners.length === 1) {
         await drawUser(id1, 320, 360, 180, 40);
         const pName = await drawUser(selectedPartners[0], 960, 360, 180, 40);
-        const pct = Math.floor(Math.random() * 51) + 50;
+        // বিশেষ পেয়ারের জন্য ৯৭-১০০% লজিক
+        const pct = isSpecialPair ? Math.floor(Math.random() * 4) + 97 : Math.floor(Math.random() * 51) + 50;
         drawHeart(centerX, centerY, 90, pct); 
         partnerData.push({ name: pName, pct: pct });
       } else {
@@ -160,7 +160,6 @@ module.exports = {
       
       const msg = `~ Successful Pair! 🥰\n~ ${user1Info[id1].name} paired with ${partnerList}\n~ Match percentage: ${pctList}`;
 
-      // কাজ সফল হলে '✅' রিয়াকশন এবং প্রসেসিং মেসেজ ডিলিট
       react("✅");
       if (processingMsg) api.unsendMessage(processingMsg.messageID);
 
@@ -169,12 +168,10 @@ module.exports = {
       }, messageID);
 
     } catch (e) { 
-      console.log(e);
       react("❌");
       if (processingMsg) api.unsendMessage(processingMsg.messageID);
       return api.sendMessage(`Error: ${e.message}`, threadID, messageID); 
     }
   }
 };
-        
             
