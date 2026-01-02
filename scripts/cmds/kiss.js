@@ -1,4 +1,4 @@
-const { Jimp } = require("jimp");
+const { Jimp, loadFont } = require("jimp"); // loadFont ইম্পোর্ট করা হয়েছে
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "kiss",
     aliases: ["ki"],
-    version: "4.2",
+    version: "4.3",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -19,18 +19,15 @@ module.exports = {
     const { threadID, messageID, senderID, messageReply, type, mentions } = event;
     let targetID;
 
-    // রিয়াকশন দেওয়ার ফাংশন
     const react = (emoji) => api.setMessageReaction(emoji, messageID, () => {}, true);
 
     const specialUser1 = "61583939430347";
     const specialUser2 = "61585634146171";
     const specialList = [specialUser1, specialUser2];
 
-    // কমান্ড দেওয়ার সাথে সাথেই রিয়াকশন এবং মেসেজ (দেরি না করে)
     react("⏳");
     const processingMsg = await message.reply("⏳ Kissing in progress...");
 
-    // টার্গেট আইডি নির্ধারণ
     if (type === "message_reply") {
       targetID = messageReply.senderID;
     } else if (Object.keys(mentions).length > 0) {
@@ -49,7 +46,6 @@ module.exports = {
       }
     }
 
-    // ডেভেলপার রেস্ট্রিকশন চেক
     if (!specialList.includes(senderID) && specialList.includes(targetID)) {
       react("❌");
       if (processingMsg) api.unsendMessage(processingMsg.messageID);
@@ -96,7 +92,6 @@ module.exports = {
       bg.composite(imgSender, leftX, yAxis);
       bg.composite(imgTarget, rightX, yAxis);
 
-      // Emoji Composite
       try {
         const emojiUrl = "https://emojicdn.elk.sh/😘?style=apple";
         const emojiBuf = await axios.get(emojiUrl, { responseType: "arraybuffer" });
@@ -105,16 +100,29 @@ module.exports = {
         bg.composite(emojiImg, Math.floor((bgW / 2) - 50), Math.floor((bgH / 2) - 50));
       } catch (e) { console.log("Emoji skip"); }
 
-      // Name Printing
-      const font = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
-      bg.print(font, leftX, yAxis + 210, { text: senderName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, 200);
-      bg.print(font, rightX, yAxis + 210, { text: targetName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, 200);
+      // ফিক্স: Jimp v1.x এ ফন্ট লোড করার সঠিক পদ্ধতি
+      const font = await loadFont(Jimp.FONT_SANS_32_WHITE);
+      
+      bg.print({
+        font: font,
+        x: leftX,
+        y: yAxis + 210,
+        text: { text: senderName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER },
+        maxWidth: 200
+      });
+
+      bg.print({
+        font: font,
+        x: rightX,
+        y: yAxis + 210,
+        text: { text: targetName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER },
+        maxWidth: 200
+      });
 
       const buffer = await bg.getBuffer("image/png");
       await fs.ensureDir(path.dirname(tempPath));
       await fs.writeFile(tempPath, buffer);
 
-      // ইমেজ তৈরি হয়ে গেলে প্রসেসিং মেসেজ ডিলিট করে ফাইনাল ইমেজ পাঠানো
       if (processingMsg) api.unsendMessage(processingMsg.messageID);
       react("✅");
 
@@ -133,3 +141,4 @@ module.exports = {
     }
   }
 };
+                     
