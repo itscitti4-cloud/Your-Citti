@@ -1,4 +1,4 @@
-const { Jimp, loadFont } = require("jimp"); // loadFont ইম্পোর্ট করা হয়েছে
+const { Jimp, loadFont } = require("jimp");
 const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
@@ -7,7 +7,7 @@ module.exports = {
   config: {
     name: "kiss",
     aliases: ["ki"],
-    version: "4.3",
+    version: "4.4",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -69,7 +69,7 @@ module.exports = {
       const getImg = async (id) => {
         const url = `https://graph.facebook.com/${id}/picture?width=512&height=512&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
         const res = await axios.get(url, { responseType: "arraybuffer" });
-        return res.data;
+        return Buffer.from(res.data); // নিশ্চিত করার জন্য Buffer এ কনভার্ট করা হয়েছে
       };
 
       const [bufSender, bufTarget] = await Promise.all([getImg(senderID), getImg(targetID)]);
@@ -78,31 +78,35 @@ module.exports = {
       const imgSender = await Jimp.read(bufSender);
       const imgTarget = await Jimp.read(bufTarget);
       
-      await imgSender.resize({ w: 200, h: 200 });
-      await imgTarget.resize({ w: 200, h: 200 });
+      imgSender.resize({ w: 200, h: 200 });
+      imgTarget.resize({ w: 200, h: 200 });
       imgSender.circle();
       imgTarget.circle();
 
       const bgW = bg.bitmap.width;
       const bgH = bg.bitmap.height;
-      const yAxis = Math.floor((bgH / 2) - 100);
+      
+      // স্থানাঙ্কগুলো অবশ্যই পূর্ণসংখ্যা (Integer) হতে হবে
+      const yAxis = Math.floor(bgH / 2 - 100);
       const leftX = Math.floor(bgW * 0.15);
       const rightX = Math.floor(bgW * 0.70);
 
       bg.composite(imgSender, leftX, yAxis);
       bg.composite(imgTarget, rightX, yAxis);
 
+      // ইমোজি কম্পোজিট
       try {
         const emojiUrl = "https://emojicdn.elk.sh/😘?style=apple";
-        const emojiBuf = await axios.get(emojiUrl, { responseType: "arraybuffer" });
-        const emojiImg = await Jimp.read(emojiBuf.data);
-        await emojiImg.resize({ w: 100, h: 100 });
-        bg.composite(emojiImg, Math.floor((bgW / 2) - 50), Math.floor((bgH / 2) - 50));
-      } catch (e) { console.log("Emoji skip"); }
+        const emojiRes = await axios.get(emojiUrl, { responseType: "arraybuffer" });
+        const emojiImg = await Jimp.read(Buffer.from(emojiRes.data));
+        emojiImg.resize({ w: 100, h: 100 });
+        bg.composite(emojiImg, Math.floor(bgW / 2 - 50), Math.floor(bgH / 2 - 50));
+      } catch (e) { console.log("Emoji error skipped"); }
 
-      // ফিক্স: Jimp v1.x এ ফন্ট লোড করার সঠিক পদ্ধতি
+      // ফন্ট লোডিং
       const font = await loadFont(Jimp.FONT_SANS_32_WHITE);
       
+      // নাম প্রিন্টিং (নতুন অবজেক্ট সিনট্যাক্স)
       bg.print({
         font: font,
         x: leftX,
@@ -121,7 +125,7 @@ module.exports = {
 
       const buffer = await bg.getBuffer("image/png");
       await fs.ensureDir(path.dirname(tempPath));
-      await fs.writeFile(tempPath, buffer);
+      await fs.writeFileSync(tempPath, buffer);
 
       if (processingMsg) api.unsendMessage(processingMsg.messageID);
       react("✅");
@@ -131,7 +135,7 @@ module.exports = {
         attachment: fs.createReadStream(tempPath)
       });
 
-      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      fs.unlinkSync(tempPath);
 
     } catch (err) {
       console.error(err);
@@ -141,4 +145,3 @@ module.exports = {
     }
   }
 };
-                     
