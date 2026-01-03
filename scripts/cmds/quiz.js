@@ -349,7 +349,8 @@ module.exports = {
       
       return api.sendMessage(listMsg, threadID);
     }
-
+    // সঠিক উত্তরের শেষে ডট (.) যোগ করা
+    const finalOptions = options.map(opt => opt === correctAnswer ? opt + "." : opt);
     // --- Quiz Logic ---
     const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const correctAnswer = randomQuiz.a;
