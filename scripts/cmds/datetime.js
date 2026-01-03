@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "clock",
     aliases: ["datetime", "time"],
-    version: "10.3",
+    version: "10.4",
     author: "AkHi",
     category: "utility"
   },
@@ -21,22 +21,24 @@ module.exports = {
       const dayStr = now.format("dddd");
       const engDate = now.format("DD MMMM, YYYY");
 
-      // ১. সংশোধিত বঙ্গাব্দ ক্যালকুলেশন (রাত ১২টায় পরিবর্তন এবং ১ দিন পিছিয়ে দেওয়া)
+      // ১. সংশোধিত বঙ্গাব্দ ক্যালকুলেশন (রাত ১২টায় পরিবর্তন এবং সঠিক দিন গণনা)
       const getBengaliDate = (mDate) => {
-        const day = mDate.date();
-        const month = mDate.month() + 1;
         const year = mDate.year();
+        const month = mDate.month() + 1;
+        const day = mDate.date();
 
         let bYear = year - 593;
         const months = ["বৈশাখ", "জ্যৈষ্ঠ", "আষাঢ়", "শ্রাবণ", "ভাদ্র", "আশ্বিন", "কার্তিক", "অগ্রহায়ণ", "পৌষ", "মাঘ", "ফাল্গুন", "চৈত্র"];
-        const monthDays = [31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30, 30];
+        
+        // সংশোধিত বাংলা একাডেমি ক্যালেন্ডার অনুযায়ী মাসগুলোর দিন সংখ্যা
+        const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        const monthDays = [31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30, (isLeapYear ? 31 : 30)];
 
-        // বৈশাখ শুরু হয় ১৪ এপ্রিল থেকে
         if (month < 4 || (month === 4 && day < 14)) {
           bYear -= 1;
         }
 
-        // বর্তমান তারিখ থেকে ১৪ এপ্রিলের পার্থক্য বের করা
+        // বৈশাখ শুরু হয় ১৪ এপ্রিল
         let startOfBengaliYear = moment.tz(`${year}-04-14`, "YYYY-MM-DD", timezone);
         if (mDate.isBefore(startOfBengaliYear)) {
           startOfBengaliYear = moment.tz(`${year - 1}-04-14`, "YYYY-MM-DD", timezone);
@@ -45,24 +47,29 @@ module.exports = {
         let totalDays = mDate.diff(startOfBengaliYear, 'days');
         
         let mIndex = 0;
-        while (totalDays >= monthDays[mIndex]) {
+        // দিন গণনা ঠিক রাখতে totalDays এর লজিক আপডেট
+        while (mIndex < 12 && totalDays >= monthDays[mIndex]) {
           totalDays -= monthDays[mIndex];
           mIndex++;
         }
 
+        // মাস যদি ১২ এর সমান হয়ে যায় (চৈত্র মাসের শেষে)
+        if (mIndex === 12) mIndex = 11;
+
         return `${toBn(totalDays + 1)} ${months[mIndex]}, ${toBn(bYear)}`;
       };
 
-      // ২. হিজরি তারিখ ক্যালকুলেশন (রাত ১২টায় পরিবর্তনের জন্য সংশোধিত)
+      // ২. হিজরি তারিখ ক্যালকুলেশন (রাত ১২টায় পরিবর্তনের জন্য সঠিক কুয়েতি ক্যালেন্ডার লজিক)
       const getHijriDate = (mDate) => {
         const d = mDate.date();
-        const m = mDate.month() + 1;
+        const m = mDate.month();
         const y = mDate.year();
 
-        let jd = Math.floor(367 * y - (7 * (y + Math.floor((m + 9) / 12))) / 4 + Math.floor((275 * m) / 9) + d + 1721013.5);
+        // জুলিয়ান ডে ক্যালকুলেশন
+        let jd = Math.floor(367 * y - (7 * (y + Math.floor((m + 9) / 12))) / 4 + Math.floor((275 * (m + 1)) / 9) + d + 1721013.5);
         
-        // অ্যাডজাস্টমেন্ট (আপনার আগের লজিক অনুযায়ী ২ দিন অগ্রিম রাখা হয়েছে)
-        let l = jd - 1948440 + 10633; 
+        // অ্যাডজাস্টমেন্ট (সঠিক করার জন্য l এর মান পরিবর্তন করা হয়েছে)
+        let l = jd - 1948440 + 10629; 
         let n = Math.floor((l - 1) / 10631);
         l = l - 10631 * n + 354;
         let j = (Math.floor((10985 - l) / 5316)) * (Math.floor((50 * l) / 17719)) + (Math.floor(l / 5670)) * (Math.floor((43 * l) / 15238));
@@ -74,7 +81,12 @@ module.exports = {
 
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জমাদিউস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
         
-        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1]}, ${toBn(hYear)}`;
+        // মাস ইনডেক্স বাউন্ডারি চেক
+        let mIdx = hMonth - 1;
+        if(mIdx < 0) mIdx = 0;
+        if(mIdx > 11) mIdx = 11;
+
+        return `${toBn(hDay)} ${hijriMonthsBn[mIdx]}, ${toBn(hYear)}`;
       };
 
       const bngDate = getBengaliDate(now);
