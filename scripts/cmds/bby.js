@@ -55,7 +55,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
         // --- List Function ---
         if (args[0] === 'list') {
             const res = await axios.get(`${link}?list=all`);
-            return api.sendMessage(`❇️ Total Teach = ${res.data.length || 0}\n👑 List of Teachers of Akhi`, event.threadID, event.messageID);
+            return api.sendMessage(`❇️ Total Teach = ${res.data.length || 0}\n👑 List of Teachers`, event.threadID, event.messageID);
         }
 
         // --- Default Chat ---
@@ -79,17 +79,17 @@ module.exports.onReply = async ({ api, event }) => {
     try {
         const res = await axios.get(`${await baseApiUrl()}/baby?text=${encodeURIComponent(event.body)}&senderID=${event.senderID}`);
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
-            global.GoatBot.onReply.set(info.messageID, { commandName: "akhi", author: event.senderID });
+            global.GoatBot.onReply.set(info.messageID, { commandName: "bby", author: event.senderID });
         }, event.messageID);
     } catch (err) { console.error(err); }
 };
 
 module.exports.onChat = async ({ api, event }) => {
     const body = event.body ? event.body.toLowerCase() : "";
-    const triggers = ["bby", "baby", "citti", "hinata", "@HI NA TA"];
+    const triggers = ["bby", "baby", "citti", "hinata", "@HI NA TA", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
     
     if (triggers.some(trigger => body.startsWith(trigger))) {
-        const text = body.replace(/^(bby|baby|citti|hinata|@HI NA TA)\s*/, "").trim();
+        const text = body.replace(/^(bby|baby|citti|hinata|@HI NA TA|হিনাতা|চিট্টি|বেবি|বট|বটলা|bot|botla)\s*/, "").trim();
         if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
 
         try {
