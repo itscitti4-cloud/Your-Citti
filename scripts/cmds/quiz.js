@@ -424,116 +424,115 @@ module.exports = {
       ];
 
 // --- Pagination Logic (List) ---
-if (args[0] === "list" || args[0] === "লিস্ট") {
-  const page = parseInt(args[1]) || 1;
-  const limit = 100;
-  const totalQuestions = questions.length; // মোট প্রশ্ন সংখ্যা
-  const totalPages = Math.ceil(totalQuestions / limit);
+    if (args[0] === "list" || args[0] === "লিস্ট") {
+      const page = parseInt(args[1]) || 1;
+      const limit = 100;
+      const totalQuestions = questions.length;
+      const totalPages = Math.ceil(totalQuestions / limit);
 
-  if (page < 1 || page > totalPages) {
-    return api.sendMessage(`❌ Invalid page! Please use 1 to ${totalPages}.`, threadID, messageID);
-  }
+      if (page < 1 || page > totalPages) {
+        return api.sendMessage(`❌ Invalid page! Please use 1 to ${totalPages}.`, threadID, messageID);
+      }
 
-  const start = (page - 1) * limit;
-  const pagedQuestions = questions.slice(start, start + limit);
+      const start = (page - 1) * limit;
+      const pagedQuestions = questions.slice(start, start + limit);
 
-  let listMsg = `╭───✦ [ 𝗤𝗨𝗜𝗭 𝗟𝗜𝗦𝗧 - 𝗣𝗔𝗚𝗘 ${page}/${totalPages} ]\n`;
-  pagedQuestions.forEach((item, index) => {
-    listMsg += `├‣ ${start + index + 1}. ${item.q}\n`;
-  });
-  listMsg += `├────────────────\n`;
-  listMsg += `│ 📊 মোট প্রশ্ন: ${totalQuestions} টি\n`; // মোট প্রশ্ন সংখ্যা এখানে দেখাবে
-  listMsg += `╰──────────────◊\n`;
-  
-  if (page < totalPages) {
-    listMsg += `👉 পরবর্তী পেজের জন্য লিখুন: !quiz list ${page + 1}\n`;
-  }
-  return api.sendMessage(listMsg, threadID, messageID);
-}
+      let listMsg = `╭───✦ [ 𝗤𝗨𝗜𝗭 𝗟𝗜𝗦𝗧 - 𝗣𝗔𝗚𝗘 ${page}/${totalPages} ]\n`;
+      pagedQuestions.forEach((item, index) => {
+        listMsg += `├‣ ${start + index + 1}. ${item.q}\n`;
+      });
+      listMsg += `├────────────────\n`;
+      listMsg += `│ 📊 মোট প্রশ্ন: ${totalQuestions} টি\n`;
+      listMsg += `╰──────────────◊\n`;
+      
+      if (page < totalPages) {
+        listMsg += `👉 For next page, type: !quiz list ${page + 1}\n`;
+      }
+      return api.sendMessage(listMsg, threadID, messageID);
+    }
 
-// --- Quiz Logic ---
-const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
-const correctAnswer = randomQuiz.a;
+    const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
+    const correctAnswer = randomQuiz.a;
 
-const allAnswers = questions.map(item => item.a);
-let wrongAnswers = allAnswers.filter(ans => ans !== correctAnswer);
-wrongAnswers = [...new Set(wrongAnswers)]; 
-wrongAnswers = wrongAnswers.sort(() => 0.5 - Math.random()).slice(0, 3);
+    const allAnswers = questions.map(item => item.a);
+    let wrongAnswers = allAnswers.filter(ans => ans !== correctAnswer);
+    wrongAnswers = [...new Set(wrongAnswers)]; 
+    wrongAnswers = wrongAnswers.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-let options = [correctAnswer, ...wrongAnswers];
-options = options.sort(() => 0.5 - Math.random());
+    let options = [correctAnswer, ...wrongAnswers];
+    options = options.sort(() => 0.5 - Math.random());
 
-const labels = ["A", "B", "C", "D"];
-const correctLabel = labels[options.indexOf(correctAnswer)];
+    // সঠিক উত্তরের শেষে ডট যোগ করার লজিক (সংশোধিত)
+    const finalOptions = options.map(opt => opt === correctAnswer ? opt + "." : opt);
+    
+    const labels = ["A", "B", "C", "D"];
+    const correctLabel = labels[options.indexOf(correctAnswer)];
 
-const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
-  `├‣ প্রশ্ন: ${randomQuiz.q}\n` +
-  `│\n` +
-  `├‣ A. ${options[0]}\n` +
-  `├‣ B. ${options[1]}\n` +
-  `├‣ C. ${options[2]}\n` +
-  `├‣ D. ${options[3]}\n` +
-  `╰──────────────◊\n\n` +
-  `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে রিপ্লাই দিন।\n` +
-  `⏰ ২০ সেকেন্ড সময় (সঠিক হলে গেম চলবে)।`;
+    const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
+      `├‣ প্রশ্ন: ${randomQuiz.q}\n` +
+      `│\n` +
+      `├‣ A. ${finalOptions[0]}\n` +
+      `├‣ B. ${finalOptions[1]}\n` +
+      `├‣ C. ${finalOptions[2]}\n` +
+      `├‣ D. ${finalOptions[3]}\n` +
+      `╰──────────────◊\n\n` +
+      `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে রিপ্লাই দিন।\n` +
+      `⏰ ২০ সেকেন্ড সময় (সঠিক হলে গেম চলবে)।`;
 
-return api.sendMessage(quizMsg, threadID, (err, info) => {
-  if (err) return;
+    return api.sendMessage(quizMsg, threadID, (err, info) => {
+      if (err) return;
 
-  global.GoatBot.onReply.set(info.messageID, {
-    commandName: this.config.name,
-    messageID: info.messageID,
-    author: senderID,
-    correctLabel: correctLabel,
-    actualAnswer: correctAnswer,
-    isEnded: false,
-    timer: Date.now() + 20000 
-  });
-}, messageID);
-},
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        messageID: info.messageID,
+        author: senderID,
+        correctLabel: correctLabel,
+        actualAnswer: correctAnswer,
+        isEnded: false,
+        timer: Date.now() + 20000 
+      });
+    }, messageID);
+  },
 
-// --- onReply Section ---
-onReply: async function ({ api, event, Reply, usersData, args }) {
-  const { senderID, body, messageID, threadID } = event;
-  
-  if (senderID !== Reply.author) return;
-  if (Reply.isEnded) return;
+  onReply: async function ({ api, event, Reply, usersData, args }) {
+    const { senderID, body, messageID, threadID } = event;
+    if (senderID !== Reply.author) return;
 
-  // সময় চেক করার লজিক (সংশোধিত)
-  if (Date.now() > Reply.timer) {
+    if (Reply.isEnded) return;
+
+    if (Date.now() > Reply.timer) {
+        Reply.isEnded = true;
+        global.GoatBot.onReply.delete(Reply.messageID);
+        return api.sendMessage("❌ দুঃখিত, উত্তর দেওয়ার সময় শেষ হওয়ার কারণে আপনার উত্তরটি গ্রহণ করা যাচ্ছে না!", threadID, messageID);
+    }
+
+    const userAnswer = body.trim().toUpperCase();
+    const { correctLabel, actualAnswer } = Reply;
+
+    if (!["A", "B", "C", "D"].includes(userAnswer)) {
+      return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
+    }
+
     Reply.isEnded = true;
     global.GoatBot.onReply.delete(Reply.messageID);
-    return api.sendMessage("❌ দুঃখিত, উত্তর দেওয়ার সময় শেষ হওয়ার কারণে আপনার উত্তরটি গ্রহণ করা যাচ্ছে না!", threadID, messageID);
-  }
-
-  const userAnswer = body.trim().toUpperCase();
-  const { correctLabel, actualAnswer } = Reply;
-
-  if (!["A", "B", "C", "D"].includes(userAnswer)) {
-    return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
-  }
-
-  Reply.isEnded = true;
-  global.GoatBot.onReply.delete(Reply.messageID);
-  
-  const userData = await usersData.get(senderID);
-  let currentMoney = userData.money || 0;
-
-  if (userAnswer === correctLabel) {
-    currentMoney += 1000;
-    await usersData.set(senderID, { money: currentMoney });
-    await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +1000 কয়েন যোগ হয়েছে।\n🏦 ব্যালেন্স: ${currentMoney}\n\n⏳ পরবর্তী প্রশ্ন আসছে...`, threadID, messageID);
     
-    // ২ সেকেন্ড পর পরবর্তী প্রশ্ন
-    setTimeout(() => {
-      this.onStart({ api, event, usersData, args });
-    }, 2000);
+    const userData = await usersData.get(senderID);
+    let currentMoney = userData.money || 0;
 
-  } else {
-    currentMoney -= 1000;
-    if (currentMoney < 0) currentMoney = 0;
-    await usersData.set(senderID, { money: currentMoney });
-    api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -1000 কয়েন কাটা হয়েছে।\nগেমটি শেষ হলো।`, threadID, messageID);
+    if (userAnswer === correctLabel) {
+      currentMoney += 1000;
+      await usersData.set(senderID, { money: currentMoney });
+      await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +1000 কয়েন যোগ হয়েছে।\n🏦 ব্যালেন্স: ${currentMoney}\n\n⏳ পরবর্তী প্রশ্ন আসছে...`, threadID, messageID);
+      
+      setTimeout(() => {
+        this.onStart({ api, event, usersData, args });
+      }, 2000);
+
+    } else {
+      currentMoney -= 1000;
+      if (currentMoney < 0) currentMoney = 0;
+      await usersData.set(senderID, { money: currentMoney });
+      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -1000 কয়েন কাটা হয়েছে।\nগেমটি শেষ হলো।`, threadID, messageID);
     }
   }
 };
