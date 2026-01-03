@@ -525,19 +525,19 @@ module.exports = {
     let currentMoney = userData.money || 0;
 
     if (userAnswer === correctLabel) {
-      currentMoney += 500;
+      currentMoney += 1000;
       await usersData.set(senderID, { money: currentMoney });
-      await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 ব্যালেন্স: ${currentMoney}\n\n⏳ পরবর্তী প্রশ্ন আসছে...`, threadID, messageID);
+      await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +1000 কয়েন যোগ হয়েছে।\n🏦 ব্যালেন্স: ${currentMoney}\n\n⏳ পরবর্তী প্রশ্ন আসছে...`, threadID, messageID);
       
       setTimeout(() => {
         this.onStart({ api, event, usersData, args });
       }, 2000);
 
     } else {
-      currentMoney -= 200;
+      currentMoney -= 1000;
       if (currentMoney < 0) currentMoney = 0;
       await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -200 কয়েন কাটা হয়েছে।\nগেমটি শেষ হলো।`, threadID, messageID);
+      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -1000 কয়েন কাটা হয়েছে।\nগেমটি শেষ হলো।`, threadID, messageID);
     }
   }
 };
