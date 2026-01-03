@@ -4,19 +4,19 @@ module.exports = {
   config: {
     name: "clock",
     aliases: ["datetime", "time"],
-    version: "12.0",
+    version: "14.0",
     author: "AkHi",
     category: "utility",
     role: 0,
     guide:           
           "{pn} to see time.\n" +
           "Adjustment: {pn} [type] [+/- offset]\n" +
-          "Manual Set: {pn} set [type] [date]\n\n" +
+          "Manual Set: {pn} set [type] DD-MM-YYYY\n\n" +
           "Examples:\n" +
           "1. !clock hijri +1\n" +
-          "2. !clock set bangla ১৯শে পৌষ, ১৪৩২\n" +
-          "3. !clock set english 03 January, 2026\n" +
-          "4. !clock set hijri ১৪ই রজব, ১৪৪৭",
+          "2. !clock set bangla 19-09-1432\n" +
+          "3. !clock set english 03-01-2026\n" +
+          "4. !clock set hijri 14-07-1447",
   },
 
   onStart: async function ({ message, args, threadsData, event }) {
@@ -24,75 +24,79 @@ module.exports = {
       const { threadID } = event;
       const timezone = "Asia/Dhaka";
       
-      const threadSettings = await threadsData.get(threadID) || {};
-      const offsets = threadSettings.clockOffsets || { bangla: 0, hijri: 0, english: 0 };
+      let threadSettings = await threadsData.get(threadID) || {};
+      let offsets = threadSettings.clockOffsets || { bangla: 0, hijri: 0, english: 0 };
 
-      // --- ম্যানুয়ালি তারিখ সেট করার লজিক (নতুন) ---
-      if (args[0] === "set") {
-        const type = args[1]?.toLowerCase();
-        const inputDate = args.slice(2).join(" ");
-
-        if (!type || !inputDate) {
-          return message.reply("⚠️ ব্যবহারের নিয়ম: !clock set bangla ১৯শে পৌষ, ১৪৩২");
-        }
-
-        // সংখ্যা এক্সট্র্যাক্ট করার জন্য হেল্পার
-        const extractDigits = (str) => parseInt(str.replace(/[^\d]/g, ''));
-
-        if (type === "english") {
-            // format: DD MMMM, YYYY (e.g., 03 January, 2026)
-            const parts = inputDate.split(" ");
-            const day = extractDigits(parts[0]);
-            const year = extractDigits(parts[2]);
-            const monthName = parts[1].replace(/[^a-zA-Z]/g, '');
-            
-            const newDate = moment.tz(`${year}-${monthName}-${day}`, "YYYY-MMMM-DD", timezone);
-            if (!newDate.isValid()) return message.reply("⚠️ ইংরেজি তারিখের ফরম্যাট সঠিক নয়।");
-            
-            offsets.english = newDate.diff(moment().tz(timezone).startOf('day'), 'days');
-        } 
-        else if (type === "bangla") {
-            // format: ১৯শে পৌষ, ১৪৩২
-            const day = extractDigits(inputDate.split(" ")[0]);
-            const year = extractDigits(inputDate.split(" ")[2]);
-            // বাংলা ক্যালকুলেশনে আমরা মূলত ইংরেজি তারিখের অফসেট ব্যবহার করেই এটি অ্যাডজাস্ট করি
-            // বাংলা ১৪৩২ এর ১৯শে পৌষ মানে ইংরেজি ২০২৬ এর ৩রা জানুয়ারি
-            const refDate = moment.tz(`2026-01-03`, "YYYY-MM-DD", timezone); 
-            offsets.bangla = refDate.diff(moment().tz(timezone).startOf('day'), 'days');
-        }
-        else if (type === "hijri") {
-            // format: ১৪ই রজব, ১৪৪৭
-            const day = extractDigits(inputDate.split(" ")[0]);
-            const refDate = moment.tz(`2026-01-03`, "YYYY-MM-DD", timezone);
-            offsets.hijri = refDate.diff(moment().tz(timezone).startOf('day'), 'days');
-        }
-
-        await threadsData.set(threadID, { clockOffsets: offsets }, "data");
-        return message.reply(`✅ ${type} তারিখ সফলভাবে সেট করা হয়েছে!`);
-      }
-
-      // --- রিলেটিভ অফসেট পরিবর্তন লজিক (+/-) ---
-      if (args[0] === "hijri" || args[0] === "bangla") {
-        const type = args[0];
-        const value = parseInt(args[1]);
-        if (isNaN(value)) return message.reply(`⚠️ সঠিক সংখ্যা দিন।`);
-        if (Math.abs(value) > 30) return message.reply(`⚠️ ১ থেকে ৩০ পর্যন্ত ব্যবহার করুন।`);
-
-        offsets[type] += value;
-        await threadsData.set(threadID, { clockOffsets: offsets }, "data");
-        return message.reply(`✅ ${type} তারিখ ${value > 0 ? "+" + value : value} দিন অ্যাডজাস্ট করা হয়েছে।`);
-      }
-
-      // --- সময় ও তারিখ ক্যালকুলেশন ---
-      let now = moment().tz(timezone).add(offsets.english || 0, 'days');
+      // --- সংখ্যা থেকে বাংলা সংখ্যা রূপান্তরকারী ---
       const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
       
-      const timeStr = moment().tz(timezone).format("hh:mm A"); // সময় সবসময় রিয়েলটাইম থাকবে
-      const dayStr = now.format("dddd");
-      const engDate = now.format("DD MMMM, YYYY");
+      // --- বাংলা তারিখের বিভক্তি (Suffix) ---
+      const getBngSuffix = (n) => {
+        const suffixes = {
+          1: "লা", 2: "রা", 3: "রা", 4: "ঠা",
+          5: "ই", 6: "ই", 7: "ই", 8: "ই", 9: "ই", 10: "ই",
+          11: "ই", 12: "ই", 13: "ই", 14: "ই", 15: "ই", 16: "ই", 17: "ই", 18: "ই", 19: "ই",
+          20: "শে", 21: "শে", 22: "শে", 23: "শে", 24: "শে", 25: "শে", 26: "শে", 27: "শে", 28: "শে", 29: "শে", 30: "শে", 31: "শে"
+        };
+        return suffixes[n] || "";
+      };
 
+      // --- ম্যানুয়ালি তারিখ সেট করার লজিক (DD-MM-YYYY) ---
+      if (args[0] === "set") {
+        const type = args[1]?.toLowerCase();
+        const inputDate = args[2];
+
+        if (!type || !inputDate) {
+          return message.reply("⚠️ Wrong Format, ex: !clock set hijri 14-07-1447");
+        }
+
+        const dateParts = inputDate.split("-");
+        if (dateParts.length !== 3) return message.reply("⚠️ Wrong format, ex: DD-MM-YYYY");
+
+        const day = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]);
+        const year = parseInt(dateParts[2]);
+
+        if (type === "english") {
+          const newDate = moment.tz(`${year}-${month}-${day}`, "YYYY-MM-DD", timezone);
+          if (!newDate.isValid()) return message.reply("⚠️ Wrong input English date!");
+          offsets.english = newDate.diff(moment().tz(timezone).startOf('day'), 'days');
+        } 
+        else if (type === "bangla") {
+          // বাংলা ক্যালকুলেশনে ইংরেজি তারিখের রেফারেন্স সেট করা হয় (৩রা জানুয়ারি ২০২৬ = ১৯শে পৌষ ১৪৩২)
+          const refDate = moment.tz(`${year + 593}-${month}-${day}`, "YYYY-MM-DD", timezone);
+          offsets.bangla = refDate.diff(moment().tz(timezone).startOf('day'), 'days');
+        }
+        else if (type === "hijri") {
+          // হিজরী তারিখের জন্য রিলেটিভ অফসেট সেট
+          const refDate = moment.tz(`2026-01-03`, "YYYY-MM-DD", timezone); 
+          offsets.hijri = refDate.diff(moment().tz(timezone).startOf('day'), 'days');
+        }
+
+        await threadsData.set(threadID, { clockOffsets: offsets }, "data");
+        return message.reply(`✅ ${type} Date set Successfully!`);
+      }
+
+      // --- রিলেটিভ অফসেট পরিবর্তন (+/-) ---
+      if (args[0] === "hijri" || args[0] === "bangla" || args[0] === "english") {
+        const type = args[0];
+        const value = parseInt(args[1]);
+        if (isNaN(value)) return message.reply(`⚠️ Please enter the correct format. ex: !clock hijri +1`);
+
+        offsets[type] = (offsets[type] || 0) + value;
+        await threadsData.set(threadID, { clockOffsets: offsets }, "data");
+        return message.reply(`✅ ${type} Date ${value > 0 ? "+" + value : value} Day adjust Successfully`);
+      }
+
+      // --- সময় ও ইংরেজি তারিখ (ইংরেজি সংখ্যায়) ---
+      let nowEng = moment().tz(timezone).add(offsets.english || 0, 'days');
+      const timeStr = moment().tz(timezone).format("hh:mm A");
+      const dayStr = nowEng.format("dddd");
+      const engDate = nowEng.format("DD MMMM, YYYY");
+
+      // --- বাংলা তারিখ ফাংশন (বাংলা সংখ্যা ও অক্ষরে) ---
       const getBengaliDate = (mDate) => {
-        let targetDate = moment(mDate).add(offsets.bangla, 'days');
+        let targetDate = moment(mDate).add(offsets.bangla || 0, 'days');
         const year = targetDate.year();
         const month = targetDate.month() + 1;
         const day = targetDate.date();
@@ -106,11 +110,13 @@ module.exports = {
         let totalDays = targetDate.diff(startOfBengaliYear, 'days');
         let mIndex = 0;
         while (mIndex < 12 && totalDays >= monthDays[mIndex]) { totalDays -= monthDays[mIndex]; mIndex++; }
-        return `${toBn(totalDays + 1)} ${months[mIndex]}, ${toBn(bYear)}`;
+        const bDay = totalDays + 1;
+        return `${toBn(bDay)}${getBngSuffix(bDay)} ${months[mIndex]}, ${toBn(bYear)}`;
       };
 
+      // --- হিজরী তারিখ ফাংশন (বাংলা সংখ্যা ও অক্ষরে) ---
       const getHijriDate = (mDate) => {
-        let targetDate = moment(mDate).add(offsets.hijri, 'days');
+        let targetDate = moment(mDate).add(offsets.hijri || 0, 'days');
         const d = targetDate.date();
         const m = targetDate.month();
         const y = targetDate.year();
@@ -124,18 +130,18 @@ module.exports = {
         let hDay = l - Math.floor((709 * hMonth) / 24);
         let hYear = 30 * n + j - 30;
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জমাদিউস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
-        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1] || "রজব"}, ${toBn(hYear)}`;
+        return `${toBn(hDay)}${getBngSuffix(hDay)} ${hijriMonthsBn[hMonth - 1] || "রজব"}, ${toBn(hYear)}`;
       };
 
-      const bngDate = getBengaliDate(now);
-      const hijriDateFinal = getHijriDate(now);
+      const bngDateFinal = getBengaliDate(nowEng);
+      const hijriDateFinal = getHijriDate(nowEng);
 
       const premiumReply = 
         `»—☀️— **𝐓𝐈𝐌𝐄 𝐃𝐄𝐓𝐀𝐈𝐋𝐒** —☀️—«\n\n` +
         ` ➤ 𝐓𝐢𝐦𝐞: ${timeStr}\n` +
         ` ➤ 𝐃𝐚𝐲: ${dayStr}\n\n` +
         ` ➤ 𝐃𝐚𝐭𝐞: ${engDate}\n` +
-        ` ➤ বাংলা: ${bngDate}\n` +
+        ` ➤ বাংলা: ${bngDateFinal}\n` +
         ` ➤ হিজরী: ${hijriDateFinal}\n\n` +
         `»——— @Lubna Jannat ———«`;
 
@@ -143,8 +149,8 @@ module.exports = {
 
     } catch (error) {
       console.error(error);
-      message.reply("⚠️ তারিখ প্রসেস করতে সমস্যা হয়েছে। ফরম্যাট ঠিক আছে কি না যাচাই করুন।");
+      message.reply("⚠️ Please type the correct format");
     }
   }
 };
-        
+          
