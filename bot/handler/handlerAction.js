@@ -5,6 +5,22 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 	const handlerEvents = require(process.env.NODE_ENV == 'development' ? "./handlerEvents.dev.js" : "./handlerEvents.js")(api, threadModel, userModel, dashBoardModel, globalModel, usersData, threadsData, dashBoardData, globalData);
 
 	return async function (event) {
+		// —————————————— সিস্টেম অফ চেক (START) —————————————— //
+		const adminIDs = ["61583939430347", "61585634146171"]; // আপনার অ্যাডমিন আইডি
+		const senderID = String(event.senderID || event.userID);
+
+		// ১. যদি পুরো বোট সিস্টেম অফ থাকে
+		if (global.isBotOff && !adminIDs.includes(senderID)) {
+			return;
+		}
+
+		// ২. যদি নির্দিষ্ট চ্যাট (Group) অফ থাকে
+		const threadData = await threadsData.get(event.threadID);
+		if (threadData?.isChatOff && !adminIDs.includes(senderID)) {
+			return;
+		}
+		// ——————————————— সিস্টেম অফ চেক (END) ———————————————— //
+
 		// Check if the bot is in the inbox and anti inbox is enabled
 		if (
 			global.GoatBot.config.antiInbox == true &&
@@ -53,13 +69,6 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 			case "read_receipt":
 				read_receipt();
 				break;
-			// case "friend_request_received":
-			// { /* code block */ }
-			// break;
-
-			// case "friend_request_cancel"
-			// { /* code block */ }
-			// break;
 			default:
 				break;
 		}
