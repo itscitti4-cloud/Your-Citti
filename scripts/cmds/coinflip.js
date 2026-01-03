@@ -4,22 +4,19 @@ module.exports = {
   config: {
     name: "coinflip",
     aliases: ["cf", "flip"],
-    version: "1.0",
+    version: "1.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
     shortDescription: "Flip a coin and win/lose money (h/t)",
-    longDescription: "Bet your money on heads (h) or tails (t). Double or nothing!",
     category: "game",
     guide: "{pn} [h/t] [bet_amount]"
   },
 
   onStart: async function ({ api, event, args, usersData }) {
     const { senderID, threadID, messageID } = event; 
-    
     const reply = (text) => api.sendMessage(text, threadID, messageID);
 
-    // টাকার সংখ্যা ফরম্যাট করার ফাংশন
     const formatMoney = (n) => {
         const num = Math.abs(n);
         if (num >= 1e12) return (n / 1e12).toFixed(1).replace(/\.0$/, '') + 'T';
@@ -41,17 +38,9 @@ module.exports = {
     const choice = args[0].toLowerCase();
     const betAmount = parseInt(args[1]);
 
-    if (choice !== 'h' && choice !== 't') {
-      return reply("❌ | Please choose 'h' for Heads or 't' for Tails.");
-    }
-
-    if (isNaN(betAmount) || betAmount <= 0) {
-      return reply("❌ | Please enter a valid bet amount.");
-    }
-
-    if (betAmount > balance) {
-      return reply(`❌ | You don't have enough money! Your balance: ${formatMoney(balance)} coins.`);
-    }
+    if (choice !== 'h' && choice !== 't') return reply("❌ | Please choose 'h' for Heads or 't' for Tails.");
+    if (isNaN(betAmount) || betAmount <= 0) return reply("❌ | Please enter a valid bet amount.");
+    if (betAmount > balance) return reply(`❌ | You don't have enough money!`);
 
     const coinResult = Math.random() < 0.5 ? 'h' : 't';
     const resultText = coinResult === 'h' ? 'HEADS' : 'TAILS';
@@ -60,33 +49,30 @@ module.exports = {
     reply("🪙 | Spinning the coin...");
 
     setTimeout(async () => {
+      // --- ডাটাবেস স্ট্যাটাস প্রিপারেশন ---
+      const stats = userData.data?.coinflipStats || { totalWins: 0, totalPlays: 0 };
+      stats.totalPlays += 1;
+
       if (choice === coinResult) {
+        stats.totalWins += 1; // জয় আপডেট
         const winAmount = betAmount; 
         const finalBalance = balance + winAmount;
-        await usersData.set(senderID, { money: finalBalance });
+
+        await usersData.set(senderID, { 
+          money: finalBalance, 
+          data: { ...userData.data, coinflipStats: stats } 
+        });
         
-        return reply(
-          `✨ [ 𝗖𝗢𝗜𝗡𝗙𝗟𝗜𝗣 𝗥𝗘𝗦𝗨𝗟𝗧 ] ✨\n` +
-          `━━━━━━━━━━━━━\n` +
-          `🎰 Result: ${resultEmoji} ${resultText}\n` +
-          `👤 Your Choice: ${choice === 'h' ? 'Heads' : 'Tails'}\n\n` +
-          `🎉 𝗖𝗢𝗡𝗚𝗥𝗔𝗧𝗨𝗟𝗔𝗧𝗜𝗢𝗡𝗦!\n` +
-          `💰 You won: +${formatMoney(winAmount)} coins\n` +
-          `🏦 New Balance: ${formatMoney(finalBalance)} coins`
-        );
+        return reply(`✨ [ 𝗖𝗢𝗜𝗡𝗙𝗟𝗜𝗣 𝗥𝗘𝗦𝗨𝗟𝗧 ] ✨\n━━━━━━━━━━━━━\n🎰 Result: ${resultEmoji} ${resultText}\n🎉 You won: +${formatMoney(winAmount)} coins`);
       } else {
         const finalBalance = balance - betAmount;
-        await usersData.set(senderID, { money: finalBalance });
+
+        await usersData.set(senderID, { 
+          money: finalBalance, 
+          data: { ...userData.data, coinflipStats: stats } 
+        });
         
-        return reply(
-          `✨ [ 𝗖𝗢𝗜𝗡𝗙𝗟𝗜𝗣 𝗥𝗘𝗦𝗨𝗟𝗧 ] ✨\n` +
-          `━━━━━━━━━━━━━\n` +
-          `🎰 Result: ${resultEmoji} ${resultText}\n` +
-          `👤 Your Choice: ${choice === 'h' ? 'Heads' : 'Tails'}\n\n` +
-          `💀 𝗕𝗘𝗧𝗧𝗘𝗥 𝗟𝗨𝗖𝗞 𝗡𝗘𝗫𝗧 𝗧𝗜𝗠𝗘!\n` +
-          `📉 You lost: -${formatMoney(betAmount)} coins\n` +
-          `🏦 New Balance: ${formatMoney(finalBalance)} coins`
-        );
+        return reply(`✨ [ 𝗖𝗢𝗜𝗡𝗙𝗟𝗜𝗣 𝗥𝗘𝗦𝗨𝗟𝗧 ] ✨\n━━━━━━━━━━━━━\n🎰 Result: ${resultEmoji} ${resultText}\n💀 You lost: -${formatMoney(betAmount)} coins`);
       }
     }, 2000);
   }
