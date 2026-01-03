@@ -322,45 +322,59 @@ module.exports = {
       { q: "বাংলাদেশের বৃহত্তম হাওড় হাকালুকি কোন জেলায়?", a: "মৌলভীবাজার", options: ["সিলেট", "মৌলভীবাজার", "সুনামগঞ্জ", "হবিগঞ্জ"] }
       ];
     
-// 'list' হ্যান্ডলার
+ // --- Pagination Logic ---
     if (args[0] === "list" || args[0] === "লিস্ট") {
-      let listMsg = "╭───✦ [ 𝗤𝗨𝗜𝗭 𝗟𝗜𝗦𝗧 ]\n";
-      questions.forEach((item, index) => {
-        listMsg += `├‣ ${index + 1}. ${item.q}\n`;
+      const page = parseInt(args[1]) || 1;
+      const limit = 75;
+      const totalPages = Math.ceil(questions.length / limit);
+
+      if (page < 1 || page > totalPages) {
+        return api.sendMessage(`❌ Invalid page! Please use 1 to ${totalPages}.`, threadID, messageID);
+      }
+
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const pagedQuestions = questions.slice(start, end);
+
+      let listMsg = `╭───✦ [ 𝗤𝗨𝗜𝗭 𝗟𝗜𝗦𝗧 - 𝗣𝗔𝗚𝗘 ${page}/${totalPages} ]\n`;
+      pagedQuestions.forEach((item, index) => {
+        listMsg += `├‣ ${start + index + 1}. ${item.q}\n`;
       });
-      listMsg += `╰──────────────◊\nTotal Questions: ${questions.length}`;
+      listMsg += `╰──────────────◊\n`;
+      
+      if (page < totalPages) {
+        listMsg += `👉 For more, type: !quiz list ${page + 1}\n`;
+      }
+      listMsg += `Total Questions: ${questions.length}`;
+      
       return api.sendMessage(listMsg, threadID);
     }
 
+    // --- Quiz Logic ---
     const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const correctAnswer = randomQuiz.a;
 
     const allAnswers = questions.map(item => item.a);
-    let wrongAnswers = allAnswers.filter(ans => ans !== correctAnswer);
-    wrongAnswers = [...new Set(wrongAnswers)]; 
+    let wrongAnswers = [...new Set(allAnswers.filter(ans => ans !== correctAnswer))];
     wrongAnswers = wrongAnswers.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-    let options = [correctAnswer, ...wrongAnswers];
-    options = options.sort(() => 0.5 - Math.random());
-
-    const finalOptions = options.map(opt => opt === correctAnswer ? opt + "." : opt);
+    let options = [correctAnswer, ...wrongAnswers].sort(() => 0.5 - Math.random());
     const labels = ["A", "B", "C", "D"];
     const correctLabel = labels[options.indexOf(correctAnswer)];
 
     const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
       `├‣ প্রশ্ন: ${randomQuiz.q}\n` +
       `│\n` +
-      `├‣ A. ${finalOptions[0]}\n` +
-      `├‣ B. ${finalOptions[1]}\n` +
-      `├‣ C. ${finalOptions[2]}\n` +
-      `├‣ D. ${finalOptions[3]}\n` +
+      `├‣ A. ${options[0]}\n` +
+      `├‣ B. ${options[1]}\n` +
+      `├‣ C. ${options[2]}\n` +
+      `├‣ D. ${options[3]}\n` +
       `╰──────────────◊\n\n` +
-      `👉 সঠিক উত্তর দিতে A, B, C অথবা D লিখে রিপ্লাই দিন।\n` +
-      `⏰ ২০ সেকেন্ড সময় (সঠিক হলে গেম চলবে)।`;
+      `👉 Reply with A, B, C or D to answer.\n` +
+      `⏰ 20 seconds remaining.`;
 
     return api.sendMessage(quizMsg, threadID, (err, info) => {
       if (err) return;
-
       global.GoatBot.onReply.set(info.messageID, {
         commandName: this.config.name,
         messageID: info.messageID,
@@ -370,57 +384,55 @@ module.exports = {
         isEnded: false,
         timer: Date.now() + 20000 
       });
-
-      // টাইম আউট হ্যান্ডলার (মেসেজ দিবে না, শুধু মেমোরি থেকে মুছে দিবে)
-      setTimeout(async () => {
-        const replyData = global.GoatBot.onReply.get(info.messageID);
-        if (replyData && !replyData.isEnded) {
-          global.GoatBot.onReply.delete(info.messageID);
-        }
-      }, 20500); 
     }, messageID);
   },
 
   onReply: async function ({ api, event, Reply, usersData, args }) {
     const { senderID, body, messageID, threadID } = event;
     if (senderID !== Reply.author) return;
-
     if (Reply.isEnded) return;
 
-    // সময় শেষ হয়েছে কিনা চেক
     if (Date.now() > Reply.timer) {
         Reply.isEnded = true;
         global.GoatBot.onReply.delete(Reply.messageID);
-        return api.sendMessage("❌ দুঃখিত, উঃ দেওয়ার সময় শেষ হওয়ার কারণে আপনার উঃ টি গ্রহণ করা যাচ্ছে না!", threadID, messageID);
+        return api.sendMessage("❌ Time out! Your answer was not accepted.", threadID, messageID);
     }
 
     const userAnswer = body.trim().toUpperCase();
-    const { correctLabel, actualAnswer } = Reply;
-
     if (!["A", "B", "C", "D"].includes(userAnswer)) {
-      return api.sendMessage("❌ অনুগ্রহ করে শুধু A, B, C অথবা D লিখে রিপ্লাই দিন।", threadID, messageID);
+      return api.sendMessage("❌ Please reply with A, B, C, or D only.", threadID, messageID);
     }
 
     Reply.isEnded = true;
     global.GoatBot.onReply.delete(Reply.messageID);
     
     const userData = await usersData.get(senderID);
-    let currentMoney = userData.money || 0;
+    const stats = userData.data?.quizStats || { totalWins: 0, totalPlays: 0 };
+    stats.totalPlays += 1;
 
-    if (userAnswer === correctLabel) {
-      currentMoney += 500;
-      await usersData.set(senderID, { money: currentMoney });
-      await api.sendMessage(`🎉 অভিনন্দন! সঠিক উত্তর হয়েছে।\n💰 +500 কয়েন যোগ হয়েছে।\n🏦 ব্যালেন্স: ${currentMoney}\n\n⏳ পরবর্তী প্রশ্ন আসছে...`, threadID, messageID);
+    if (userAnswer === Reply.correctLabel) {
+      stats.totalWins += 1;
+      const finalMoney = (userData.money || 0) + 500;
+      
+      await usersData.set(senderID, { 
+        money: finalMoney,
+        data: { ...userData.data, quizStats: stats }
+      });
+
+      await api.sendMessage(`🎉 Correct! You won 500 coins.\n🏦 Balance: ${finalMoney}\n⏳ Next question coming...`, threadID, messageID);
       
       setTimeout(() => {
         this.onStart({ api, event, usersData, args });
       }, 2000);
 
     } else {
-      currentMoney -= 200;
-      if (currentMoney < 0) currentMoney = 0;
-      await usersData.set(senderID, { money: currentMoney });
-      api.sendMessage(`❌ ভুল উত্তর! সঠিক উত্তর ছিল: ${correctLabel} (${actualAnswer})\n📉 -200 কয়েন কাটা হয়েছে।\nগেমটি শেষ হলো।`, threadID, messageID);
+      const finalMoney = Math.max((userData.money || 0) - 200, 0);
+      await usersData.set(senderID, { 
+        money: finalMoney,
+        data: { ...userData.data, quizStats: stats }
+      });
+
+      api.sendMessage(`❌ Wrong! The correct answer was ${Reply.correctLabel} (${Reply.actualAnswer})\n📉 -200 coins deducted. Game Over!`, threadID, messageID);
     }
   }
 };
