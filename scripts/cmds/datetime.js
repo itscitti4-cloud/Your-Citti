@@ -4,67 +4,86 @@ module.exports = {
   config: {
     name: "clock",
     aliases: ["datetime", "time"],
-    version: "10.5",
+    version: "10.9",
     author: "AkHi",
-    category: "utility"
+    category: "utility",
+    role: 0, // সবার জন্য উন্মুক্ত
+    guide: {
+        en: "{pn} [type] [offset] (Example: {pn} hijri +1, {pn} bangla -1)",
+        bn: "{pn} [টাইপ] [অফসেট] (উদাহরণ: {pn} hijri +1, {pn} bangla -1)"
+    }
   },
 
-  onStart: async function ({ message }) {
+  onStart: async function ({ message, args, threadsData, event }) {
     try {
+      const { threadID } = event;
       const timezone = "Asia/Dhaka";
-      const now = moment().tz(timezone);
+      let now = moment().tz(timezone);
+
+      // ডাটাবেজ থেকে বর্তমান থ্রেডের অফসেট ডাটা নেওয়া
+      const threadSettings = await threadsData.get(threadID) || {};
+      const offsets = threadSettings.clockOffsets || { bangla: 0, hijri: 0 };
+
+      // --- অফসেট পরিবর্তন লজিক ---
+      if (args[0] === "hijri" || args[0] === "bangla") {
+        const type = args[0];
+        const value = parseInt(args[1]);
+
+        if (isNaN(value)) {
+          return message.reply(`⚠️ please use the right format, example: !clock ${type} +1 or -1`);
+        }
+
+        // নতুন ভ্যালু আপডেট করা
+        offsets[type] += value;
+        
+        // ডাটাবেজে স্থায়ীভাবে সেভ করা
+        await threadsData.set(threadID, { clockOffsets: offsets }, "data");
+        
+        return message.reply(`✅ ${type === "hijri" ? "হিজরী" : "বাংলা"} তারিখ ${value > 0 ? "+" + value : value}, Day adjust successfully`);
+      }
 
       const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
-
       const timeStr = now.format("hh:mm A");
       const dayStr = now.format("dddd");
       const engDate = now.format("DD MMMM, YYYY");
 
-      // ১. বাংলা তারিখ ক্যালকুলেশন (সংশোধিত)
+      // ১. বাংলা তারিখ ক্যালকুলেশন
       const getBengaliDate = (mDate) => {
-        const year = mDate.year();
-        const month = mDate.month() + 1;
-        const day = mDate.date();
+        let targetDate = moment(mDate).add(offsets.bangla, 'days');
+        const year = targetDate.year();
+        const month = targetDate.month() + 1;
+        const day = targetDate.date();
 
         let bYear = year - 593;
         const months = ["বৈশাখ", "জ্যৈষ্ঠ", "আষাঢ়", "শ্রাবণ", "ভাদ্র", "আশ্বিন", "কার্তিক", "অগ্রহায়ণ", "পৌষ", "মাঘ", "ফাল্গুন", "চৈত্র"];
-        
-        // বাংলা একাডেমি সংশোধিত ক্যালেন্ডার (১৪২৬ বঙ্গাব্দ থেকে কার্যকর)
         const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-        // প্রথম ৬ মাস ৩১ দিন, পরের ৫ মাস ৩০ দিন, চৈত্র ৩০ দিন (লিপ ইয়ারে ৩১)
         const monthDays = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, (isLeapYear ? 31 : 30)];
 
-        if (month < 4 || (month === 4 && day < 14)) {
-          bYear -= 1;
-        }
+        if (month < 4 || (month === 4 && day < 14)) bYear -= 1;
 
         let startOfBengaliYear = moment.tz(`${year}-04-14`, "YYYY-MM-DD", timezone);
-        if (mDate.isBefore(startOfBengaliYear)) {
+        if (targetDate.isBefore(startOfBengaliYear)) {
           startOfBengaliYear = moment.tz(`${year - 1}-04-14`, "YYYY-MM-DD", timezone);
         }
 
-        // দিন গণনায় ১ দিন কমানো হয়েছে যাতে ১৯ পৌষ আসে
-        let totalDays = mDate.diff(startOfBengaliYear, 'days');
-        
+        let totalDays = targetDate.diff(startOfBengaliYear, 'days');
         let mIndex = 0;
         while (mIndex < 12 && totalDays >= monthDays[mIndex]) {
           totalDays -= monthDays[mIndex];
           mIndex++;
         }
-
         return `${toBn(totalDays + 1)} ${months[mIndex]}, ${toBn(bYear)}`;
       };
 
-      // ২. হিজরি তারিখ ক্যালকুলেশন (সংশোধিত অফসেট)
+      // ২. হিজরি তারিখ ক্যালকুলেশন
       const getHijriDate = (mDate) => {
-        const d = mDate.date();
-        const m = mDate.month();
-        const y = mDate.year();
+        let targetDate = moment(mDate).add(offsets.hijri, 'days');
+        const d = targetDate.date();
+        const m = targetDate.month();
+        const y = targetDate.year();
 
         let jd = Math.floor(367 * y - (7 * (y + Math.floor((m + 9) / 12))) / 4 + Math.floor((275 * (m + 1)) / 9) + d + 1721013.5);
-        
-        // অফসেট ১০৬২৯ থেকে ১০৬৩০ এ পরিবর্তন করা হয়েছে সঠিক তারিখের জন্য
-        let l = jd - 1948440 + 10630; 
+        let l = jd - 1948440 + 10632; 
         let n = Math.floor((l - 1) / 10631);
         l = l - 10631 * n + 354;
         let j = (Math.floor((10985 - l) / 5316)) * (Math.floor((50 * l) / 17719)) + (Math.floor(l / 5670)) * (Math.floor((43 * l) / 15238));
@@ -75,8 +94,7 @@ module.exports = {
         let hYear = 30 * n + j - 30;
 
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জমাদিউস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
-        
-        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1] || "রমজান"}, ${toBn(hYear)}`;
+        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1]}, ${toBn(hYear)}`;
       };
 
       const bngDate = getBengaliDate(now);
@@ -99,4 +117,3 @@ module.exports = {
     }
   }
 };
-                  
