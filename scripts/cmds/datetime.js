@@ -4,22 +4,18 @@ module.exports = {
   config: {
     name: "clock",
     aliases: ["datetime", "time"],
-    version: "10.9",
+    version: "11.0",
     author: "AkHi",
     category: "utility",
-    role: 0, // সবার জন্য উন্মুক্ত
-    guide: {
-        en: "{pn} [type] [offset] (Example: {pn} hijri +1, {pn} bangla -1)",
-        bn: "{pn} [টাইপ] [অফসেট] (উদাহরণ: {pn} hijri +1, {pn} bangla -1)"
-    }
+    role: 0,
+    guide: "{pn} [type] [offset] (Example: {pn} hijri +1, {pn} bangla -1)",
   },
 
   onStart: async function ({ message, args, threadsData, event }) {
     try {
       const { threadID } = event;
       const timezone = "Asia/Dhaka";
-      let now = moment().tz(timezone);
-
+      
       // ডাটাবেজ থেকে বর্তমান থ্রেডের অফসেট ডাটা নেওয়া
       const threadSettings = await threadsData.get(threadID) || {};
       const offsets = threadSettings.clockOffsets || { bangla: 0, hijri: 0 };
@@ -30,26 +26,31 @@ module.exports = {
         const value = parseInt(args[1]);
 
         if (isNaN(value)) {
-          return message.reply(`⚠️ please use the right format, example: !clock ${type} +1 or -1`);
+          return message.reply(`⚠️ সঠিক সংখ্যা দিন। উদাহরণ: !clock ${type} +1 অথবা -1`);
         }
 
         // নতুন ভ্যালু আপডেট করা
         offsets[type] += value;
         
-        // ডাটাবেজে স্থায়ীভাবে সেভ করা
+        // ডাটাবেজে সেভ করা
         await threadsData.set(threadID, { clockOffsets: offsets }, "data");
         
-        return message.reply(`✅ ${type === "hijri" ? "হিজরী" : "বাংলা"} তারিখ ${value > 0 ? "+" + value : value}, Day adjust successfully`);
+        return message.reply(`✅ ${type === "hijri" ? "হিজরী" : "বাংলা"} তারিখ ${value > 0 ? "+" + value : value} দিন অ্যাডজাস্ট করা হয়েছে।`);
       }
 
+      // বর্তমান সময় নেওয়া
+      let now = moment().tz(timezone);
       const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
+      
       const timeStr = now.format("hh:mm A");
       const dayStr = now.format("dddd");
       const engDate = now.format("DD MMMM, YYYY");
 
       // ১. বাংলা তারিখ ক্যালকুলেশন
       const getBengaliDate = (mDate) => {
-        let targetDate = moment(mDate).add(offsets.bangla, 'days');
+        // অফসেট সহ নতুন সময় তৈরি (সংশোধিত)
+        let targetDate = moment(mDate).tz(timezone).add(offsets.bangla, 'days');
+        
         const year = targetDate.year();
         const month = targetDate.month() + 1;
         const day = targetDate.date();
@@ -77,7 +78,9 @@ module.exports = {
 
       // ২. হিজরি তারিখ ক্যালকুলেশন
       const getHijriDate = (mDate) => {
-        let targetDate = moment(mDate).add(offsets.hijri, 'days');
+        // অফসেট সহ নতুন সময় তৈরি (সংশোধিত)
+        let targetDate = moment(mDate).tz(timezone).add(offsets.hijri, 'days');
+        
         const d = targetDate.date();
         const m = targetDate.month();
         const y = targetDate.year();
@@ -94,7 +97,7 @@ module.exports = {
         let hYear = 30 * n + j - 30;
 
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জমাদিউস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
-        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1]}, ${toBn(hYear)}`;
+        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1] || "রজব"}, ${toBn(hYear)}`;
       };
 
       const bngDate = getBengaliDate(now);
