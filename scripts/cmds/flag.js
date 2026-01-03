@@ -59,6 +59,8 @@ module.exports = {
     try {
       const res = await axios.get("https://restcountries.com/v3.1/all?fields=name,flags");
       const countries = res.data;
+      // সঠিক উত্তরের শেষে ডট (.) যোগ করা
+      const finalOptions = options.map(opt => opt === correctAnswer ? opt + "." : opt);
 
       const shuffle = countries.sort(() => 0.5 - Math.random()).slice(0, 4);
       const correctCountry = shuffle[0];
