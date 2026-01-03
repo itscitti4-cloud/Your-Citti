@@ -8,17 +8,16 @@ const baseApiUrl = async () => {
 };
 
 module.exports.config = {
-    name: "akhi",
+    name: "bby",
     aliases: ["bby", "baby"],
     version: "1.0.2",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Simsimi Chatbot with MongoDB Support & Custom Reply Format",
+    description: "Simsimi Chatbot",
     category: "chat",
-    guide: {
-        en: "{pn} [anyMessage] OR\nteach [YourMessage] - [Reply] OR\nremove [YourMessage] OR\nlist OR all"
-    }
+    guide: "{pn} [anyMessage] OR\nteach [YourMessage] - [Reply] OR\nremove [YourMessage] OR\nlist OR all"
+    
 };
 
 module.exports.onStart = async ({ api, event, args, usersData }) => {
@@ -28,7 +27,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
     try {
         if (!args[0]) {
-            const ran = ["জি জানু, বলো!", "হুম শুনছি...", "Bolo baby", "type !akhi help"];
+            const ran = ["জি জানু, বলো!", "হুম শুনছি...", "Bolo baby", "kisse tor😾"];
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
         }
 
@@ -36,7 +35,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
         if (args[0] === 'teach') {
             const content = args.slice(1).join(" ");
             if (!content.includes('-')) {
-                return api.sendMessage('❌ | ফরম্যাট: teach [Message] - [Reply]', event.threadID, event.messageID);
+                return api.sendMessage('❌ | Format: teach [Message] - [Reply]', event.threadID, event.messageID);
             }
 
             const [msg, rep] = content.split(/\s*-\s*/);
@@ -71,7 +70,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
         }, event.messageID);
 
     } catch (e) {
-        return api.sendMessage("⚠️ এপিআই সার্ভারে সমস্যা হচ্ছে।", event.threadID, event.messageID);
+        return api.sendMessage("❌ Api server not found", event.threadID, event.messageID);
     }
 };
 
@@ -87,10 +86,10 @@ module.exports.onReply = async ({ api, event }) => {
 
 module.exports.onChat = async ({ api, event }) => {
     const body = event.body ? event.body.toLowerCase() : "";
-    const triggers = ["bby", "baby", "jan", "babu", "janu"];
+    const triggers = ["bby", "baby", "citti", "hinata", "@HI NA TA"];
     
     if (triggers.some(trigger => body.startsWith(trigger))) {
-        const text = body.replace(/^(bby|baby|jan|babu|janu)\s*/, "").trim();
+        const text = body.replace(/^(bby|baby|citti|hinata|@HI NA TA)\s*/, "").trim();
         if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
 
         try {
