@@ -13,10 +13,10 @@ module.exports = {
 
   onStart: async function ({ event, api, args, threadsData }) {
     const { threadID, messageID, senderID } = event;
-    const adminID = "61583939430347", "61585634146171"; // আপনার অ্যাডমিন আইডি
+    const adminIDs = ["61583939430347", "61585634146171"]; // আপনার অ্যাডমিন আইডি
 
-    if (senderID !== adminID) {
-      return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nYou don't have permission to use this command.\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
+    if (!adminIDs.includes(senderID)) {
+  return api.sendMessage("❌ Access Denied! Only Developers (Sabu and AkHi) Can use this command.", threadID, messageID);
     }
 
     const action = args[0]?.toLowerCase();
@@ -25,23 +25,23 @@ module.exports = {
     // --- পুরো সিস্টেম অফ/অন লজিক ---
     if (action === "off" && !subAction) {
       global.isBotOff = true;
-      return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nSuccessfully Turned Off System ✅\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
+      return api.sendMessage("System Turned Off Successfully ✅", threadID, messageID);
     }
     
     if (action === "on" && !subAction) {
       global.isBotOff = false;
-      return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nSystem is now Online ✅\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
+      return api.sendMessage("System is now Online ✅", threadID, messageID);
     }
 
     // --- নির্দিষ্ট চ্যাট অফ/অন লজিক ---
     if (action === "chat") {
       if (subAction === "off") {
         await threadsData.set(threadID, { isChatOff: true }, "data");
-        return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nBot is now OFF for this Group ❌\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
+        return api.sendMessage("Bot is now OFF for this Group ✅", threadID, messageID);
       } 
       else if (subAction === "on") {
         await threadsData.set(threadID, { isChatOff: false }, "data");
-        return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nBot is now ON for this Group ✅\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
+        return api.sendMessage("Bot is now ON for this Group ✅", threadID, messageID);
       }
     }
 
@@ -50,7 +50,7 @@ module.exports = {
 
   // এই অংশটি অন্য কমান্ড ব্লক করার জন্য দায়ী
   onChat: async function ({ event, threadsData, isCommand }) {
-    if (!event.body || event.senderID === "61583939430347") return;
+    if (!event.body || ["61583939430347", "61585634146171"].includes(event.senderID)) return;
 
     // ১. পুরো সিস্টেম অফ থাকলে
     if (global.isBotOff) {
