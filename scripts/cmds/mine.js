@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "mine",
     aliases: ["mines", "dig"],
-    version: "1.0",
+    version: "1.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -16,7 +16,6 @@ module.exports = {
   onStart: async function ({ api, event, args, usersData }) {
     const { senderID, threadID, messageID } = event;
 
-    // ১. ডাটা চেক এবং বেট অ্যামাউন্ট নির্ধারণ
     const userData = await usersData.get(senderID);
     if (!userData) return api.sendMessage("❌ User data not found.", threadID, messageID);
 
@@ -31,17 +30,23 @@ module.exports = {
       return api.sendMessage(`❌ You don't have enough money! Your current balance is $${userMoney}`, threadID, messageID);
     }
 
-    // ২. গেম লজিক (৫টি স্লটের মধ্যে ১টিতে বোমা থাকবে)
     const items = ["💎", "💎", "💣", "💎", "💎"];
     const randomResult = items[Math.floor(Math.random() * items.length)];
 
     api.sendMessage("⛏️ Digging into the mines...", threadID, messageID);
 
-    // ৩. ফলাফল প্রসেসিং
     setTimeout(async () => {
+      // --- ডাটাবেস স্ট্যাটাস প্রিপারেশন ---
+      const stats = userData.data?.mineStats || { totalWins: 0, totalPlays: 0 };
+      stats.totalPlays += 1;
+
       if (randomResult === "💣") {
         const lostMoney = betAmount;
-        await usersData.set(senderID, { money: userMoney - lostMoney });
+        // হারলে শুধু টাকা কমবে এবং খেলার সংখ্যা বাড়বে
+        await usersData.set(senderID, { 
+          money: userMoney - lostMoney,
+          data: { ...userData.data, mineStats: stats }
+        });
         
         return api.sendMessage(
           `╭──✦ [ 𝗠𝗜𝗡𝗘 𝗘𝗫𝗣𝗟𝗢𝗗𝗘𝗗 ]\n` +
@@ -54,7 +59,13 @@ module.exports = {
         );
       } else {
         const winMoney = Math.floor(betAmount * 0.5); 
-        await usersData.set(senderID, { money: userMoney + winMoney });
+        stats.totalWins += 1; // জয় আপডেট
+        
+        // জিতলে টাকা বাড়বে এবং জয়ের সংখ্যা বাড়বে
+        await usersData.set(senderID, { 
+          money: userMoney + winMoney,
+          data: { ...userData.data, mineStats: stats }
+        });
 
         return api.sendMessage(
           `╭──✦ [ 𝗠𝗜𝗡𝗘 𝗦𝗨𝗖𝗖𝗘𝗦𝗦 ]\n` +
@@ -64,9 +75,8 @@ module.exports = {
           `╰‣ Balance: $${userMoney + winMoney} 📈`,
           threadID,
           messageID
-        ); // এখানে ব্র্যাকেট ক্লোজ করা হয়েছে
+        );
       }
-    }, 2000); // setTimeout এর ক্লোজিং নিশ্চিত করা হয়েছে
-  } // onStart এর ক্লোজিং
-}; // module.exports এর ক্লোজিং
-  
+    }, 2000);
+  }
+};
