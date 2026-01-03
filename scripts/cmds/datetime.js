@@ -4,15 +4,15 @@ module.exports = {
   config: {
     name: "clock",
     aliases: ["datetime", "time"],
-    version: "10.2",
-    author: "AkHi / Gemini AI",
+    version: "10.3",
+    author: "AkHi",
     category: "utility"
   },
 
   onStart: async function ({ message }) {
     try {
       const timezone = "Asia/Dhaka";
-      const now = moment().tz(timezone).locale('en');
+      const now = moment().tz(timezone);
 
       // সংখ্যাকে বাংলা অক্ষরে রূপান্তর করার ফাংশন
       const toBn = (n) => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
@@ -21,32 +21,47 @@ module.exports = {
       const dayStr = now.format("dddd");
       const engDate = now.format("DD MMMM, YYYY");
 
-      // ১. বঙ্গাব্দ ক্যালকুলেশন
-      const getBengaliDate = (date) => {
-        const d = new Date(date);
-        const day = d.getDate();
-        const month = d.getMonth() + 1;
-        const year = d.getFullYear();
+      // ১. সংশোধিত বঙ্গাব্দ ক্যালকুলেশন (রাত ১২টায় পরিবর্তন এবং ১ দিন পিছিয়ে দেওয়া)
+      const getBengaliDate = (mDate) => {
+        const day = mDate.date();
+        const month = mDate.month() + 1;
+        const year = mDate.year();
+
         let bYear = year - 593;
         const months = ["বৈশাখ", "জ্যৈষ্ঠ", "আষাঢ়", "শ্রাবণ", "ভাদ্র", "আশ্বিন", "কার্তিক", "অগ্রহায়ণ", "পৌষ", "মাঘ", "ফাল্গুন", "চৈত্র"];
-        const monthDays = [31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30, 30]; 
-        if (month < 4 || (month === 4 && day < 14)) bYear -= 1;
-        let totalDays = Math.floor((d - new Date(year, 3, 14)) / (24 * 60 * 60 * 1000));
-        if (totalDays < 0) totalDays = Math.floor((d - new Date(year - 1, 3, 14)) / (24 * 60 * 60 * 1000));
+        const monthDays = [31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30, 30];
+
+        // বৈশাখ শুরু হয় ১৪ এপ্রিল থেকে
+        if (month < 4 || (month === 4 && day < 14)) {
+          bYear -= 1;
+        }
+
+        // বর্তমান তারিখ থেকে ১৪ এপ্রিলের পার্থক্য বের করা
+        let startOfBengaliYear = moment.tz(`${year}-04-14`, "YYYY-MM-DD", timezone);
+        if (mDate.isBefore(startOfBengaliYear)) {
+          startOfBengaliYear = moment.tz(`${year - 1}-04-14`, "YYYY-MM-DD", timezone);
+        }
+
+        let totalDays = mDate.diff(startOfBengaliYear, 'days');
+        
         let mIndex = 0;
-        while (totalDays >= monthDays[mIndex]) { totalDays -= monthDays[mIndex]; mIndex++; }
+        while (totalDays >= monthDays[mIndex]) {
+          totalDays -= monthDays[mIndex];
+          mIndex++;
+        }
+
         return `${toBn(totalDays + 1)} ${months[mIndex]}, ${toBn(bYear)}`;
       };
 
-      // ২. হিজরি তারিখ ক্যালকুলেশন (সংশোধিত: ২ দিন এগিয়ে দেওয়া হয়েছে)
-      const getHijriDate = (date) => {
-        const d = date.getDate();
-        const m = date.getMonth() + 1;
-        const y = date.getFullYear();
+      // ২. হিজরি তারিখ ক্যালকুলেশন (রাত ১২টায় পরিবর্তনের জন্য সংশোধিত)
+      const getHijriDate = (mDate) => {
+        const d = mDate.date();
+        const m = mDate.month() + 1;
+        const y = mDate.year();
 
         let jd = Math.floor(367 * y - (7 * (y + Math.floor((m + 9) / 12))) / 4 + Math.floor((275 * m) / 9) + d + 1721013.5);
         
-        // অ্যাডজাস্টমেন্ট: তারিখ ২ দিন এগিয়ে ০৬ রজব করার জন্য ১০৬৩১ থেকে বাড়িয়ে ১০৬৩৩ করা হয়েছে
+        // অ্যাডজাস্টমেন্ট (আপনার আগের লজিক অনুযায়ী ২ দিন অগ্রিম রাখা হয়েছে)
         let l = jd - 1948440 + 10633; 
         let n = Math.floor((l - 1) / 10631);
         l = l - 10631 * n + 354;
@@ -59,15 +74,11 @@ module.exports = {
 
         const hijriMonthsBn = ["মুহররম", "সফর", "রবিউল আউয়াল", "রবিউস সানি", "জুমাদাল উলা", "জমাদিউস সানি", "রজব", "শাবান", "রমজান", "শাওয়াল", "জিলকদ", "জিলহজ"];
         
-        const dayFormatted = hDay < 10 ? `০${toBn(hDay)}` : toBn(hDay);
-        const yearFormatted = toBn(hYear);
-        const monthName = hijriMonthsBn[hMonth - 1];
-
-        return `${dayFormatted} ${monthName}, ${yearFormatted}`;
+        return `${toBn(hDay)} ${hijriMonthsBn[hMonth - 1]}, ${toBn(hYear)}`;
       };
 
-      const bngDate = getBengaliDate(now.toDate());
-      const hijriDateFinal = getHijriDate(now.toDate());
+      const bngDate = getBengaliDate(now);
+      const hijriDateFinal = getHijriDate(now);
 
       const premiumReply = 
         `»—☀️— **𝐓𝐈𝐌𝐄 𝐃𝐄𝐓𝐀𝐈𝐋𝐒** —☀️—«\n\n` +
