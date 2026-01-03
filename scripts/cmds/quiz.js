@@ -423,7 +423,7 @@ module.exports = {
       { q: "বাংলাদেশের প্রথম হাই-টেক পার্ক কোথায় অবস্থিত?", a: "কালিয়াকৈর, গাজীপুর.", options: ["যশোর", "সিলেট", "কালিয়াকৈর, গাজীপুর.", "রাজশাহী"] }
       ];
 
-// --- Pagination Logic (List) ---
+// --- Pagination Logic ---
     if (args[0] === "list" || args[0] === "লিস্ট") {
       const page = parseInt(args[1]) || 1;
       const limit = 100;
@@ -451,22 +451,20 @@ module.exports = {
       return api.sendMessage(listMsg, threadID, messageID);
     }
 
+    // --- মূল কুইজ লজিক ---
     const randomQuiz = questions[Math.floor(Math.random() * questions.length)];
     const correctAnswer = randomQuiz.a;
 
-    const allAnswers = questions.map(item => item.a);
-    let wrongAnswers = allAnswers.filter(ans => ans !== correctAnswer);
-    wrongAnswers = [...new Set(wrongAnswers)]; 
-    wrongAnswers = wrongAnswers.sort(() => 0.5 - Math.random()).slice(0, 3);
+    // Fix: অপশন এখন ঐ নির্দিষ্ট প্রশ্নের (randomQuiz) ভেতর থেকেই নিবে।
+    // এবং অপশনগুলোকে র‍্যান্ডমাইজ (Shuffle) করবে।
+    let rawOptions = [...randomQuiz.options];
+    rawOptions = rawOptions.sort(() => 0.5 - Math.random());
 
-    let options = [correctAnswer, ...wrongAnswers];
-    options = options.sort(() => 0.5 - Math.random());
-
-    // সঠিক উত্তরের শেষে ডট যোগ করার লজিক (সংশোধিত)
-    const finalOptions = options.map(opt => opt === correctAnswer ? opt + "." : opt);
+    // সঠিক উত্তরের শেষে ডট যোগ করার লজিক
+    const finalOptions = rawOptions.map(opt => opt === correctAnswer ? opt + "." : opt);
     
     const labels = ["A", "B", "C", "D"];
-    const correctLabel = labels[options.indexOf(correctAnswer)];
+    const correctLabel = labels[rawOptions.indexOf(correctAnswer)];
 
     const quizMsg = `╭───✦ [ 𝗕𝗗 𝗤𝗨𝗜𝗭 ]\n` +
       `├‣ প্রশ্ন: ${randomQuiz.q}\n` +
