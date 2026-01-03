@@ -490,6 +490,7 @@ return api.sendMessage(quizMsg, threadID, (err, info) => {
     timer: Date.now() + 20000 
   });
 }, messageID);
+},
 
 // --- onReply Section ---
 onReply: async function ({ api, event, Reply, usersData, args }) {
