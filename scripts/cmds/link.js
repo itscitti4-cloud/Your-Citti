@@ -6,7 +6,7 @@ module.exports = {
   config: {
     name: "link",
     aliases: ["mx", "player", "mxplayer"],
-    version: "1.4.0",
+    version: "1.5.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -16,33 +16,24 @@ module.exports = {
 
   onStart: async function ({ api, event, args }) {
     const { threadID, messageID } = event;
-    
-    let url, isDownload = false;
-
-    if (args[0] === "d") {
-      isDownload = true;
-      url = args[1];
-    } else {
-      url = args[0];
-    }
+    let url, isDownload = args[0] === "d";
+    url = isDownload ? args[1] : args[0];
 
     if (!url) {
       return api.sendMessage("❌ Please provide a valid video link. Example: !mx d https://link.com", threadID, messageID);
     }
 
-    // cache ফোল্ডার চেক এবং তৈরি
     const cachePath = path.join(__dirname, "cache");
-    if (!fs.existsSync(cachePath)) {
-      fs.mkdirSync(cachePath, { recursive: true });
-    }
+    if (!fs.existsSync(cachePath)) fs.mkdirSync(cachePath, { recursive: true });
 
-    api.sendMessage(isDownload ? "📥 Downloading video, please wait..." : "🔍 Processing ad-free video link, please wait...", threadID, messageID);
+    api.sendMessage(isDownload ? "📥 Downloading..." : "🔍 Processing ad-free link...", threadID, messageID);
 
-    // মাল্টিপল API এন্ডপয়েন্ট যাতে একটি ফেইল করলে অন্যটি কাজ করে
+    // বর্তমান সময়ের সবচেয়ে সচল Cobalt API লিস্ট
     const apiEndpoints = [
       "https://api.cobalt.tools/api/json",
       "https://cobalt.canbeuseful.com/api/json",
-      "https://api.cobalt.red/api/json"
+      "https://api.v0.ovh/api/json",
+      "https://cobalt.perennialte.ch/api/json"
     ];
 
     let success = false;
@@ -54,29 +45,25 @@ module.exports = {
           url: url,
           videoQuality: "720",
           isNoEndCards: true,
-          downloadMode: isDownload,
-          filenamePattern: "basic"
+          downloadMode: isDownload
         }, {
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-          },
-          timeout: 10000 // ১০ সেকেন্ড টাইমআউট
+          headers: { "Accept": "application/json", "Content-Type": "application/json" },
+          timeout: 12000 
         });
 
         if (response.data && response.data.url) {
           videoUrl = response.data.url;
           success = true;
-          break; // সফল হলে লুপ বন্ধ হবে
+          break;
         }
       } catch (e) {
-        console.log(`Failed with ${endpoint}, trying next...`);
+        console.error(`[MX-ERROR] Endpoint ${endpoint} failed:`, e.message);
         continue;
       }
     }
 
     if (!success) {
-      return api.sendMessage("❌ All API servers are busy or the link is not supported. Please try again later.", threadID, messageID);
+      return api.sendMessage("❌ Could not bypass the link. This site might be unsupported or all API nodes are down. Try again after a few minutes.", threadID, messageID);
     }
 
     try {
@@ -92,31 +79,19 @@ module.exports = {
         const fileSizeInMB = stats.size / (1024 * 1024);
 
         if (fileSizeInMB > 25) {
-          api.sendMessage(`🎬 **MX Player Playback**\n\n⚠️ Video size: ${fileSizeInMB.toFixed(2)} MB (Too large for direct send).\n\n🔗 Ad-Free Link: ${videoUrl}\n\n💡 Tip: Open this link in MX Player for an ad-free experience.`, threadID, messageID);
+          api.sendMessage(`🎬 **MX Player Playback**\n\n⚠️ Size: ${fileSizeInMB.toFixed(2)} MB (Too large to send).\n\n🔗 Ad-Free Link: ${videoUrl}`, threadID, messageID);
           if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         } else {
           const msg = {
-            body: isDownload ? `✅ Download Complete!` : `🎬 **MX Player Mode**\n✅ Ad-free playback ready.`,
+            body: isDownload ? `✅ Downloaded!` : `🎬 **MX Player Mode**\n✅ Ad-free link processed.`,
             attachment: fs.createReadStream(filePath)
           };
           await api.sendMessage(msg, threadID, messageID);
-
-          // ২ ঘণ্টা পর ক্যাশে থেকে ডিলিট করা
-          setTimeout(() => {
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-          }, 2 * 60 * 60 * 1000);
+          setTimeout(() => { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); }, 2 * 60 * 60 * 1000);
         }
       });
-
-      writer.on('error', (err) => {
-        throw err;
-      });
-
     } catch (error) {
-      console.error(error);
-      return api.sendMessage("❌ Error while processing the video stream. Please try again.", threadID, messageID);
+      return api.sendMessage("❌ Stream Error! The video source is restricted.", threadID, messageID);
     }
   }
 };
