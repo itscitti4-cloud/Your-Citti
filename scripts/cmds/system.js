@@ -1,21 +1,21 @@
 module.exports = {
   config: {
     name: "system",
-    version: "2.0",
+    version: "3.0",
     author: "AkHi",
-    countDown: 5,
+    countDown: 2,
     role: 2,
-    shortDescription: "বট অফ বা অন করা",
-    longDescription: "পুরো সিস্টেম বা নির্দিষ্ট চ্যাটে বট অফ/অন করুন",
+    shortDescription: "Bot on/off",
+    longDescription: "full system on/off",
     category: "Admin",
-    guide: "{pn} [off/on] অথবা {pn} chat [off/on]"
+    guide: "{pn} off/on or {pn} chat off/on"
   },
 
   onStart: async function ({ event, api, args, threadsData }) {
     const { threadID, messageID, senderID } = event;
-    const permission = ["61583939430347"]; // আপনার অ্যাডমিন আইডি
+    const adminID = "61583939430347", "61585634146171"; // আপনার অ্যাডমিন আইডি
 
-    if (!permission.includes(senderID)) {
+    if (senderID !== adminID) {
       return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nYou don't have permission to use this command.\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
     }
 
@@ -35,36 +35,37 @@ module.exports = {
 
     // --- নির্দিষ্ট চ্যাট অফ/অন লজিক ---
     if (action === "chat") {
-      let data = await threadsData.get(threadID) || {};
       if (subAction === "off") {
-        data.isChatOff = true;
-        await threadsData.set(threadID, data);
+        await threadsData.set(threadID, { isChatOff: true }, "data");
         return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nBot is now OFF for this Group ❌\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
       } 
       else if (subAction === "on") {
-        data.isChatOff = false;
-        await threadsData.set(threadID, data);
+        await threadsData.set(threadID, { isChatOff: false }, "data");
         return api.sendMessage("╔════ஜ۩۞۩ஜ═══╗\nBot is now ON for this Group ✅\n╚════ஜ۩۞۩ஜ═══╝", threadID, messageID);
       }
     }
 
-    return api.sendMessage("ব্যবহারবিধি:\n!offbot off/on (সিস্টেমের জন্য)\n!offbot chat off/on (গ্রুপের জন্য)", threadID, messageID);
+    return api.sendMessage("usage:\n!system off/on\n!system chat off/on", threadID, messageID);
   },
 
-  // এই অংশটি নিশ্চিত করবে বট কমান্ড ছাড়া অন্য কিছুতে রেসপন্স করবে না
-  onChat: async function ({ event, threadsData }) {
-    const { threadID, body } = event;
-    if (!body) return;
+  // এই অংশটি অন্য কমান্ড ব্লক করার জন্য দায়ী
+  onChat: async function ({ event, threadsData, isCommand }) {
+    if (!event.body || event.senderID === "61583939430347") return;
 
-    // যদি পুরো সিস্টেম অফ থাকে
-    if (global.isBotOff && !body.startsWith("!offbot on")) {
-      return false; 
+    // ১. পুরো সিস্টেম অফ থাকলে
+    if (global.isBotOff) {
+      // যদি ইউজার কমান্ড দেয় (যেমন !help বা অন্য কিছু), তবে সেটি কাজ করবে না
+      if (isCommand || event.body.startsWith("!")) {
+        return false; 
+      }
     }
 
-    // যদি নির্দিষ্ট চ্যাট অফ থাকে
-    let data = await threadsData.get(threadID);
-    if (data && data.isChatOff && !body.startsWith("!offbot chat on")) {
-      return false;
+    // ২. নির্দিষ্ট চ্যাট অফ থাকলে
+    const data = await threadsData.get(event.threadID);
+    if (data && data.isChatOff) {
+      if (isCommand || event.body.startsWith("!")) {
+        return false;
+      }
     }
   }
 };
