@@ -3,12 +3,11 @@ const axios = require("axios");
 module.exports = {
   config: {
     name: "flag",
-    version: "1.1",
+    version: "1.2",
     author: "AkHi",
     countDown: 5,
     role: 0,
     shortDescription: "Identify the country by its flag",
-    longDescription: "Get 1000$ for correct answer, lose 1000$ for wrong answer.",
     category: "game",
     guide: "{pn}"
   },
@@ -21,9 +20,8 @@ module.exports = {
     const { senderID, body } = event;
     const { correctAnswer, author } = Reply;
 
-    // Only the person who started the quiz can answer
     if (senderID !== author) {
-      return message.reply("❌ This quiz is not for you! Start your own using !flag");
+      return message.reply("❌ This quiz is not for you!");
     }
 
     const userAnswer = body.trim().toUpperCase();
@@ -33,19 +31,25 @@ module.exports = {
       return message.reply("Please reply with A, B, C, or D.");
     }
 
+    const userData = await usersData.get(senderID);
+    const stats = userData.data?.flagStats || { totalWins: 0, totalPlays: 0 };
+    stats.totalPlays += 1; // মোট খেলার সংখ্যা বৃদ্ধি
+
     if (userAnswer === correctAnswer) {
-      // Add 1000$
-      const userData = await usersData.get(senderID);
-      await usersData.set(senderID, { money: (userData.money || 0) + 1000 });
+      stats.totalWins += 1; // জয়ের সংখ্যা বৃদ্ধি
+      
+      await usersData.set(senderID, { 
+        money: (userData.money || 0) + 1000,
+        data: { ...userData.data, flagStats: stats } // ডাটাবেসে সেভ
+      });
 
       await message.reply(`✅ Correct answer! You won 1000$.\nPreparing next quiz...`);
-      
-      // Auto send next quiz
       return await this.sendQuiz(api, event, message, usersData);
     } else {
-      // Deduct 1000$
-      const userData = await usersData.get(senderID);
-      await usersData.set(senderID, { money: Math.max((userData.money || 0) - 1000, 0) });
+      await usersData.set(senderID, { 
+        money: Math.max((userData.money || 0) - 1000, 0),
+        data: { ...userData.data, flagStats: stats } // হারলেও খেলার সংখ্যা সেভ হবে
+      });
 
       return message.reply(`❌ Wrong answer! The correct answer was ${correctAnswer}.\nYou lost 1000$. Game Over!`);
     }
@@ -53,16 +57,13 @@ module.exports = {
 
   sendQuiz: async function (api, event, message, usersData) {
     try {
-      // Fetching all 250 countries/territories (covers all 196+ recognized countries)
       const res = await axios.get("https://restcountries.com/v3.1/all?fields=name,flags");
       const countries = res.data;
 
-      // Pick 4 random countries
       const shuffle = countries.sort(() => 0.5 - Math.random()).slice(0, 4);
       const correctCountry = shuffle[0];
       const optionsLetters = ["A", "B", "C", "D"];
       
-      // Shuffle names for options
       const shuffledNames = shuffle
         .map(c => c.name.common)
         .sort(() => 0.5 - Math.random());
@@ -89,8 +90,7 @@ module.exports = {
         });
       });
     } catch (e) {
-      console.error(e);
-      return message.reply("❌ Error fetching quiz data. Please try again later.");
+      return message.reply("❌ Error fetching quiz data.");
     }
   }
 };
