@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
-    version: "2.2.5",
+    version: "2.3.0",
     role: 2, 
     author: "AkHi",
     Description: "Combined Teach stats from API and local database",
@@ -22,6 +22,7 @@ module.exports = {
     else uid = senderID;
 
     const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    // API-তে সরাসরি mongoURI পাঠিয়ে ডেটা চাওয়া হচ্ছে
     const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${encodeURIComponent(mongoURI)}`;
 
     try {
@@ -34,37 +35,44 @@ module.exports = {
       const user = userInfo[uid] || {};
       const uData = userData || {};
 
-      // এপিআই থেকে আসা ডেটা
       let apiTotalTeachs = 0;
       let apiUserTeachs = 0;
 
+      // --- এপিআই থেকে ডেটা সংগ্রহ এবং ভেরিফিকেশন ---
       try {
-        const response = await axios.get(teachApiUrl);
+        const response = await axios.get(teachApiUrl, { timeout: 15000 }); // ১৫ সেকেন্ড টাইমআউট
         let teachData = [];
 
-        if (response.data && response.data.data && Array.isArray(response.data.data)) {
-          teachData = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          teachData = response.data;
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            teachData = response.data;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            teachData = response.data.data;
+          } else if (typeof response.data === 'object') {
+            // যদি এপিআই অবজেক্ট ফরম্যাটে ডেটা দেয়
+            teachData = Object.values(response.data).filter(item => typeof item === 'object');
+          }
         }
 
         apiTotalTeachs = teachData.length;
         apiUserTeachs = teachData.filter(item => {
-          const itemID = String(item.senderID || item.uid || item.user_id || "");
-          return itemID === String(uid);
+          // ডেটাবেজে আইডি স্ট্রিং বা নাম্বার যেভাবেই থাকুক তা চেক করা
+          const dbID = String(item.senderID || item.uid || item.user_id || "");
+          return dbID === String(uid);
         }).length;
+
       } catch (err) {
-        console.error("API Data Fetch Failed");
+        console.error("API Fetch Error: ", err.message);
       }
 
-      // --- লোকাল ডেটাবেজ থেকে টিচ কাউন্ট সংগ্রহ ---
-      // যদি আপনার বটের লোকাল ডেটাবেজে 'teachCount' নামে কোনো ফিল্ড থাকে
-      const localUserTeachs = uData.teachCount || 0;
-      const localTotalTeachs = allUser.reduce((sum, u) => sum + (u.teachCount || 0), 0);
+      // --- লোকাল ডেটাবেজ (usersData) থেকে টিচ কাউন্ট ---
+      // যদি আপনার বট ফোল্ডারে টিচ ডাটা লোকাললি সেভ হয়
+      const localUserTeachs = Number(uData.teachCount || 0);
+      const localTotalTeachs = allUser.reduce((sum, u) => sum + Number(u.teachCount || 0), 0);
 
-      // --- এপিআই এবং লোকাল ডেটার যোগফল ---
-      const combinedUserTeachs = apiUserTeachs + localUserTeachs;
-      const combinedTotalTeachs = apiTotalTeachs + localTotalTeachs;
+      // --- চূড়ান্ত যোগফল ---
+      const totalCombined = apiTotalTeachs + localTotalTeachs;
+      const userCombined = apiUserTeachs + localUserTeachs;
 
       // র‍্যাঙ্ক এবং অন্যান্য তথ্য
       const genderText = user.gender == 1 ? "FEMALE" : user.gender == 2 ? "MALE" : "UNKNOWN";
@@ -81,7 +89,7 @@ module.exports = {
 ├‣ 𝙽𝙸𝙲𝙺𝙽𝙰𝙼𝙴: ${(user.alternateName || "NONE").toUpperCase()}
 ├‣ 𝚁𝙰𝙽𝙺: #${rank}/${allUser.length}
 ├‣ 𝚅𝙸𝙿 𝚄𝚂𝙴𝚁: ${uData.isVip ? "𝚈𝙴𝚂✅" : "𝙽𝙾❎"}
-├‣ 𝚃𝙴𝙰𝙲𝙷: ${combinedUserTeachs} / ${combinedTotalTeachs}
+├‣ 𝚃𝙴𝙰𝙲𝙷: ${userCombined} / ${totalCombined}
 ╰‣ 𝙼𝙾𝙽𝙴𝚈: $${formatMoney(money)}
 
 ╭───[ 𝙶𝙰𝙼𝙴 𝚂𝚃𝙰𝚃𝚂 ]
@@ -113,4 +121,5 @@ function formatMoney(n) {
   let i = -1;
   while (n >= 1000 && ++i < units.length) n /= 1000;
   return n.toFixed(1).replace(/\.0$/, "") + units[i];
-}
+        }
+              
