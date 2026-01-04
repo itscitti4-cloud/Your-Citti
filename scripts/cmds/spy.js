@@ -4,10 +4,10 @@ module.exports = {
   config: {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
-    version: "2.2.1",
-    role: 2, 
+    version: "2.2.5",
+    role: 0, 
     author: "AkHi",
-    Description: "Get user information and statistics with improved Teach API handling",
+    Description: "Combined Teach stats from API and local database",
     category: "information",
     countDown: 5,
   },
@@ -21,9 +21,8 @@ module.exports = {
     else if (Object.keys(mentions).length > 0) uid = Object.keys(mentions)[0];
     else uid = senderID;
 
-    // সরাসরি URI স্ট্রিং
-    const dbUri = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-    const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${encodeURIComponent(dbUri)}`;
+    const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${encodeURIComponent(mongoURI)}`;
 
     try {
       const [userInfo, userData, allUser] = await Promise.all([
@@ -35,38 +34,39 @@ module.exports = {
       const user = userInfo[uid] || {};
       const uData = userData || {};
 
-      let totalTeachs = 0;
-      let userTeachs = 0;
+      // এপিআই থেকে আসা ডেটা
+      let apiTotalTeachs = 0;
+      let apiUserTeachs = 0;
 
-      // --- Teach API Handling ---
       try {
-        const response = await axios.get(teachApiUrl, { timeout: 10000 });
+        const response = await axios.get(teachApiUrl);
         let teachData = [];
 
-        // এপিআই রেসপন্স ফরম্যাট চেক
-        if (response.data) {
-          if (Array.isArray(response.data)) {
-            teachData = response.data;
-          } else if (response.data.data && Array.isArray(response.data.data)) {
-            teachData = response.data.data;
-          } else if (typeof response.data === 'object' && Object.keys(response.data).length > 0) {
-            // যদি অবজেক্ট হিসেবে আসে তবে অ্যারেতে রূপান্তর
-            teachData = Object.values(response.data).filter(item => typeof item === 'object');
-          }
+        if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          teachData = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          teachData = response.data;
         }
 
-        totalTeachs = teachData.length;
-        if (totalTeachs > 0) {
-          userTeachs = teachData.filter(item => 
-            String(item.senderID) === String(uid) || 
-            String(item.uid) === String(uid)
-          ).length;
-        }
+        apiTotalTeachs = teachData.length;
+        apiUserTeachs = teachData.filter(item => {
+          const itemID = String(item.senderID || item.uid || item.user_id || "");
+          return itemID === String(uid);
+        }).length;
       } catch (err) {
-        console.log("Teach API fetch failed, skipping teach counts.");
+        console.error("API Data Fetch Failed");
       }
 
-      // --- Formatting Data ---
+      // --- লোকাল ডেটাবেজ থেকে টিচ কাউন্ট সংগ্রহ ---
+      // যদি আপনার বটের লোকাল ডেটাবেজে 'teachCount' নামে কোনো ফিল্ড থাকে
+      const localUserTeachs = uData.teachCount || 0;
+      const localTotalTeachs = allUser.reduce((sum, u) => sum + (u.teachCount || 0), 0);
+
+      // --- এপিআই এবং লোকাল ডেটার যোগফল ---
+      const combinedUserTeachs = apiUserTeachs + localUserTeachs;
+      const combinedTotalTeachs = apiTotalTeachs + localTotalTeachs;
+
+      // র‍্যাঙ্ক এবং অন্যান্য তথ্য
       const genderText = user.gender == 1 ? "FEMALE" : user.gender == 2 ? "MALE" : "UNKNOWN";
       const rank = allUser
         .sort((a, b) => (Number(b.exp) || 0) - (Number(a.exp) || 0))
@@ -74,15 +74,14 @@ module.exports = {
 
       const d = uData.data || {};
       const money = uData.money || 0;
-      const nickname = user.alternateName || "NONE";
 
       const infoText = `╭───[ 𝗨𝗦𝗘𝗥 𝗜𝗡𝗙𝗢 ]
 ├‣ 𝙽𝙰𝙼𝙴: ${user.name || "Unknown"}
 ├‣ 𝙶𝙴𝙽𝙳𝙴𝚁: ${genderText}
-├‣ 𝙽𝙸𝙲𝙺𝙽𝙰𝙼𝙴: ${nickname.toUpperCase()}
+├‣ 𝙽𝙸𝙲𝙺𝙽𝙰𝙼𝙴: ${(user.alternateName || "NONE").toUpperCase()}
 ├‣ 𝚁𝙰𝙽𝙺: #${rank}/${allUser.length}
 ├‣ 𝚅𝙸𝙿 𝚄𝚂𝙴𝚁: ${uData.isVip ? "𝚈𝙴𝚂✅" : "𝙽𝙾❎"}
-├‣ 𝚃𝙴𝙰𝙲𝙷: ${userTeachs} / ${totalTeachs}
+├‣ 𝚃𝙴𝙰𝙲𝙷: ${combinedUserTeachs} / ${combinedTotalTeachs}
 ╰‣ 𝙼𝙾𝙽𝙴𝚈: $${formatMoney(money)}
 
 ╭───[ 𝙶𝙰𝙼𝙴 𝚂𝚃𝙰𝚃𝚂 ]
@@ -94,25 +93,18 @@ module.exports = {
 ├‣ 𝚀𝚄𝙸𝚉 𝚆𝙸𝙽𝚂: ${d.quizStats?.totalWins || 0}
 ╰‣ 𝙵𝙻𝙰𝙶 𝚆𝙸𝙽𝚂: ${d.flagStats?.totalWins || 0}`;
 
-      // --- Avatar Image Handling ---
-      let avatarAttachment;
+      let attachment;
       try {
-        const imgUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-        const imgRes = await axios.get(imgUrl, { responseType: "stream" });
-        avatarAttachment = imgRes.data;
-      } catch (e) {
-        avatarAttachment = null;
-      }
+        const avatarUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        attachment = (await axios.get(avatarUrl, { responseType: "stream" })).data;
+      } catch (e) { attachment = null; }
 
-      return api.sendMessage({
-        body: infoText,
-        attachment: avatarAttachment
-      }, threadID, messageID);
+      return api.sendMessage({ body: infoText, attachment }, threadID, messageID);
 
     } catch (err) {
       return api.sendMessage(`❌ Error: ${err.message}`, threadID, messageID);
     }
-  },
+  }
 };
 
 function formatMoney(n) {
