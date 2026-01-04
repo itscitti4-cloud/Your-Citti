@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
-    version: "2.1.9",
+    version: "2.2.0",
     role: 2, 
     author: "AkHi",
     Description: "Get user information and statistics including actual Teach counts",
@@ -21,13 +21,13 @@ module.exports = {
     else if (Object.keys(mentions).length > 0) uid = Object.keys(mentions)[0];
     else uid = senderID;
 
-    // সংশোধন: সরাসরি স্ট্রিং ব্যবহার করুন, axios নিজেই এনকোড করে নেবে
     const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    // সরাসরি list=all কল করা হচ্ছে ডাটাবেজ ভেরিফাই করার জন্য
     const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${encodeURIComponent(mongoURI)}`;
 
     try {
       const [userInfo, userData, allUser] = await Promise.all([
-        api.getUserInfo(uid),
+        api.getUserInfo(uid).catch(() => ({ [uid]: {} })),
         usersData.get(uid),
         usersData.getAll()
       ]);
@@ -40,23 +40,23 @@ module.exports = {
 
       try {
         const res = await axios.get(teachApiUrl);
-        // সংশোধন: এপিআই ডাটা চেক লজিক
         let teachData = [];
+
+        // এপিআই রেসপন্স হ্যান্ডলিং
         if (Array.isArray(res.data)) {
             teachData = res.data;
         } else if (res.data && Array.isArray(res.data.data)) {
             teachData = res.data.data;
-        } else if (typeof res.data === 'object') {
-            // যদি অবজেক্ট আকারে আসে (যেমন কী-ভ্যালু পেয়ার)
-            teachData = Object.values(res.data).filter(item => typeof item === 'object');
         }
 
         if (teachData.length > 0) {
           totalTeachs = teachData.length;
-          // ইউজার আইডি চেক
-          userTeachs = teachData.filter(item => 
-            String(item.senderID) === String(uid) || String(item.uid) === String(uid)
-          ).length;
+          
+          // আইডি ম্যাচিং লজিক আরও শক্তিশালী করা হয়েছে
+          userTeachs = teachData.filter(item => {
+            const itemID = String(item.senderID || item.uid || "");
+            return itemID === String(uid);
+          }).length;
         }
       } catch (err) {
         console.error("Teach API Error:", err.message);
@@ -100,12 +100,18 @@ module.exports = {
 ├‣ 𝚀𝚄𝙸𝚉 𝚆𝙸𝙽𝚂: ${stats.quiz}
 ╰‣ 𝙵𝙻𝙰𝙶 𝚆𝙸𝙽𝚂: ${stats.flag}`;
 
-      const avatarUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-      const avatarStream = (await axios.get(avatarUrl, { responseType: "stream" })).data;
+      // এভাটর লোড করার সময় এরর হ্যান্ডলিং
+      let attachment;
+      try {
+        const avatarUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        attachment = (await axios.get(avatarUrl, { responseType: "stream" })).data;
+      } catch (e) {
+        attachment = null;
+      }
 
       return api.sendMessage({
         body: userInformation,
-        attachment: avatarStream,
+        attachment: attachment
       }, threadID, messageID);
 
     } catch (err) {
