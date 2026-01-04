@@ -9,18 +9,18 @@ const baseApiUrl = async () => {
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot"],
-    version: "1.1.1",
+    version: "1.1.2",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Simsimi Chatbot - Fixed Double Reply Issue",
+    description: "Simsimi Chatbot with Teach, Remove & Persistent Reply Support",
     category: "chat",
     guide: "{pn} [message]\n{pn} teach [msg] - [reply]\n{pn} qus rem [msg]\n{pn} ans rem [reply]"
 };
 
 module.exports.onStart = async ({ api, event, args, usersData }) => {
     const link = `${await baseApiUrl()}/baby`;
-    const input = args.join(" ").toLowerCase();
+    const input = args.join(" ");
     const uid = event.senderID;
 
     try {
@@ -29,31 +29,34 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
         }
 
+        // --- Question Remove ---
         if (args[0] === 'qus' && args[1] === 'rem') {
             const qus = args.slice(2).join(" ");
             if (!qus) return api.sendMessage("❌ | ডিলিট করার জন্য প্রশ্নটি লিখুন।", event.threadID, event.messageID);
-            const res = await axios.get(`${link}?remove=${encodeURIComponent(qus)}&db=${encodeURIComponent(mongoURI)}`);
-            return api.sendMessage(`✅ প্রশ্ন: "${qus}" এবং এর সকল উত্তর ডাটাবেস থেকে ডিলিট করা হয়েছে।`, event.threadID, event.messageID);
+            await axios.get(`${link}?remove=${encodeURIComponent(qus)}&db=${encodeURIComponent(mongoURI)}`);
+            return api.sendMessage(`✅ প্রশ্ন: "${qus}" ডাটাবেস থেকে ডিলিট করা হয়েছে।`, event.threadID, event.messageID);
         }
 
+        // --- Answer Remove ---
         if (args[0] === 'ans' && args[1] === 'rem') {
             const ans = args.slice(2).join(" ");
-            if (!ans) return api.sendMessage("❌ | ডিলিট করার জন্য উত্তরটি (reply) লিখুন।", event.threadID, event.messageID);
-            const res = await axios.get(`${link}?remove_reply=${encodeURIComponent(ans)}&db=${encodeURIComponent(mongoURI)}`);
+            if (!ans) return api.sendMessage("❌ | ডিলিট করার জন্য উত্তরটি লিখুন।", event.threadID, event.messageID);
+            await axios.get(`${link}?remove_reply=${encodeURIComponent(ans)}&db=${encodeURIComponent(mongoURI)}`);
             return api.sendMessage(`✅ উত্তর: "${ans}" ডাটাবেস থেকে ডিলিট করা হয়েছে।`, event.threadID, event.messageID);
         }
 
+        // --- Teach ---
         if (args[0] === 'teach') {
             const content = args.slice(1).join(" ");
-            if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Message] - [Reply]', event.threadID, event.messageID);
+            if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Msg] - [Reply]', event.threadID, event.messageID);
             const [msg, rep] = content.split(/\s*-\s*/);
             const res = await axios.get(`${link}?teach=${encodeURIComponent(msg.trim())}&reply=${encodeURIComponent(rep.trim())}&senderID=${uid}&db=${encodeURIComponent(mongoURI)}`);
             let teacherName = "User";
             try { teacherName = await usersData.getName(uid); } catch (e) { teacherName = "Unknown"; }
-            const replyMsg = `✅ Replies added "${rep.trim()}" to "${msg.trim()}".\nTeacher: ${teacherName}\nTotal Teachs: ${res.data.teachs || "1"}`;
-            return api.sendMessage(replyMsg, event.threadID, event.messageID);
+            return api.sendMessage(`✅ Added: "${rep.trim()}"\nTeacher: ${teacherName}`, event.threadID, event.messageID);
         }
 
+        // --- Regular Chat ---
         const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
             if (info) {
@@ -62,13 +65,12 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
         }, event.messageID);
 
     } catch (e) {
-        return api.sendMessage("❌ Api server error!", event.threadID, event.messageID);
+        return api.sendMessage("❌ Api error!", event.threadID, event.messageID);
     }
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
-    if (Reply.commandName !== this.config.name) return;
-    if (event.senderID == api.getCurrentUserID()) return;
+    if (Reply.commandName !== this.config.name || event.senderID == api.getCurrentUserID()) return;
     
     try {
         const baseUrl = await baseApiUrl();
@@ -78,22 +80,21 @@ module.exports.onReply = async ({ api, event, Reply }) => {
                 global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
             }
         }, event.messageID);
-    } catch (err) { console.error("Reply Error:", err); }
+    } catch (err) { console.error(err); }
 };
 
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
     
-    const body = event.body.toLowerCase();
-    const triggers = ["bby", "baby", "citti", "hinata", "@hi na ta", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
-    
-    const matchedTrigger = triggers.find(trigger => body.startsWith(trigger));
+    // ডাবল রিপ্লাই চেক: যদি এটি কোনো মেসেজের রিপ্লাই হয়, তবে onChat কাজ করবে না (onReply হ্যান্ডেল করবে)
+    if (event.messageReply) return;
 
-    // এখানে messageReply কন্ডিশন বাদ দেওয়া হয়েছে ডাবল রিপ্লাই রোধ করতে
+    const body = event.body;
+    const triggers = ["bby", "baby", "citti", "hinata", "@hi na ta", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
+    const matchedTrigger = triggers.find(trigger => body.toLowerCase().startsWith(trigger));
+
     if (matchedTrigger) {
-        let text = event.body;
-        text = body.replace(matchedTrigger, "").trim();
-        
+        const text = body.slice(matchedTrigger.length).trim();
         if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
 
         try {
@@ -104,6 +105,7 @@ module.exports.onChat = async ({ api, event }) => {
                     global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
                 }
             }, event.messageID);
-        } catch (err) { console.error("onChat Error:", err); }
+        } catch (err) { console.error(err); }
     }
 };
+        
