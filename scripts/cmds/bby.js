@@ -8,12 +8,12 @@ const baseApiUrl = async () => {
 
 module.exports.config = {
     name: "bby",
-    aliases: ["baby", "bot"],
-    version: "1.0.6",
+    aliases: ["baby", "bot", "citti"],
+    version: "1.0.8",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Simsimi Chatbot with Fixed Reply Support",
+    description: "Simsimi Chatbot with Mention/Reply Auto-Detection",
     category: "chat",
     guide: "{pn} [message] or teach [msg] - [reply]"
 };
@@ -47,11 +47,6 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(replyMsg, event.threadID, event.messageID);
         }
 
-        if (args[0] === 'list') {
-            const res = await axios.get(`${link}?list=all`);
-            return api.sendMessage(`❇️ Total Teach = ${res.data.length || 0}\n👑 List of Teachers`, event.threadID, event.messageID);
-        }
-
         const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
             if (info) {
@@ -68,7 +63,6 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
-    // যদি রিপ্লাইটি এই কমান্ডের (bby) মেসেজে হয়, তবেই কাজ করবে
     if (Reply.commandName !== this.config.name) return;
     if (event.senderID == api.getCurrentUserID()) return;
     
@@ -91,15 +85,27 @@ module.exports.onReply = async ({ api, event, Reply }) => {
 
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
+    
     const body = event.body.toLowerCase();
     const triggers = ["bby", "baby", "citti", "hinata", "@hi na ta", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
     
-    // ট্রিগার চেক করা
+    // চেক করা মেসেজে কোনো ট্রিগার আছে কি না
     const matchedTrigger = triggers.find(trigger => body.startsWith(trigger));
+    
+    // চেক করা মেসেজটি বটের কোনো মেসেজের রিপ্লাই কি না
+    const isReplyToBot = event.messageReply && event.messageReply.senderID == api.getCurrentUserID();
 
-    if (matchedTrigger) {
-        const text = body.replace(matchedTrigger, "").trim();
-        if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
+    // ট্রিগার থাকলে অথবা সরাসরি বটের মেসেজে রিপ্লাই দিলে রেসপন্স করবে
+    if (matchedTrigger || isReplyToBot) {
+        let text = event.body;
+        if (matchedTrigger) {
+            text = body.replace(matchedTrigger, "").trim();
+        }
+        
+        if (!text && matchedTrigger) {
+            return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
+        }
+        if (!text) return;
 
         try {
             const baseUrl = await baseApiUrl();
@@ -112,6 +118,6 @@ module.exports.onChat = async ({ api, event }) => {
                     });
                 }
             }, event.messageID);
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("onChat Error:", err); }
     }
 };
