@@ -1,25 +1,45 @@
 const axios = require('axios'); 
+const { MongoClient } = require("mongodb");
 
 const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const dbName = "test";
+const collectionName = "babies";
 
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot", "citti"],
-    version: "1.2.6",
+    version: "2.1.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Fixed logic for continuous conversation",
+    description: "Hybrid logic with Top Teachers and Teacher List from MongoDB",
     category: "chat",
-    guide: "{pn} [message]\n{pn} teach [msg] - [reply]\n{pn} qus rem [msg]\n{pn} ans rem [reply]"
+    guide: "{pn} [message]\n{pn} teach [msg] - [reply]\n{pn} top\n{pn} list"
 };
 
 async function getReply(text, senderID) {
+    let client;
     try {
+        client = new MongoClient(mongoURI);
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection(collectionName);
+        
+        const mongoData = await collection.findOne({ 
+            question: { $regex: new RegExp(`^${text.trim()}$`, "i") } 
+        });
+
+        if (mongoData && mongoData.answer) {
+            await client.close();
+            return mongoData.answer;
+        }
+        await client.close();
+
         const link = "https://baby-apisx.vercel.app/baby";
-        const res = await axios.get(`${link}?text=${encodeURIComponent(text)}&senderID=${senderID}&db=${encodeURIComponent(mongoURI)}&font=1`);
+        const res = await axios.get(`${link}?text=${encodeURIComponent(text)}&senderID=${senderID}&font=1`);
         return res.data.reply;
     } catch (err) {
+        if (client) await client.close();
         return null;
     }
 }
@@ -28,18 +48,84 @@ module.exports.onStart = async ({ api, event, args }) => {
     const { threadID, messageID, senderID } = event;
     const input = args.join(" ");
 
-    // Teach/Remove logic
-    if (args[0] === 'teach' || args[0] === 'qus' || args[0] === 'ans') {
-        const link = "https://baby-apisx.vercel.app/baby";
+    // --- !bby teach logic ---
+    if (args[0] === 'teach') {
+        const content = args.slice(1).join(" ");
+        if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Q] - [A]', threadID, messageID);
+        const [msg, rep] = content.split(/\s*-\s*/);
+        
+        let client;
         try {
-            if (args[0] === 'teach') {
-                const content = args.slice(1).join(" ");
-                if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Q] - [A]', threadID, messageID);
-                const [msg, rep] = content.split(/\s*-\s*/);
-                await axios.get(`${link}?teach=${encodeURIComponent(msg.trim())}&reply=${encodeURIComponent(rep.trim())}&senderID=${senderID}&db=${encodeURIComponent(mongoURI)}`);
-                return api.sendMessage(`✅ Added!\nQ: ${msg.trim()}\nA: ${rep.trim()}`, threadID, messageID);
+            client = new MongoClient(mongoURI);
+            await client.connect();
+            const collection = client.db(dbName).collection(collectionName);
+            await collection.insertOne({
+                uid: String(senderID),
+                question: msg.trim(),
+                answer: rep.trim(),
+                time: new Date()
+            });
+            await client.close();
+            axios.get(`https://baby-apisx.vercel.app/baby?teach=${encodeURIComponent(msg.trim())}&reply=${encodeURIComponent(rep.trim())}&senderID=${senderID}`).catch(()=>{});
+            return api.sendMessage(`✅ Added to MongoDB!\nQ: ${msg.trim()}\nA: ${rep.trim()}`, threadID, messageID);
+        } catch (e) { 
+            if (client) await client.close();
+            return api.sendMessage("❌ MongoDB Save Failed.", threadID, messageID); 
+        }
+    }
+
+    // --- !bby top (MongoDB Top Teachers) ---
+    if (args[0] === 'top') {
+        let client;
+        try {
+            client = new MongoClient(mongoURI);
+            await client.connect();
+            const collection = client.db(dbName).collection(collectionName);
+            
+            // ডাটা গ্রুপিং করে কাউন্ট বের করা
+            const topTeachers = await collection.aggregate([
+                { $group: { _id: "$uid", count: { $sum: 1 } } },
+                { $sort: { count: -1 } },
+                { $limit: 10 }
+            ]).toArray();
+
+            if (topTeachers.length === 0) return api.sendMessage("এখনো কেউ কিছু শেখায়নি।", threadID, messageID);
+
+            let msg = "🏆 [ TOP TEACHERS - MONGO ] 🏆\n\n";
+            for (let i = 0; i < topTeachers.length; i++) {
+                const info = await api.getUserInfo(topTeachers[i]._id);
+                const name = info[topTeachers[i]._id].name;
+                msg += `${i + 1}. ${name}: ${topTeachers[i].count} টিচ\n`;
             }
-        } catch (e) { return api.sendMessage("❌ Error connecting to server.", threadID, messageID); }
+            await client.close();
+            return api.sendMessage(msg, threadID, messageID);
+        } catch (e) {
+            if (client) await client.close();
+            return api.sendMessage("Error fetching top list.", threadID, messageID);
+        }
+    }
+
+    // --- !bby list (MongoDB Teacher List) ---
+    if (args[0] === 'list') {
+        let client;
+        try {
+            client = new MongoClient(mongoURI);
+            await client.connect();
+            const teachers = await client.db(dbName).collection(collectionName).distinct("uid");
+            
+            if (teachers.length === 0) return api.sendMessage("টিচার লিস্ট খালি।", threadID, messageID);
+
+            let msg = `📊 [ MONGO TEACHER LIST ]\nমোট টিচার: ${teachers.length} জন\n\n`;
+            for (let i = 0; i < teachers.length; i++) {
+                const info = await api.getUserInfo(teachers[i]);
+                msg += `${i + 1}. ${info[teachers[i]].name}\n`;
+            }
+            await client.close();
+            return api.sendMessage(msg, threadID, messageID);
+        } catch (e) {
+            if (client) await client.close();
+            return api.sendMessage("Error fetching teacher list.", threadID, messageID);
+        }
     }
 
     if (!input) {
@@ -59,8 +145,6 @@ module.exports.onStart = async ({ api, event, args }) => {
 
 module.exports.onReply = async ({ api, event, Reply }) => {
     if (Reply.commandName !== this.config.name) return;
-    
-    // এপিআই থেকে সরাসরি রিপ্লাই আনা হচ্ছে
     const reply = await getReply(event.body, event.senderID);
     if (reply) {
         return api.sendMessage(reply, event.threadID, (err, info) => {
@@ -71,8 +155,6 @@ module.exports.onReply = async ({ api, event, Reply }) => {
 
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
-
-    // যদি এটি অলরেডি একটি রিপ্লাই হয়, তবে onReply হ্যান্ডেল করবে, onChat নয়।
     if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) return;
 
     const body = event.body.toLowerCase();
@@ -81,13 +163,7 @@ module.exports.onChat = async ({ api, event }) => {
 
     if (matchedTrigger) {
         let text = event.body.slice(matchedTrigger.length).trim();
-        
-        if (!text) {
-            const ran = ["জি জানু, বলো!", "হুম শুনছি...", "বলো জানু, শুনছি! 😚"];
-            return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, (err, info) => {
-                if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
-            }, event.messageID);
-        }
+        if (!text) return; 
 
         const reply = await getReply(text, event.senderID);
         if (reply) {
@@ -97,3 +173,4 @@ module.exports.onChat = async ({ api, event }) => {
         }
     }
 };
+                                    
