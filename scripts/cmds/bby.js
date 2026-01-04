@@ -9,7 +9,7 @@ const baseApiUrl = async () => {
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot"],
-    version: "1.0.4",
+    version: "1.0.5",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -25,7 +25,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
     try {
         if (!args[0]) {
-            const ran = ["জি জানু, বলো!", "হুম শুনছি...", "Bolo baby", "kisse tor😾"];
+            const ran = ["জি জানু, বলো!", "হুম শুনছি...", "Bolo baby", "kisse tor😾", "akta usta marmu cup kor😾", "biye koros nay bby paili koi😕", "usta khabi🐸", "chup🤫", "keda tumi abar🫩", "tui kon hori das pal🤨", "🫡", "🙋‍♀️🙎‍♀️"];
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
         }
 
@@ -68,12 +68,13 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
+    // বটের নিজের মেসেজে রিপ্লাই দিলে কাজ করবে না এমন ফিল্টার সরানো হয়েছে যাতে রিপ্লাই লুপ না হয়
+    const { author } = Reply;
     if (event.senderID == api.getCurrentUserID()) return;
     
     try {
-        const link = await baseApiUrl();
-        // event.body থেকে সরাসরি ইনপুট নেওয়া হচ্ছে
-        const res = await axios.get(`${link}/baby?text=${encodeURIComponent(event.body)}&senderID=${event.senderID}`);
+        const baseUrl = await baseApiUrl();
+        const res = await axios.get(`${baseUrl}/baby?text=${encodeURIComponent(event.body)}&senderID=${event.senderID}`);
         
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
             if (info) {
@@ -84,7 +85,7 @@ module.exports.onReply = async ({ api, event, Reply }) => {
             }
         }, event.messageID);
     } catch (err) {
-        console.error(err);
+        console.error("Reply Error:", err);
     }
 };
 
@@ -98,7 +99,8 @@ module.exports.onChat = async ({ api, event }) => {
         if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
 
         try {
-            const res = await axios.get(`${await baseApiUrl()}/baby?text=${encodeURIComponent(text)}&senderID=${event.senderID}`);
+            const baseUrl = await baseApiUrl();
+            const res = await axios.get(`${baseUrl}/baby?text=${encodeURIComponent(text)}&senderID=${event.senderID}`);
             return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
                 if (info) {
                     global.GoatBot.onReply.set(info.messageID, { 
