@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
-    version: "2.1.5",
+    version: "2.1.8",
     role: 0, 
     author: "AkHi",
     Description: "Get user information and statistics including actual Teach counts",
@@ -21,47 +21,64 @@ module.exports = {
     else if (Object.keys(mentions).length > 0) uid = Object.keys(mentions)[0];
     else uid = senderID;
 
+    // MongoDB URI এবং API URL
     const mongoURI = encodeURIComponent("mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0");
     const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${mongoURI}`;
 
     try {
-      const userInfo = await api.getUserInfo(uid);
-      const user = userInfo[uid] || {};
-      const userData = await usersData.get(uid) || {};
-      const allUser = await usersData.getAll();
+      // ইউজারের তথ্য লোড হওয়া পর্যন্ত অপেক্ষা
+      const [userInfo, userData, allUser] = await Promise.all([
+        api.getUserInfo(uid),
+        usersData.get(uid),
+        usersData.getAll()
+      ]);
 
-      // এপিআই থেকে ডেটা সংগ্রহ এবং ফিল্টারিং
+      const user = userInfo[uid] || {};
+      const uData = userData || {};
+
+      // এপিআই থেকে টিচ ডাটা সংগ্রহ
       let totalTeachs = 0;
       let userTeachs = 0;
+
       try {
         const res = await axios.get(teachApiUrl);
-        const teachData = res.data;
+        // যদি এপিআই সরাসরি অ্যারে না দিয়ে অবজেক্টের ভেতর ডাটা দেয়
+        const teachData = Array.isArray(res.data) ? res.data : (res.data.data || []);
 
-        if (Array.isArray(teachData)) {
+        if (teachData.length > 0) {
           totalTeachs = teachData.length;
-          // এপিআই লিস্ট থেকে নির্দিষ্ট ইউজারের টিচ খুঁজে বের করা
-          // এখানে 'senderID' ফিল্ডটি এপিআই এর ডাটা স্ট্রাকচার অনুযায়ী হতে হবে
-          userTeachs = teachData.filter(item => item.senderID == uid).length;
+          // ইউজার আইডি স্ট্রিং বা নাম্বার হতে পারে, তাই উভয় চেক করা ভালো
+          userTeachs = teachData.filter(item => 
+            String(item.senderID) === String(uid) || String(item.uid) === String(uid)
+          ).length;
         }
       } catch (err) {
-        console.error("Teach API Error:", err);
+        console.error("Teach API Error:", err.message);
       }
 
+      // Gender logic
       let genderText = "UNKNOWN";
       if (user.gender == 1) genderText = "FEMALE";
       else if (user.gender == 2) genderText = "MALE";
 
-      const rank = allUser.sort((a, b) => (Number(b.exp) || 0) - (Number(a.exp) || 0)).findIndex(u => u.userID === uid) + 1;
+      // Rank calculation
+      const rank = allUser
+        .sort((a, b) => (Number(b.exp) || 0) - (Number(a.exp) || 0))
+        .findIndex(u => String(u.userID) === String(uid)) + 1;
 
-      const d = userData.data || {};
-      const slotWins = d.slotStats ? d.slotStats.totalWins : 0;
-      const crashWins = d.crashStats ? d.crashStats.totalWins : 0;
-      const sicboWins = d.sicboStats ? d.sicboStats.totalWins : 0;
-      const mineWins = d.mineStats ? d.mineStats.totalWins : 0;
-      const coinWins = d.coinflipStats ? d.coinflipStats.totalWins : 0;
-      const quizWins = d.quizStats ? d.quizStats.totalWins : 0;
-      const flagWins = d.flagStats ? d.flagStats.totalWins : 0;
-      const money = userData.money || 0;
+      // গেম স্ট্যাটাস
+      const d = uData.data || {};
+      const stats = {
+        slot: d.slotStats?.totalWins || 0,
+        crash: d.crashStats?.totalWins || 0,
+        sicbo: d.sicboStats?.totalWins || 0,
+        mine: d.mineStats?.totalWins || 0,
+        coin: d.coinflipStats?.totalWins || 0,
+        quiz: d.quizStats?.totalWins || 0,
+        flag: d.flagStats?.totalWins || 0
+      };
+
+      const money = uData.money || 0;
       const nickname = user.alternateName || "NONE";
 
       const userInformation = `╭───[ 𝗨𝗦𝗘𝗥 𝗜𝗡𝗙𝗢 ]
@@ -69,18 +86,18 @@ module.exports = {
 ├‣ 𝙶𝙴𝙽𝙳𝙴𝚁: ${genderText}
 ├‣ 𝙽𝙸𝙲𝙺𝙽𝙰𝙼𝙴: ${nickname.toUpperCase()}
 ├‣ 𝚁𝙰𝙽𝙺: #${rank}/${allUser.length}
-├‣ 𝚅𝙸𝙿 𝚄𝚂𝙴𝚁: ${userData.isVip ? "𝚈𝙴𝚂✅" : "𝙽𝙾❎"}
+├‣ 𝚅𝙸𝙿 𝚄𝚂𝙴𝚁: ${uData.isVip ? "𝚈𝙴𝚂✅" : "𝙽𝙾❎"}
 ├‣ 𝚃𝙴𝙰𝙲𝙷: ${userTeachs} / ${totalTeachs}
 ╰‣ 𝙼𝙾𝙽𝙴𝚈: $${formatMoney(money)}
 
 ╭───[ 𝙶𝙰𝙼𝙴 𝚂𝚃𝙰𝚃𝚂 ]
-├‣ 𝚂𝙻𝙾𝚃 𝚆𝙸𝙽𝚂: ${slotWins}
-├‣ 𝙲𝚁𝙰𝚂𝙷 𝚆𝙸𝙽𝚂: ${crashWins}
-├‣ 𝚂𝙸𝙲𝙱𝙾 𝚆𝙸𝙽𝚂: ${sicboWins}
-├‣ 𝙼𝙸𝙽𝙴 𝚆𝙸𝙽𝚂: ${mineWins}
-├‣ 𝙲𝙾𝙸𝙽𝙵𝙻𝙸𝙿 𝚆𝙸𝙽𝚂: ${coinWins}
-├‣ 𝚀𝚄𝙸𝚉 𝚆𝙸𝙽𝚂: ${quizWins}
-╰‣ 𝙵𝙻𝙰𝙶 𝚆𝙸𝙽𝚂: ${flagWins}`;
+├‣ 𝚂𝙻𝙾𝚃 𝚆𝙸𝙽𝚂: ${stats.slot}
+├‣ 𝙲𝚁𝙰𝚂𝙷 𝚆𝙸𝙽𝚂: ${stats.crash}
+├‣ 𝚂𝙸𝙲𝙱𝙾 𝚆𝙸𝙽𝚂: ${stats.sicbo}
+├‣ 𝙼𝙸𝙽𝙴 𝚆𝙸𝙽𝚂: ${stats.mine}
+├‣ 𝙲𝙾𝙸𝙽𝙵𝙻𝙸𝙿 𝚆𝙸𝙽𝚂: ${stats.coin}
+├‣ 𝚀𝚄𝙸𝚉 𝚆𝙸𝙽𝚂: ${stats.quiz}
+╰‣ 𝙵𝙻𝙰𝙶 𝚆𝙸𝙽𝚂: ${stats.flag}`;
 
       const avatarUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
       const avatarStream = (await axios.get(avatarUrl, { responseType: "stream" })).data;
@@ -91,6 +108,7 @@ module.exports = {
       }, threadID, messageID);
 
     } catch (err) {
+      console.error(err);
       return api.sendMessage(`❌ Error: ${err.message}`, threadID, messageID);
     }
   },
@@ -102,4 +120,4 @@ function formatMoney(n) {
   let i = -1;
   while (n >= 1000 && ++i < units.length) n /= 1000;
   return n.toFixed(1).replace(/\.0$/, "") + units[i];
-}
+          }
