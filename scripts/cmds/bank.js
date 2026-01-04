@@ -125,7 +125,7 @@ function generateTransactionId() {
 module.exports = {
     config: {
         name: "bank",
-        aliases: ["atm", "citti"],
+        aliases: ["atm", "bnk"],
         version: "2.5",
         author: "AkHi",
         countDown: 5,
