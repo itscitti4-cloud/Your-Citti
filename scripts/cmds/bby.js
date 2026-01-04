@@ -9,11 +9,11 @@ const baseApiUrl = async () => {
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot"],
-    version: "1.0.5",
+    version: "1.0.6",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Simsimi Chatbot with Reply Support",
+    description: "Simsimi Chatbot with Fixed Reply Support",
     category: "chat",
     guide: "{pn} [message] or teach [msg] - [reply]"
 };
@@ -68,8 +68,8 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
-    // বটের নিজের মেসেজে রিপ্লাই দিলে কাজ করবে না এমন ফিল্টার সরানো হয়েছে যাতে রিপ্লাই লুপ না হয়
-    const { author } = Reply;
+    // যদি রিপ্লাইটি এই কমান্ডের (bby) মেসেজে হয়, তবেই কাজ করবে
+    if (Reply.commandName !== this.config.name) return;
     if (event.senderID == api.getCurrentUserID()) return;
     
     try {
@@ -90,12 +90,15 @@ module.exports.onReply = async ({ api, event, Reply }) => {
 };
 
 module.exports.onChat = async ({ api, event }) => {
-    if (event.senderID == api.getCurrentUserID()) return;
-    const body = event.body ? event.body.toLowerCase() : "";
-    const triggers = ["bby", "baby", "citti", "hinata", "@HI NA TA", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
+    if (event.senderID == api.getCurrentUserID() || !event.body) return;
+    const body = event.body.toLowerCase();
+    const triggers = ["bby", "baby", "citti", "hinata", "@hi na ta", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
     
-    if (triggers.some(trigger => body.startsWith(trigger))) {
-        const text = body.replace(/^(bby|baby|citti|hinata|@HI NA TA|হিনাতা|চিট্টি|বেবি|বট|বটলা|bot|botla)\s*/, "").trim();
+    // ট্রিগার চেক করা
+    const matchedTrigger = triggers.find(trigger => body.startsWith(trigger));
+
+    if (matchedTrigger) {
+        const text = body.replace(matchedTrigger, "").trim();
         if (!text) return api.sendMessage("বলো জানু, শুনছি! 😚", event.threadID, event.messageID);
 
         try {
