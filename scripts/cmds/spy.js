@@ -5,7 +5,7 @@ module.exports = {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
     version: "2.2.5",
-    role: 0, 
+    role: 2, 
     author: "AkHi",
     Description: "Combined Teach stats from API and local database",
     category: "information",
