@@ -18,11 +18,11 @@ const Monitor = mongoose.model('WordMonitor', monitorSchema);
 module.exports = {
     config: {
         name: "wordmonitor",
-        aliases: ["wm", "wrdmntr"]
+        aliases: ["wm", "wrdmntr"],
         version: "3.5.0",
         role: 0, // আমরা ভেতরে ম্যানুয়ালি ১ এবং ২ রোল চেক করবো
         author: "AkHi",
-        description: "Automatic badword filter with MongoDB (Supports Group & Bot Admin)",
+        description: "Automatic badword filter (Supports Group & Bot Admin)",
         category: "Box",
         guide: "{pn} on | off | add [words] | active | unban"
     },
