@@ -4,10 +4,10 @@ module.exports = {
   config: {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
-    version: "2.0.0",
-    role: 2,
+    version: "2.1.0",
+    role: 2, // সবার জন্য উন্মুক্ত রাখতে ০ দিন
     author: "AkHi",
-    Description: "Get user information and statistics in a stylish format",
+    Description: "Get user information and statistics including Teach counts",
     category: "information",
     countDown: 5,
   },
@@ -21,24 +21,39 @@ module.exports = {
     else if (Object.keys(mentions).length > 0) uid = Object.keys(mentions)[0];
     else uid = senderID;
 
+    const mongoURI = encodeURIComponent("mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0");
+    const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&senderID=${uid}&db=${mongoURI}`;
+
     try {
-      // ইউজার তথ্য এবং ডাটাবেস তথ্য সংগ্রহ
+      // ইউজারের প্রোফাইল এবং ডাটাবেস তথ্য সংগ্রহ
       const userInfo = await api.getUserInfo(uid);
       const user = userInfo[uid] || {};
       const userData = await usersData.get(uid) || {};
       const allUser = await usersData.getAll();
 
-      // ১. Gender logic ঠিক করা
+      // এপিআই থেকে টিচ ডাটা সংগ্রহ
+      let totalTeachs = 0;
+      let userTeachs = 0;
+      try {
+        const res = await axios.get(teachApiUrl);
+        totalTeachs = res.data.length || 0; // মোট কতগুলো টিচ আছে
+        // আপনার এপিআই যদি কন্ট্রিবিউটর লিস্ট দেয় তবে সেখান থেকে ইউজারের টিচ বের করা
+        // আপাতত এপিআই রেসপন্স অনুযায়ী এটি হ্যান্ডেল করা হচ্ছে
+        userTeachs = res.data.userTeachs || 0; 
+      } catch (err) {
+        console.error("Teach API Error:", err);
+      }
+
+      // ১. Gender logic
       let genderText = "UNKNOWN";
-      if (user.gender == 1 || user.gender == "female") genderText = "FEMALE";
-      else if (user.gender == 2 || user.gender == "male") genderText = "MALE";
+      if (user.gender == 1) genderText = "FEMALE";
+      else if (user.gender == 2) genderText = "MALE";
 
       // ২. Rank calculation
       const rank = allUser.sort((a, b) => (Number(b.exp) || 0) - (Number(a.exp) || 0)).findIndex(u => u.userID === uid) + 1;
 
-      // ৩. ডাটাবেস থেকে স্ট্যাটাস ম্যাপিং (Object Mapping)
+      // ৩. ডাটাবেস থেকে স্ট্যাটাস ম্যাপিং
       const d = userData.data || {};
-      
       const slotWins = d.slotStats ? d.slotStats.totalWins : 0;
       const crashWins = d.crashStats ? d.crashStats.totalWins : 0;
       const sicboWins = d.sicboStats ? d.sicboStats.totalWins : 0;
@@ -55,6 +70,7 @@ module.exports = {
 ├‣ 𝙽𝙸𝙲𝙺𝙽𝙰𝙼𝙴: ${nickname.toUpperCase()}
 ├‣ 𝚁𝙰𝙽𝙺: #${rank}/${allUser.length}
 ├‣ 𝚅𝙸𝙿 𝚄𝚂𝙴𝚁: ${userData.isVip ? "𝚈𝙴𝚂✅" : "𝙽𝙾❎"}
+├‣ 𝚃𝙴𝙰𝙲𝙷: ${userTeachs} / ${totalTeachs}
 ╰‣ 𝙼𝙾𝙽𝙴𝚈: $${formatMoney(money)}
 
 ╭───[ 𝙶𝙰𝙼𝙴 𝚂𝚃𝙰𝚃𝚂 ]
