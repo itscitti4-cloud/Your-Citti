@@ -9,11 +9,11 @@ const baseApiUrl = async () => {
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot"],
-    version: "1.1.2",
+    version: "1.1.5",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Simsimi Chatbot with Teach, Remove & Persistent Reply Support",
+    description: "Simsimi Chatbot with Fixed Persistent Reply Support",
     category: "chat",
     guide: "{pn} [message]\n{pn} teach [msg] - [reply]\n{pn} qus rem [msg]\n{pn} ans rem [reply]"
 };
@@ -29,26 +29,23 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
         }
 
-        // --- Question Remove ---
         if (args[0] === 'qus' && args[1] === 'rem') {
             const qus = args.slice(2).join(" ");
-            if (!qus) return api.sendMessage("❌ | ডিলিট করার জন্য প্রশ্নটি লিখুন।", event.threadID, event.messageID);
+            if (!qus) return api.sendMessage("❌ | ডিলিট করার প্রশ্ন লিখুন।", event.threadID, event.messageID);
             await axios.get(`${link}?remove=${encodeURIComponent(qus)}&db=${encodeURIComponent(mongoURI)}`);
-            return api.sendMessage(`✅ প্রশ্ন: "${qus}" ডাটাবেস থেকে ডিলিট করা হয়েছে।`, event.threadID, event.messageID);
+            return api.sendMessage(`✅ প্রশ্ন: "${qus}" ডিলিট হয়েছে।`, event.threadID, event.messageID);
         }
 
-        // --- Answer Remove ---
         if (args[0] === 'ans' && args[1] === 'rem') {
             const ans = args.slice(2).join(" ");
-            if (!ans) return api.sendMessage("❌ | ডিলিট করার জন্য উত্তরটি লিখুন।", event.threadID, event.messageID);
+            if (!ans) return api.sendMessage("❌ | ডিলিট করার উত্তর লিখুন।", event.threadID, event.messageID);
             await axios.get(`${link}?remove_reply=${encodeURIComponent(ans)}&db=${encodeURIComponent(mongoURI)}`);
-            return api.sendMessage(`✅ উত্তর: "${ans}" ডাটাবেস থেকে ডিলিট করা হয়েছে।`, event.threadID, event.messageID);
+            return api.sendMessage(`✅ উত্তর: "${ans}" ডিলিট হয়েছে।`, event.threadID, event.messageID);
         }
 
-        // --- Teach ---
         if (args[0] === 'teach') {
             const content = args.slice(1).join(" ");
-            if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Msg] - [Reply]', event.threadID, event.messageID);
+            if (!content.includes('-')) return api.sendMessage('❌ | teach [Msg] - [Reply]', event.threadID, event.messageID);
             const [msg, rep] = content.split(/\s*-\s*/);
             const res = await axios.get(`${link}?teach=${encodeURIComponent(msg.trim())}&reply=${encodeURIComponent(rep.trim())}&senderID=${uid}&db=${encodeURIComponent(mongoURI)}`);
             let teacherName = "User";
@@ -56,8 +53,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(`✅ Added: "${rep.trim()}"\nTeacher: ${teacherName}`, event.threadID, event.messageID);
         }
 
-        // --- Regular Chat ---
-        const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
+        const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&db=${encodeURIComponent(mongoURI)}&font=1`);
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
             if (info) {
                 global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: uid });
@@ -74,7 +70,8 @@ module.exports.onReply = async ({ api, event, Reply }) => {
     
     try {
         const baseUrl = await baseApiUrl();
-        const res = await axios.get(`${baseUrl}/baby?text=${encodeURIComponent(event.body)}&senderID=${event.senderID}`);
+        // এখানে db প্যারামিটার যোগ করা হয়েছে
+        const res = await axios.get(`${baseUrl}/baby?text=${encodeURIComponent(event.body)}&senderID=${event.senderID}&db=${encodeURIComponent(mongoURI)}`);
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
             if (info) {
                 global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
@@ -86,11 +83,11 @@ module.exports.onReply = async ({ api, event, Reply }) => {
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
     
-    // ডাবল রিপ্লাই চেক: যদি এটি কোনো মেসেজের রিপ্লাই হয়, তবে onChat কাজ করবে না (onReply হ্যান্ডেল করবে)
-    if (event.messageReply) return;
+    // ডাবল রিপ্লাই চেক: যদি এটি রিপ্লাই হয় তবে onReply এটি হ্যান্ডেল করবে, onChat নয়।
+    if (event.type === "message_reply") return;
 
     const body = event.body;
-    const triggers = ["bby", "baby", "citti", "hinata", "@hi na ta", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
+    const triggers = ["bby", "baby", "citti", "hinata", "হিনাতা", "চিট্টি", "বেবি", "বট", "bot"];
     const matchedTrigger = triggers.find(trigger => body.toLowerCase().startsWith(trigger));
 
     if (matchedTrigger) {
@@ -99,7 +96,7 @@ module.exports.onChat = async ({ api, event }) => {
 
         try {
             const baseUrl = await baseApiUrl();
-            const res = await axios.get(`${baseUrl}/baby?text=${encodeURIComponent(text)}&senderID=${event.senderID}`);
+            const res = await axios.get(`${baseUrl}/baby?text=${encodeURIComponent(text)}&senderID=${event.senderID}&db=${encodeURIComponent(mongoURI)}`);
             return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
                 if (info) {
                     global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
@@ -108,4 +105,3 @@ module.exports.onChat = async ({ api, event }) => {
         } catch (err) { console.error(err); }
     }
 };
-        
