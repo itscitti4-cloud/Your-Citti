@@ -5,7 +5,7 @@ module.exports = {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
     version: "2.3.0",
-    role: 2, 
+    role: 0, 
     author: "AkHi",
     Description: "Combined Teach stats from API and local database",
     category: "information",
@@ -121,5 +121,4 @@ function formatMoney(n) {
   let i = -1;
   while (n >= 1000 && ++i < units.length) n /= 1000;
   return n.toFixed(1).replace(/\.0$/, "") + units[i];
-        }
-              
+}
