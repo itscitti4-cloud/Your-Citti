@@ -4,10 +4,10 @@ module.exports = {
   config: {
     name: "spy",
     aliases: ["whoishe", "whoisshe", "whoami"],
-    version: "2.2.0",
+    version: "2.2.1",
     role: 2, 
     author: "AkHi",
-    Description: "Get user information and statistics including actual Teach counts",
+    Description: "Get user information and statistics with improved Teach API handling",
     category: "information",
     countDown: 5,
   },
@@ -21,9 +21,9 @@ module.exports = {
     else if (Object.keys(mentions).length > 0) uid = Object.keys(mentions)[0];
     else uid = senderID;
 
-    const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-    // সরাসরি list=all কল করা হচ্ছে ডাটাবেজ ভেরিফাই করার জন্য
-    const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${encodeURIComponent(mongoURI)}`;
+    // সরাসরি URI স্ট্রিং
+    const dbUri = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    const teachApiUrl = `https://baby-apisx.vercel.app/baby?list=all&db=${encodeURIComponent(dbUri)}`;
 
     try {
       const [userInfo, userData, allUser] = await Promise.all([
@@ -38,51 +38,45 @@ module.exports = {
       let totalTeachs = 0;
       let userTeachs = 0;
 
+      // --- Teach API Handling ---
       try {
-        const res = await axios.get(teachApiUrl);
+        const response = await axios.get(teachApiUrl, { timeout: 10000 });
         let teachData = [];
 
-        // এপিআই রেসপন্স হ্যান্ডলিং
-        if (Array.isArray(res.data)) {
-            teachData = res.data;
-        } else if (res.data && Array.isArray(res.data.data)) {
-            teachData = res.data.data;
+        // এপিআই রেসপন্স ফরম্যাট চেক
+        if (response.data) {
+          if (Array.isArray(response.data)) {
+            teachData = response.data;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            teachData = response.data.data;
+          } else if (typeof response.data === 'object' && Object.keys(response.data).length > 0) {
+            // যদি অবজেক্ট হিসেবে আসে তবে অ্যারেতে রূপান্তর
+            teachData = Object.values(response.data).filter(item => typeof item === 'object');
+          }
         }
 
-        if (teachData.length > 0) {
-          totalTeachs = teachData.length;
-          
-          // আইডি ম্যাচিং লজিক আরও শক্তিশালী করা হয়েছে
-          userTeachs = teachData.filter(item => {
-            const itemID = String(item.senderID || item.uid || "");
-            return itemID === String(uid);
-          }).length;
+        totalTeachs = teachData.length;
+        if (totalTeachs > 0) {
+          userTeachs = teachData.filter(item => 
+            String(item.senderID) === String(uid) || 
+            String(item.uid) === String(uid)
+          ).length;
         }
       } catch (err) {
-        console.error("Teach API Error:", err.message);
+        console.log("Teach API fetch failed, skipping teach counts.");
       }
 
-      let genderText = user.gender == 1 ? "FEMALE" : user.gender == 2 ? "MALE" : "UNKNOWN";
-
+      // --- Formatting Data ---
+      const genderText = user.gender == 1 ? "FEMALE" : user.gender == 2 ? "MALE" : "UNKNOWN";
       const rank = allUser
         .sort((a, b) => (Number(b.exp) || 0) - (Number(a.exp) || 0))
         .findIndex(u => String(u.userID) === String(uid)) + 1;
 
       const d = uData.data || {};
-      const stats = {
-        slot: d.slotStats?.totalWins || 0,
-        crash: d.crashStats?.totalWins || 0,
-        sicbo: d.sicboStats?.totalWins || 0,
-        mine: d.mineStats?.totalWins || 0,
-        coin: d.coinflipStats?.totalWins || 0,
-        quiz: d.quizStats?.totalWins || 0,
-        flag: d.flagStats?.totalWins || 0
-      };
-
       const money = uData.money || 0;
       const nickname = user.alternateName || "NONE";
 
-      const userInformation = `╭───[ 𝗨𝗦𝗘𝗥 𝗜𝗡𝗙𝗢 ]
+      const infoText = `╭───[ 𝗨𝗦𝗘𝗥 𝗜𝗡𝗙𝗢 ]
 ├‣ 𝙽𝙰𝙼𝙴: ${user.name || "Unknown"}
 ├‣ 𝙶𝙴𝙽𝙳𝙴𝚁: ${genderText}
 ├‣ 𝙽𝙸𝙲𝙺𝙽𝙰𝙼𝙴: ${nickname.toUpperCase()}
@@ -92,26 +86,27 @@ module.exports = {
 ╰‣ 𝙼𝙾𝙽𝙴𝚈: $${formatMoney(money)}
 
 ╭───[ 𝙶𝙰𝙼𝙴 𝚂𝚃𝙰𝚃𝚂 ]
-├‣ 𝚂𝙻𝙾𝚃 𝚆𝙸𝙽𝚂: ${stats.slot}
-├‣ 𝙲𝚁𝙰𝚂𝙷 𝚆𝙸𝙽𝚂: ${stats.crash}
-├‣ 𝚂𝙸𝙲𝙱𝙾 𝚆𝙸𝙽𝚂: ${stats.sicbo}
-├‣ 𝙼𝙸𝙽𝙴 𝚆𝙸𝙽𝚂: ${stats.mine}
-├‣ 𝙲𝙾𝙸𝙽𝙵𝙻𝙸𝙿 𝚆𝙸𝙽𝚂: ${stats.coin}
-├‣ 𝚀𝚄𝙸𝚉 𝚆𝙸𝙽𝚂: ${stats.quiz}
-╰‣ 𝙵𝙻𝙰𝙶 𝚆𝙸𝙽𝚂: ${stats.flag}`;
+├‣ 𝚂𝙻𝙾𝚃 𝚆𝙸𝙽𝚂: ${d.slotStats?.totalWins || 0}
+├‣ 𝙲𝚁𝙰𝚂𝙷 𝚆𝙸𝙽𝚂: ${d.crashStats?.totalWins || 0}
+├‣ 𝚂𝙸𝙲𝙱𝙾 𝚆𝙸𝙽𝚂: ${d.sicboStats?.totalWins || 0}
+├‣ 𝙼𝙸𝙽𝙴 𝚆𝙸𝙽𝚂: ${d.mineStats?.totalWins || 0}
+├‣ 𝙲𝙾𝙸𝙽𝙵𝙻𝙸𝙿 𝚆𝙸𝙽𝚂: ${d.coinflipStats?.totalWins || 0}
+├‣ 𝚀𝚄𝙸𝚉 𝚆𝙸𝙽𝚂: ${d.quizStats?.totalWins || 0}
+╰‣ 𝙵𝙻𝙰𝙶 𝚆𝙸𝙽𝚂: ${d.flagStats?.totalWins || 0}`;
 
-      // এভাটর লোড করার সময় এরর হ্যান্ডলিং
-      let attachment;
+      // --- Avatar Image Handling ---
+      let avatarAttachment;
       try {
-        const avatarUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
-        attachment = (await axios.get(avatarUrl, { responseType: "stream" })).data;
+        const imgUrl = `https://graph.facebook.com/${uid}/picture?height=1500&width=1500&access_token=6628568379%7Cc1e620fa708a1d5696fb991c1bde5662`;
+        const imgRes = await axios.get(imgUrl, { responseType: "stream" });
+        avatarAttachment = imgRes.data;
       } catch (e) {
-        attachment = null;
+        avatarAttachment = null;
       }
 
       return api.sendMessage({
-        body: userInformation,
-        attachment: attachment
+        body: infoText,
+        attachment: avatarAttachment
       }, threadID, messageID);
 
     } catch (err) {
