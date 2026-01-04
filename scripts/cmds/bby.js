@@ -8,13 +8,13 @@ const collectionName = "babies";
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot", "citti"],
-    version: "2.2.0",
+    version: "2.3.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Fixed onChat to respond on trigger only",
+    description: "Hybrid logic with delete features and multiple response handling",
     category: "chat",
-    guide: "{pn} [message]\n{pn} teach [msg] - [reply]\n{pn} top\n{pn} list"
+    guide: "{pn} [message]\n{pn} teach [Q] - [A]\n{pn} rem qus [Q]\n{pn} rem ans [A]\n{pn} top\n{pn} list"
 };
 
 async function getReply(text, senderID) {
@@ -31,7 +31,9 @@ async function getReply(text, senderID) {
 
         if (mongoData && mongoData.answer) {
             await client.close();
-            return mongoData.answer;
+            // কমা থাকলে স্লিট করে র‍্যান্ডম একটি উত্তর দিবে
+            const answers = mongoData.answer.split(/\s*,\s*/);
+            return answers[Math.floor(Math.random() * answers.length)];
         }
         await client.close();
 
@@ -46,16 +48,15 @@ async function getReply(text, senderID) {
 
 module.exports.onStart = async ({ api, event, args }) => {
     const { threadID, messageID, senderID } = event;
-    const input = args.join(" ");
+    const client = new MongoClient(mongoURI);
 
+    // --- !bby teach logic ---
     if (args[0] === 'teach') {
         const content = args.slice(1).join(" ");
         if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Q] - [A]', threadID, messageID);
         const [msg, rep] = content.split(/\s*-\s*/);
         
-        let client;
         try {
-            client = new MongoClient(mongoURI);
             await client.connect();
             const collection = client.db(dbName).collection(collectionName);
             await collection.insertOne({
@@ -65,66 +66,67 @@ module.exports.onStart = async ({ api, event, args }) => {
                 time: new Date()
             });
             await client.close();
-            axios.get(`https://baby-apisx.vercel.app/baby?teach=${encodeURIComponent(msg.trim())}&reply=${encodeURIComponent(rep.trim())}&senderID=${senderID}`).catch(()=>{});
-            return api.sendMessage(`✅ Reply Added!\nQ: ${msg.trim()}\nA: ${rep.trim()}`, threadID, messageID);
+            return api.sendMessage(`✅ Added!\nQ: ${msg.trim()}\nA: ${rep.trim()}`, threadID, messageID);
         } catch (e) { 
-            if (client) await client.close();
-            return api.sendMessage("❌ Reply Save Failed.", threadID, messageID); 
+            return api.sendMessage("❌ MongoDB Save Failed.", threadID, messageID); 
         }
     }
 
-    if (args[0] === 'top') {
-        let client;
+    // --- !bby rem qus <question> ---
+    if (args[0] === 'rem' && args[1] === 'qus') {
+        const targetQ = args.slice(2).join(" ");
+        if (!targetQ) return api.sendMessage("❌ প্রশ্নটি লিখুন।", threadID, messageID);
         try {
-            client = new MongoClient(mongoURI);
+            await client.connect();
+            const res = await client.db(dbName).collection(collectionName).deleteMany({ 
+                question: { $regex: new RegExp(`^${targetQ.trim()}$`, "i") } 
+            });
+            await client.close();
+            return api.sendMessage(res.deletedCount > 0 ? `✅ "${targetQ}" সম্পর্কিত সব প্রশ্ন ডিলিট হয়েছে।` : "❌ কোনো প্রশ্ন পাওয়া যায়নি।", threadID, messageID);
+        } catch (e) { return api.sendMessage("❌ Error deleting question.", threadID, messageID); }
+    }
+
+    // --- !bby rem ans <answer> ---
+    if (args[0] === 'rem' && args[1] === 'ans') {
+        const targetA = args.slice(2).join(" ");
+        if (!targetA) return api.sendMessage("❌ উত্তরটি লিখুন।", threadID, messageID);
+        try {
+            await client.connect();
+            const res = await client.db(dbName).collection(collectionName).deleteMany({ 
+                answer: { $regex: new RegExp(`^${targetA.trim()}$`, "i") } 
+            });
+            await client.close();
+            return api.sendMessage(res.deletedCount > 0 ? `✅ "${targetA}" উত্তরটি ডিলিট হয়েছে।` : "❌ কোনো উত্তর পাওয়া যায়নি।", threadID, messageID);
+        } catch (e) { return api.sendMessage("❌ Error deleting answer.", threadID, messageID); }
+    }
+
+    // --- !bby top & list ---
+    if (args[0] === 'top' || args[0] === 'list') {
+        try {
             await client.connect();
             const collection = client.db(dbName).collection(collectionName);
-            const topTeachers = await collection.aggregate([
-                { $group: { _id: "$uid", count: { $sum: 1 } } },
-                { $sort: { count: -1 } },
-                { $limit: 10 }
-            ]).toArray();
-
-            if (topTeachers.length === 0) return api.sendMessage("Please teach me. Memory Empty", threadID, messageID);
-
-            let msg = "🏆 [ TOP TEACHERS ] 🏆\n\n";
-            for (let i = 0; i < topTeachers.length; i++) {
-                try {
-                  const info = await api.getUserInfo(topTeachers[i]._id);
-                  const name = info[topTeachers[i]._id].name;
-                  msg += `${i + 1}. ${name}: ${topTeachers[i].count} Teach\n`;
-                } catch(e) { msg += `${i + 1}. Unknown User: ${topTeachers[i].count} টিচ\n`; }
+            if (args[0] === 'top') {
+                const topTeachers = await collection.aggregate([{ $group: { _id: "$uid", count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 10 }]).toArray();
+                let msg = "🏆 [ TOP TEACHERS ] 🏆\n\n";
+                for (let i = 0; i < topTeachers.length; i++) {
+                    const info = await api.getUserInfo(topTeachers[i]._id);
+                    msg += `${i + 1}. ${info[topTeachers[i]._id].name}: ${topTeachers[i].count} Teach\n`;
+                }
+                return api.sendMessage(msg, threadID, messageID);
+            } else {
+                const teachers = await collection.distinct("uid");
+                let msg = `[ TEACHER LIST ]\ntotal: ${teachers.length}\n\n`;
+                for (let i = 0; i < teachers.length; i++) {
+                    const info = await api.getUserInfo(teachers[i]);
+                    msg += `${i + 1}. ${info[teachers[i]].name}\n`;
+                }
+                return api.sendMessage(msg, threadID, messageID);
             }
-            await client.close();
-            return api.sendMessage(msg, threadID, messageID);
-        } catch (e) {
-            if (client) await client.close();
-            return api.sendMessage("Error fetching top list.", threadID, messageID);
-        }
+        } catch (e) { return api.sendMessage("Error fetching data.", threadID, messageID); }
+        finally { await client.close(); }
     }
 
-    if (args[0] === 'list') {
-        let client;
-        try {
-            client = new MongoClient(mongoURI);
-            await client.connect();
-            const teachers = await client.db(dbName).collection(collectionName).distinct("uid");
-            if (teachers.length === 0) return api.sendMessage("টিচার লিস্ট খালি।", threadID, messageID);
-            let msg = `[ TEACHER LIST ]\ntotal teacher: ${teachers.length}\n\n`;
-            for (let i = 0; i < teachers.length; i++) {
-                try {
-                  const info = await api.getUserInfo(teachers[i]);
-                  msg += `${i + 1}. ${info[teachers[i]].name}\n`;
-                } catch(e) { msg += `${i + 1}. Unknown User\n`; }
-            }
-            await client.close();
-            return api.sendMessage(msg, threadID, messageID);
-        } catch (e) {
-            if (client) await client.close();
-            return api.sendMessage("Error fetching teacher list.", threadID, messageID);
-        }
-    }
-
+    const input = args.join(" ");
     if (!input) {
         const ran = ["জি জানু, বলো!", "হুম শুনছি...", "Bolo baby", "বলো জানু, শুনছি! 😚"];
         return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], threadID, (err, info) => {
@@ -160,15 +162,12 @@ module.exports.onChat = async ({ api, event }) => {
 
     if (matchedTrigger) {
         let text = event.body.slice(matchedTrigger.length).trim();
-        
-        // যদি শুধু bby বলে, তবে র‍্যান্ডম রিপ্লাই দিবে
         if (!text) {
             const ran = ["জি জানু, বলো!", "হুম শুনছি...", "Bolo baby", "বলো জানু, শুনছি! 😚"];
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, (err, info) => {
                 if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
             }, event.messageID);
         }
-
         const reply = await getReply(text, event.senderID);
         if (reply) {
             return api.sendMessage(reply, event.threadID, (err, info) => {
