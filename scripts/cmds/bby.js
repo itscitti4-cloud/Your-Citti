@@ -1,4 +1,4 @@
-const axios = require('axios');
+const axios = require('axios'); 
 
 const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
@@ -9,7 +9,7 @@ const baseApiUrl = async () => {
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "citti", "bot"],
-    version: "1.0.3",
+    version: "1.0.4",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -29,7 +29,6 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
         }
 
-        // --- Teach Function ---
         if (args[0] === 'teach') {
             const content = args.slice(1).join(" ");
             if (!content.includes('-')) {
@@ -48,18 +47,16 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(replyMsg, event.threadID, event.messageID);
         }
 
-        // --- List Function ---
         if (args[0] === 'list') {
             const res = await axios.get(`${link}?list=all`);
             return api.sendMessage(`❇️ Total Teach = ${res.data.length || 0}\n👑 List of Teachers`, event.threadID, event.messageID);
         }
 
-        // --- Default Chat ---
         const res = await axios.get(`${link}?text=${encodeURIComponent(input)}&senderID=${uid}&font=1`);
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
             if (info) {
                 global.GoatBot.onReply.set(info.messageID, {
-                    commandName: this.config.name, // এখানে সঠিক কমান্ড নাম নিশ্চিত করা হয়েছে
+                    commandName: this.config.name, 
                     author: uid
                 });
             }
@@ -70,12 +67,12 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     }
 };
 
-// --- Reply Handler ---
 module.exports.onReply = async ({ api, event, Reply }) => {
     if (event.senderID == api.getCurrentUserID()) return;
     
     try {
         const link = await baseApiUrl();
+        // event.body থেকে সরাসরি ইনপুট নেওয়া হচ্ছে
         const res = await axios.get(`${link}/baby?text=${encodeURIComponent(event.body)}&senderID=${event.senderID}`);
         
         return api.sendMessage(res.data.reply, event.threadID, (err, info) => {
@@ -91,8 +88,8 @@ module.exports.onReply = async ({ api, event, Reply }) => {
     }
 };
 
-// --- Chat Without Prefix/Mention ---
 module.exports.onChat = async ({ api, event }) => {
+    if (event.senderID == api.getCurrentUserID()) return;
     const body = event.body ? event.body.toLowerCase() : "";
     const triggers = ["bby", "baby", "citti", "hinata", "@HI NA TA", "হিনাতা", "চিট্টি", "বেবি", "বট", "বটলা", "bot", "botla"];
     
