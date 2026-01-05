@@ -5,7 +5,7 @@ const mediaTypes = ["photo", 'png', "animated_image", "video", "audio"];
 module.exports = {
 	config: {
 		name: "callad",
-		version: "2.1",
+		version: "2.2",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
@@ -19,9 +19,11 @@ module.exports = {
 		if (!args[0]) return message.reply("❌ Please enter the message you want to send to admin");
 		
 		const { senderID, threadID, isGroup } = event;
-		// এডমিন লিস্ট কনফিগ থেকে সরাসরি নেওয়া
-		const adminBot = config.adminBot || [];
 		
+		// কনফিগ থেকে আইডিগুলো নিয়ে সেগুলোকে স্ট্রিং-এ রূপান্তর নিশ্চিত করা
+		let adminBot = config.adminBot || [];
+		if (typeof adminBot === "string") adminBot = [adminBot];
+
 		if (adminBot.length == 0) return message.reply("🚫 Bot has no admin at the moment");
 
 		const time = moment.tz("Asia/Dhaka").format("hh:mm A");
@@ -53,39 +55,49 @@ module.exports = {
 
 		for (const uid of adminBot) {
 			try {
-				// আইডি স্ট্রিং এ রূপান্তর নিশ্চিত করা
-				const targetID = String(uid);
-				const name = await usersData.getName(targetID);
-				adminNames.push({ id: targetID, name });
+				const targetID = String(uid).trim(); // নিশ্চিতভাবে স্ট্রিং এবং স্পেস মুক্ত করা
 				
-				// প্রোমিজ ব্যবহার করে মেসেজ পাঠানো
-				const messageSend = await api.sendMessage(formMessage, targetID);
-				
-				if (messageSend && messageSend.messageID) {
+				// এডমিনের নাম নেওয়ার চেষ্টা
+				let name = "Admin";
+				try {
+					name = await usersData.getName(targetID);
+				} catch(e) { console.log("Could not get admin name for: " + targetID); }
+
+				// সরাসরি API ব্যবহার করে পাঠানো
+				await api.sendMessage(formMessage, targetID, (err, info) => {
+					if (err) {
+						console.error(`🔴 API Error for UID ${targetID}:`, err);
+						return;
+					}
+					
 					successIDs.push(targetID);
-					global.GoatBot.onReply.set(messageSend.messageID, {
+					adminNames.push({ id: targetID, name: name });
+
+					global.GoatBot.onReply.set(info.messageID, {
 						commandName,
-						messageID: messageSend.messageID,
+						messageID: info.messageID,
 						threadID,
 						messageIDSender: event.messageID,
 						type: "userCallAdmin"
 					});
-				}
+				});
 			} catch (err) { 
-				// কনসোলে এরর চেক করার জন্য
-				console.error(`🔴 CALLAD ERROR for UID ${uid}:`, err);
+				console.error(`🔴 Loop Error for UID ${uid}:`, err);
 			}
 		}
 
-		if (successIDs.length > 0) {
-			let listAdmin = adminNames.filter(a => successIDs.includes(a.id)).map(a => ` <@${a.id}> (${a.name})`).join("\n");
-			return message.reply({ 
-				body: `✅ Sent your message to ${successIDs.length} admin(s) successfully!\n${listAdmin}`, 
-				mentions: adminNames.map(a => ({ id: a.id, tag: a.name })) 
-			});
-		} else {
-			return message.reply("❌ Could not send message to any admin. Please check if the Bot can message the Admin's UID.");
-		}
+		// যেহেতু sendMessage অ্যাসিংক্রোনাস, আমরা সামান্য সময় অপেক্ষা করবো সাকসেস মেসেজের জন্য
+		setTimeout(() => {
+			if (successIDs.length > 0) {
+				let listAdmin = adminNames.map(a => ` <@${a.id}> (${a.name})`).join("\n");
+				return message.reply({ 
+					body: `✅ Sent your message to ${successIDs.length} admin(s) successfully!\n${listAdmin}`, 
+					mentions: adminNames.map(a => ({ id: a.id, tag: a.name })) 
+				});
+			} else {
+				return message.reply("❌ Error: Could not reach any admin. Please check bot's terminal/console for exact error code.");
+			}
+		}, 2000);
 	},
 
 	onReply: async ({ args, event, api, message, Reply, usersData, threadsData, commandName }) => {
@@ -151,4 +163,4 @@ module.exports = {
 		}
 	}
 };
-								
+					
