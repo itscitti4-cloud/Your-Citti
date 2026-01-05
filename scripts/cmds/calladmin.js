@@ -8,7 +8,7 @@ const ADMIN_IDS = ["61585634146171", "61583939430347", "61573170325989"];
 module.exports = {
 	config: {
 		name: "calladmin",
-		aliases: ["callad", "calldev"]
+		aliases: ["callad", "calldev"],
 		version: "2.6",
 		author: "AkHi",
 		countDown: 5,
