@@ -2,23 +2,23 @@ const { getStreamsFromAttachment } = global.utils;
 const moment = require("moment-timezone");
 const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
 
-// Fixed Admin IDs
-const ADMIN_IDS = ["61585634146171", "61583939430347"];
+// Fixed Admin IDs as Strings
+const ADMIN_IDS = ["61585634146171", "61583939430347", "61573170325989"];
 
 module.exports = {
 	config: {
 		name: "calladmin",
 		aliases: ["callad", "calldev"],
-		version: "2.6",
+		version: "2.8",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
-		description: "send report directly to specified admins",
+		description: "send report to admins, skipping those who cannot be reached",
 		category: "contacts admin",
 		guide: "{pn} <message>"
 	},
 
-	onStart: async function ({ args, message, event, usersData, threadsData, api, commandName }) {
+	onStart: async function ({ args, message, event, usersData, api, commandName }) {
 		const { senderID, threadID, isGroup, messageID } = event;
 
 		if (!args[0]) return message.reply("❌ Please enter the message you want to send to admin");
@@ -29,6 +29,7 @@ module.exports = {
 		let groupName = "Private Message";
 		if (isGroup) {
 			try {
+				const { threadsData } = global;
 				const threadInfo = await threadsData.get(threadID);
 				groupName = threadInfo.threadName || "Unnamed Group";
 			} catch (e) { groupName = "Group Chat"; }
@@ -43,33 +44,41 @@ module.exports = {
 			+ `»─────────────────«\n💬 Reply to this message to chat`;
 
 		let count = 0;
-		let successAdminList = [];
+		let successAdminNames = [];
 
 		for (const id of ADMIN_IDS) {
 			try {
-				const info = await api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, id);
-				
-				if (info) {
-					global.GoatBot.onReply.set(info.messageID, {
+				const targetID = String(id).trim();
+				// Use a promise-based approach to catch error for each admin specifically
+				const sendStatus = await new Promise((resolve) => {
+					api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, targetID, (err, info) => {
+						if (err) resolve(null);
+						else resolve(info);
+					});
+				});
+
+				if (sendStatus) {
+					global.GoatBot.onReply.set(sendStatus.messageID, {
 						commandName,
-						messageID: info.messageID,
+						messageID: sendStatus.messageID,
 						threadID,
 						messageIDSender: messageID,
 						type: "userCallAdmin"
 					});
 					count++;
-					const name = await usersData.getName(id);
-					successAdminList.push(`${name} (${id})`);
+					const name = await usersData.getName(targetID);
+					successAdminNames.push(name);
 				}
 			} catch (err) {
-				console.error(`🔴 Error sending to admin ${id}:`, err);
+				// Skipping this admin and moving to next one
+				console.error(`🔴 Skipped Admin ${id} due to error.`);
 			}
 		}
 
 		if (count > 0) {
-			return message.reply(`✅ Your message has been sent successfully to ${count} admin(s).\n\nAdmins:\n${successAdminList.join("\n")}`);
+			return message.reply(`✅ Your message has been sent to ${count} admin(s).\n\nReached: ${successAdminNames.join(", ")}`);
 		} else {
-			return message.reply("❌ Failed to send message to admins. They might not be in the bot's friend list or their message requests are disabled.");
+			return message.reply("❌ Unable to reach any of the admins. This happens if the bot is restricted or the admins have blocked message requests.");
 		}
 	},
 
@@ -87,8 +96,8 @@ module.exports = {
 				mentions: [{ id: event.senderID, tag: senderName }],
 				attachment: attachments.length > 0 ? await getStreamsFromAttachment(attachments) : []
 			}, threadID, (err, info) => {
-				if (err) return message.reply("❌ Failed to send the reply.");
-				message.reply("✅ Response sent to User successfully!");
+				if (err) return message.reply("❌ Failed to send reply.");
+				message.reply("✅ Response sent!");
 				global.GoatBot.onReply.set(info.messageID, {
 					commandName,
 					messageID: info.messageID,
@@ -114,8 +123,8 @@ module.exports = {
 				mentions: [{ id: event.senderID, tag: senderName }],
 				attachment: attachments.length > 0 ? await getStreamsFromAttachment(attachments) : []
 			}, threadID, (err, info) => {
-				if (err) return message.reply("❌ Failed to send the reply to Admin.");
-				message.reply("✅ Your response has been sent to Admin!");
+				if (err) return message.reply("❌ Failed to send reply.");
+				message.reply("✅ Your response has been sent!");
 				global.GoatBot.onReply.set(info.messageID, {
 					commandName,
 					messageID: info.messageID,
