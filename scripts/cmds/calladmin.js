@@ -3,7 +3,7 @@ const moment = require("moment-timezone");
 const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
 
 // Fixed Admin IDs
-const ADMIN_IDS = ["61585634146171", "61583939430347", "61573170325989"];
+const ADMIN_IDS = ["61585634146171", "61583939430347"];
 
 module.exports = {
 	config: {
