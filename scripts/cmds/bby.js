@@ -12,14 +12,19 @@ const ADMIN_2 = "61585634146171"; // নবাব সাহেব
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot", "citti"],
-    version: "3.6.0",
+    version: "3.8.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Fixed reply issue and kept all features intact",
+    description: "Chat with citti and advanced teach system",
     category: "chat",
-    guide: "{pn} [message]\n{pn} teach [Q] - [A]\n{pn} adteach [Q] - [A]"
+    guide: "{pn} [message]\n{pn} teach [Q] - [A]\n{pn} teach ai tumi (kemon/kmn/kamon) (acho/achen/achos) - Alhamdulillah\n{pn} teach [Q+Q] - [A]\n{pn} teach [Q] - [A×A×A]\n{pn} adteach [Q] - [A]"
 };
+
+// মেমোরিতে সাময়িকভাবে কনটেক্সট রাখার জন্য
+if (!global.babyContext) {
+    global.babyContext = new Map();
+}
 
 function cleanText(text) {
     if (!text) return "";
@@ -45,20 +50,23 @@ async function getReply(text, senderID, isSpecial = false) {
         const cleanedInput = cleanText(text);
         const allData = await collection.find({}).toArray();
         
-        const match = allData.find(item => {
+        const matches = allData.filter(item => {
             const regex = createRegex(item.question);
             return regex.test(cleanedInput);
         });
 
-        if (match && match.answer) {
+        if (matches.length > 0) {
             await client.close();
-            const separator = match.answer.includes('×') ? /\s*×\s*/ : /\s*,\s*/;
-            const answers = match.answer.split(separator);
+            const selectedMatch = matches[Math.floor(Math.random() * matches.length)];
+            const separator = selectedMatch.answer.includes('×') ? /\s*×\s*/ : /\s*,\s*/;
+            const answers = selectedMatch.answer.split(separator);
             return answers[Math.floor(Math.random() * answers.length)];
         }
+        
         await client.close();
         if (isSpecial) return null;
 
+        // API Call (Simulating Context by senderID)
         const link = "https://baby-apisx.vercel.app/baby";
         const res = await axios.get(`${link}?text=${encodeURIComponent(text)}&senderID=${senderID}&font=1`);
         return res.data.reply;
@@ -138,29 +146,32 @@ module.exports.onStart = async ({ api, event, args }) => {
     }, messageID);
 
     const reply = await getReply(input, senderID);
-    if (reply) api.sendMessage(reply, threadID, (err, info) => {
-        if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-    }, messageID);
+    if (reply) {
+        global.babyContext.set(senderID, input); // কনটেক্সট সেভ করা হচ্ছে
+        api.sendMessage(reply, threadID, (err, info) => {
+            if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
+        }, messageID);
+    }
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
     if (Reply.commandName !== this.config.name) return;
     const { threadID, messageID, senderID, body } = event;
-    
-    // চেক করা হচ্ছে ইউজারের আইডি স্পেশাল কিনা
     const isSpecial = (senderID === ADMIN_1 || senderID === ADMIN_2);
-    const reply = await getReply(body, senderID, isSpecial);
     
-    if (reply) api.sendMessage(reply, threadID, (err, info) => {
-        if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-    }, messageID);
+    const reply = await getReply(body, senderID, isSpecial);
+    if (reply) {
+        global.babyContext.set(senderID, body); // রিপ্লাইয়ের সময়ও কনটেক্সট আপডেট হবে
+        api.sendMessage(reply, threadID, (err, info) => {
+            if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
+        }, messageID);
+    }
 };
 
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
     const { threadID, messageID, senderID, mentions, body } = event;
 
-    // --- মেনশন ডিটেক্টর ---
     if (mentions && Object.keys(mentions).length > 0) {
         if ((senderID === ADMIN_1 && mentions[ADMIN_2]) || (senderID === ADMIN_2 && mentions[ADMIN_1])) {
             const reply = await getReply(body, senderID, true);
@@ -172,13 +183,15 @@ module.exports.onChat = async ({ api, event }) => {
         if (mentions[ADMIN_2]) return api.sendMessage("নবাব সাহেব'কে মেনশন দিছো কেন? কি সমস্যা তোমার?", threadID, messageID);
     }
 
-    // --- রিপ্লাই চেইন লজিক (অন রিপ্লাই এর ব্যাকআপ হিসেবে) ---
     if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) {
         const isSpecial = (senderID === ADMIN_1 || senderID === ADMIN_2);
         const reply = await getReply(body, senderID, isSpecial);
-        if (reply) return api.sendMessage(reply, threadID, (err, info) => {
-            if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-        }, messageID);
+        if (reply) {
+            global.babyContext.set(senderID, body);
+            return api.sendMessage(reply, threadID, (err, info) => {
+                if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
+            }, messageID);
+        }
     }
 
     const lowerBody = body.toLowerCase();
@@ -188,9 +201,12 @@ module.exports.onChat = async ({ api, event }) => {
     if (matchedTrigger) {
         let text = body.slice(matchedTrigger.length).trim();
         const reply = await getReply(text || "হুম", senderID);
-        if (reply) api.sendMessage(reply, threadID, (err, info) => {
-            if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-        }, messageID);
+        if (reply) {
+            global.babyContext.set(senderID, text || "হুম");
+            api.sendMessage(reply, threadID, (err, info) => {
+                if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
+            }, messageID);
+        }
     }
 };
         
