@@ -2,17 +2,17 @@ const { getStreamsFromAttachment } = global.utils;
 const moment = require("moment-timezone");
 const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
 
-// সরাসরি অ্যাডমিনদের প্রোফাইল আইডি (String হিসেবে)
+// Admin IDs - Ensure they are exactly as they appear in the URL/UID
 const ADMIN_IDS = ["61585634146171", "61583939430347", "61573170325989"];
 
 module.exports = {
 	config: {
 		name: "callad",
-		version: "2.9",
+		version: "3.0",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
-		description: "Fixed big ID sending issue with auto-skip",
+		description: "Send report to admins with strict ID handling",
 		category: "contacts admin",
 		guide: "{pn} <message>"
 	},
@@ -45,17 +45,23 @@ module.exports = {
 		let successNames = [];
 
 		for (const id of ADMIN_IDS) {
-			const target = id.toString();
+			// নতুন ১৫ ডিজিটের আইডিগুলোর জন্য String conversion মাস্ট
+			const targetID = id.toString();
+			
 			try {
-				// API কলটিকে সরাসরি প্রমিজ আকারে ব্যবহার করা হচ্ছে
-				const info = await new Promise((resolve, reject) => {
-					api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, target, (err, res) => {
-						if (err) return reject(err);
-						resolve(res);
+				// এই পদ্ধতিতে কলব্যাক এবং রিটার্ন চেক করা হচ্ছে
+				const info = await new Promise((resolve) => {
+					api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, targetID, (err, msgInfo) => {
+						if (err) {
+							console.error(`[CallAd] Failed for ID ${targetID}:`, err);
+							resolve(null);
+						} else {
+							resolve(msgInfo);
+						}
 					});
 				});
 
-				if (info) {
+				if (info && info.messageID) {
 					global.GoatBot.onReply.set(info.messageID, {
 						commandName,
 						messageID: info.messageID,
@@ -64,20 +70,19 @@ module.exports = {
 						type: "userCallAdmin"
 					});
 					count++;
-					const name = await usersData.getName(target);
+					const name = await usersData.getName(targetID);
 					successNames.push(name);
 				}
 			} catch (e) {
-				// এরর আসলে এখানে কনসোলে দেখা যাবে ঠিক কী সমস্যা হচ্ছে
-				console.log(`[CallAd] Failed to send to ${id}: ${e.errorDescription || e.errorMessage || "Unknown FB Error"}`);
-				continue; // এরর আসলে স্কিপ করে পরেরটাতে যাবে
+				console.error(`[CallAd] Error in loop for ${targetID}:`, e);
 			}
 		}
 
 		if (count > 0) {
 			return message.reply(`✅ Message sent to ${count} admin(s): ${successNames.join(", ")}`);
 		} else {
-			return message.reply("❌ FAULT: Facebook rejected the message requests. Please ensure the bot is a friend of the admin or the admin's inbox is open to everyone.");
+			// যদি ফ্রেন্ড হওয়ার পরেও না যায়, তবে AppState বা Token এ সমস্যা থাকতে পারে
+			return message.reply("❌ API Failure: Even though you are friends, Facebook refused the message. This often happens if the bot account's AppState is old or restricted from sending too many PMs.");
 		}
 	},
 
