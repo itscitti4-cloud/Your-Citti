@@ -2,18 +2,17 @@ const { getStreamsFromAttachment } = global.utils;
 const moment = require("moment-timezone");
 const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
 
-// Fixed Admin IDs as Strings
+// সরাসরি অ্যাডমিনদের প্রোফাইল আইডি (String হিসেবে)
 const ADMIN_IDS = ["61585634146171", "61583939430347", "61573170325989"];
 
 module.exports = {
 	config: {
-		name: "calladmin",
-		aliases: ["callad", "calldev"],
-		version: "2.8",
+		name: "callad",
+		version: "2.9",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
-		description: "send report to admins, skipping those who cannot be reached",
+		description: "Fixed big ID sending issue with auto-skip",
 		category: "contacts admin",
 		guide: "{pn} <message>"
 	},
@@ -21,7 +20,7 @@ module.exports = {
 	onStart: async function ({ args, message, event, usersData, api, commandName }) {
 		const { senderID, threadID, isGroup, messageID } = event;
 
-		if (!args[0]) return message.reply("❌ Please enter the message you want to send to admin");
+		if (!args[0]) return message.reply("❌ Please enter a message for the admins.");
 
 		const time = moment.tz("Asia/Dhaka").format("hh:mm A");
 		const senderName = await usersData.getName(senderID);
@@ -29,8 +28,7 @@ module.exports = {
 		let groupName = "Private Message";
 		if (isGroup) {
 			try {
-				const { threadsData } = global;
-				const threadInfo = await threadsData.get(threadID);
+				const threadInfo = await global.threadsData.get(threadID);
 				groupName = threadInfo.threadName || "Unnamed Group";
 			} catch (e) { groupName = "Group Chat"; }
 		}
@@ -41,98 +39,74 @@ module.exports = {
 			+ ` ➤ 𝐔𝐈𝐃: ${senderID}\n`
 			+ ` ➤ 𝐆𝐫𝐨𝐮𝐩: ${groupName}\n\n`
 			+ `»——— 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 ———«\n\n${args.join(" ")}\n\n`
-			+ `»─────────────────«\n💬 Reply to this message to chat`;
+			+ `»─────────────────«\n💬 Reply to chat`;
 
 		let count = 0;
-		let successAdminNames = [];
+		let successNames = [];
 
 		for (const id of ADMIN_IDS) {
+			const target = id.toString();
 			try {
-				const targetID = String(id).trim();
-				// Use a promise-based approach to catch error for each admin specifically
-				const sendStatus = await new Promise((resolve) => {
-					api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, targetID, (err, info) => {
-						if (err) resolve(null);
-						else resolve(info);
+				// API কলটিকে সরাসরি প্রমিজ আকারে ব্যবহার করা হচ্ছে
+				const info = await new Promise((resolve, reject) => {
+					api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, target, (err, res) => {
+						if (err) return reject(err);
+						resolve(res);
 					});
 				});
 
-				if (sendStatus) {
-					global.GoatBot.onReply.set(sendStatus.messageID, {
+				if (info) {
+					global.GoatBot.onReply.set(info.messageID, {
 						commandName,
-						messageID: sendStatus.messageID,
+						messageID: info.messageID,
 						threadID,
 						messageIDSender: messageID,
 						type: "userCallAdmin"
 					});
 					count++;
-					const name = await usersData.getName(targetID);
-					successAdminNames.push(name);
+					const name = await usersData.getName(target);
+					successNames.push(name);
 				}
-			} catch (err) {
-				// Skipping this admin and moving to next one
-				console.error(`🔴 Skipped Admin ${id} due to error.`);
+			} catch (e) {
+				// এরর আসলে এখানে কনসোলে দেখা যাবে ঠিক কী সমস্যা হচ্ছে
+				console.log(`[CallAd] Failed to send to ${id}: ${e.errorDescription || e.errorMessage || "Unknown FB Error"}`);
+				continue; // এরর আসলে স্কিপ করে পরেরটাতে যাবে
 			}
 		}
 
 		if (count > 0) {
-			return message.reply(`✅ Your message has been sent to ${count} admin(s).\n\nReached: ${successAdminNames.join(", ")}`);
+			return message.reply(`✅ Message sent to ${count} admin(s): ${successNames.join(", ")}`);
 		} else {
-			return message.reply("❌ Unable to reach any of the admins. This happens if the bot is restricted or the admins have blocked message requests.");
+			return message.reply("❌ FAULT: Facebook rejected the message requests. Please ensure the bot is a friend of the admin or the admin's inbox is open to everyone.");
 		}
 	},
 
-	onReply: async ({ args, event, api, message, Reply, usersData, threadsData, commandName }) => {
+	onReply: async ({ args, event, api, message, Reply, usersData, commandName }) => {
 		const { type, threadID, messageIDSender } = Reply;
 		const senderName = await usersData.getName(event.senderID);
 		const time = moment.tz("Asia/Dhaka").format("hh:mm A");
 		const attachments = event.attachments.filter(item => mediaTypes.includes(item.type));
 
-		if (type === "userCallAdmin") {
-			const body = `»—📩— **𝐀𝐃𝐌𝐈𝐍 𝐑𝐄𝐒𝐏𝐎𝐍𝐒𝐄** —📩—«\n\n ➤ 𝐓𝐢𝐦𝐞: ${time}\n ➤ 𝐀𝐝𝐦𝐢𝐧: ${senderName}\n\n»——— 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 ———«\n\n${args.join(" ")}\n\n»─────────────────«\n✍️ Reply to continue`;
-			
-			api.sendMessage({
-				body,
-				mentions: [{ id: event.senderID, tag: senderName }],
-				attachment: attachments.length > 0 ? await getStreamsFromAttachment(attachments) : []
-			}, threadID, (err, info) => {
-				if (err) return message.reply("❌ Failed to send reply.");
-				message.reply("✅ Response sent!");
-				global.GoatBot.onReply.set(info.messageID, {
-					commandName,
-					messageID: info.messageID,
-					messageIDSender: event.messageID,
-					threadID: event.threadID,
-					type: "adminReply"
-				});
-			}, messageIDSender);
+		const isUserToAdmin = type === "userCallAdmin";
+		const header = isUserToAdmin ? "𝐀𝐃𝐌𝐈𝐍 𝐑𝐄𝐒𝐏𝐎𝐍𝐒𝐄" : "𝐔𝐒𝐄𝐑 𝐑𝐄𝐏𝐋𝐘";
+		const icon = isUserToAdmin ? "📩" : "👤";
 
-		} else if (type === "adminReply") {
-			let groupInfo = "Private Message";
-			if (event.isGroup) {
-				try {
-					const threadInfo = await threadsData.get(event.threadID);
-					groupInfo = threadInfo.threadName || "Unnamed Group";
-				} catch (e) { groupInfo = "Group Chat"; }
-			}
+		const body = `»—${icon}— **${header}** —${icon}—«\n\n ➤ 𝐓𝐢𝐦𝐞: ${time}\n ➤ 𝐍𝐚𝐦𝐞: ${senderName}\n\n»——— 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 ———«\n\n${args.join(" ")}\n\n»─────────────────«\n✍️ Reply to continue`;
 
-			const body = `»—👤— **𝐔𝐒𝐄𝐑 𝐑𝐄𝐏𝐋𝐘** —👤—«\n\n ➤ 𝐓𝐢𝐦𝐞: ${time}\n ➤ 𝐔𝐬𝐞𝐫: ${senderName}\n ➤ 𝐔𝐈𝐃: ${event.senderID}\n ➤ 𝐆𝐫𝐨𝐮𝐩: ${groupInfo}\n\n»——— 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 ———«\n\n${args.join(" ")}\n\n»─────────────────«\n💬 Reply to chat`;
-			
-			api.sendMessage({
-				body,
-				mentions: [{ id: event.senderID, tag: senderName }],
-				attachment: attachments.length > 0 ? await getStreamsFromAttachment(attachments) : []
-			}, threadID, (err, info) => {
-				if (err) return message.reply("❌ Failed to send reply.");
-				message.reply("✅ Your response has been sent!");
-				global.GoatBot.onReply.set(info.messageID, {
-					commandName,
-					messageID: info.messageID,
-					messageIDSender: event.messageID,
-					threadID: event.threadID,
-					type: "userCallAdmin"
-				});
-			}, messageIDSender);
-		}
+		api.sendMessage({
+			body,
+			mentions: [{ id: event.senderID, tag: senderName }],
+			attachment: attachments.length > 0 ? await getStreamsFromAttachment(attachments) : []
+		}, threadID, (err, info) => {
+			if (err) return message.reply("❌ Failed to send reply.");
+			message.reply(`✅ Response sent!`);
+			global.GoatBot.onReply.set(info.messageID, {
+				commandName,
+				messageID: info.messageID,
+				messageIDSender: event.messageID,
+				threadID: event.threadID,
+				type: isUserToAdmin ? "adminReply" : "userCallAdmin"
+			});
+		}, messageIDSender);
 	}
 };
