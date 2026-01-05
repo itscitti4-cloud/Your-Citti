@@ -12,11 +12,11 @@ const ADMIN_2 = "61585634146171"; // নবাব সাহেব
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot", "citti"],
-    version: "3.5.0",
+    version: "3.6.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Advanced Regex and Special Reply chain",
+    description: "Fixed reply issue and kept all features intact",
     category: "chat",
     guide: "{pn} [message]\n{pn} teach [Q] - [A]\n{pn} adteach [Q] - [A]"
 };
@@ -26,10 +26,8 @@ function cleanText(text) {
     return text.replace(/[^\w\s\u0980-\u09FF]/gi, '').replace(/\s+/g, ' ').trim();
 }
 
-// ব্র্যাকেট ফরম্যাটকে Regex-এ রূপান্তর করার ফাংশন
 function createRegex(text) {
     let pattern = cleanText(text);
-    // (abc/def) ফরম্যাটকে (abc|def) এ রূপান্তর করে যা Regex সাপোর্ট করে
     pattern = pattern.replace(/\((.*?)\)/g, (match, content) => {
         return "(" + content.split('/').map(s => s.trim()).join('|') + ")";
     });
@@ -47,7 +45,6 @@ async function getReply(text, senderID, isSpecial = false) {
         const cleanedInput = cleanText(text);
         const allData = await collection.find({}).toArray();
         
-        // প্রত্যেকটি সেভ করা প্রশ্নের সাথে ইউজারের টেক্সট ম্যাচ করা হচ্ছে
         const match = allData.find(item => {
             const regex = createRegex(item.question);
             return regex.test(cleanedInput);
@@ -148,22 +145,25 @@ module.exports.onStart = async ({ api, event, args }) => {
 
 module.exports.onReply = async ({ api, event, Reply }) => {
     if (Reply.commandName !== this.config.name) return;
-    // এখানে এডমিনদের রিপ্লাইয়ের ক্ষেত্রে special logic চেক করা হচ্ছে
-    const isSpecial = (event.senderID === ADMIN_1 || event.senderID === ADMIN_2);
-    const reply = await getReply(event.body, event.senderID, isSpecial);
-    if (reply) api.sendMessage(reply, event.threadID, (err, info) => {
-        if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
-    }, event.messageID);
+    const { threadID, messageID, senderID, body } = event;
+    
+    // চেক করা হচ্ছে ইউজারের আইডি স্পেশাল কিনা
+    const isSpecial = (senderID === ADMIN_1 || senderID === ADMIN_2);
+    const reply = await getReply(body, senderID, isSpecial);
+    
+    if (reply) api.sendMessage(reply, threadID, (err, info) => {
+        if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
+    }, messageID);
 };
 
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
-    const { threadID, messageID, senderID, mentions } = event;
+    const { threadID, messageID, senderID, mentions, body } = event;
 
-    // --- মেনশন ডিটেক্টর ও অ্যাডমিন চেইন ---
+    // --- মেনশন ডিটেক্টর ---
     if (mentions && Object.keys(mentions).length > 0) {
         if ((senderID === ADMIN_1 && mentions[ADMIN_2]) || (senderID === ADMIN_2 && mentions[ADMIN_1])) {
-            const reply = await getReply(event.body, senderID, true);
+            const reply = await getReply(body, senderID, true);
             if (reply) return api.sendMessage(reply, threadID, (err, info) => {
                 if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
             }, messageID);
@@ -172,25 +172,25 @@ module.exports.onChat = async ({ api, event }) => {
         if (mentions[ADMIN_2]) return api.sendMessage("নবাব সাহেব'কে মেনশন দিছো কেন? কি সমস্যা তোমার?", threadID, messageID);
     }
 
-    // --- রিপ্লাই চেইন লজিক (অ্যাডমিনদের জন্য স্পেশাল হ্যান্ডলিং) ---
+    // --- রিপ্লাই চেইন লজিক (অন রিপ্লাই এর ব্যাকআপ হিসেবে) ---
     if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) {
         const isSpecial = (senderID === ADMIN_1 || senderID === ADMIN_2);
-        const reply = await getReply(event.body, senderID, isSpecial);
+        const reply = await getReply(body, senderID, isSpecial);
         if (reply) return api.sendMessage(reply, threadID, (err, info) => {
             if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
         }, messageID);
     }
 
-    const body = event.body.toLowerCase();
+    const lowerBody = body.toLowerCase();
     const triggers = ["bby", "baby", "citti", "bot", "বেবি", "বট"];
-    const matchedTrigger = triggers.find(t => body.startsWith(t));
+    const matchedTrigger = triggers.find(t => lowerBody.startsWith(t));
 
     if (matchedTrigger) {
-        let text = event.body.slice(matchedTrigger.length).trim();
+        let text = body.slice(matchedTrigger.length).trim();
         const reply = await getReply(text || "হুম", senderID);
         if (reply) api.sendMessage(reply, threadID, (err, info) => {
             if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
         }, messageID);
     }
 };
-                                 
+        
