@@ -2,17 +2,24 @@ const { getStreamsFromAttachment } = global.utils;
 const moment = require("moment-timezone");
 const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
 
-// Admin IDs - Ensure they are exactly as they appear in the URL/UID
-const ADMIN_IDS = ["61585634146171", "61583939430347", "61573170325989"];
+// Admin Group ID
+const ADMIN_GROUP_ID = "2593974107646263";
+
+// Admin List for Displaying in Confirmation
+const ADMIN_LIST = [
+	{ name: "Shahryar Sabu", id: "61585634146171" },
+	{ name: "Lubna Jannat", id: "61583939430347" }
+];
 
 module.exports = {
 	config: {
-		name: "callad",
-		version: "3.0",
+		name: "calladmin",
+		aliases: ["callad", "calldev"],
+		version: "3.3",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
-		description: "Send report to admins with strict ID handling",
+		description: "Send report to admin group with custom confirmation",
 		category: "contacts admin",
 		guide: "{pn} <message>"
 	},
@@ -41,48 +48,36 @@ module.exports = {
 			+ `»——— 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 ———«\n\n${args.join(" ")}\n\n`
 			+ `»─────────────────«\n💬 Reply to chat`;
 
-		let count = 0;
-		let successNames = [];
+		try {
+			const info = await new Promise((resolve, reject) => {
+				api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, ADMIN_GROUP_ID, (err, msgInfo) => {
+					if (err) return reject(err);
+					resolve(msgInfo);
+				});
+			});
 
-		for (const id of ADMIN_IDS) {
-			// নতুন ১৫ ডিজিটের আইডিগুলোর জন্য String conversion মাস্ট
-			const targetID = id.toString();
-			
-			try {
-				// এই পদ্ধতিতে কলব্যাক এবং রিটার্ন চেক করা হচ্ছে
-				const info = await new Promise((resolve) => {
-					api.sendMessage({ body, mentions: [{ id: senderID, tag: senderName }] }, targetID, (err, msgInfo) => {
-						if (err) {
-							console.error(`[CallAd] Failed for ID ${targetID}:`, err);
-							resolve(null);
-						} else {
-							resolve(msgInfo);
-						}
-					});
+			if (info) {
+				global.GoatBot.onReply.set(info.messageID, {
+					commandName,
+					messageID: info.messageID,
+					threadID,
+					messageIDSender: messageID,
+					type: "userCallAdmin"
 				});
 
-				if (info && info.messageID) {
-					global.GoatBot.onReply.set(info.messageID, {
-						commandName,
-						messageID: info.messageID,
-						threadID,
-						messageIDSender: messageID,
-						type: "userCallAdmin"
-					});
-					count++;
-					const name = await usersData.getName(targetID);
-					successNames.push(name);
-				}
-			} catch (e) {
-				console.error(`[CallAd] Error in loop for ${targetID}:`, e);
-			}
-		}
+				// কাস্টম কনফার্মেশন মেসেজ
+				let adminInfo = ADMIN_LIST.map(ad => `${ad.name} : ${ad.id}`).join("\n");
+				let response = `✅ Your Call Admin Message sent to ${ADMIN_LIST.length} admins Successfully:\n`
+					+ `»────────────────────«\n`
+					+ `${adminInfo}\n`
+					+ `»────────────────────«\n`
+					+ `*please wait for admin response!`;
 
-		if (count > 0) {
-			return message.reply(`✅ Message sent to ${count} admin(s): ${successNames.join(", ")}`);
-		} else {
-			// যদি ফ্রেন্ড হওয়ার পরেও না যায়, তবে AppState বা Token এ সমস্যা থাকতে পারে
-			return message.reply("❌ API Failure: Even though you are friends, Facebook refused the message. This often happens if the bot account's AppState is old or restricted from sending too many PMs.");
+				return message.reply(response);
+			}
+		} catch (e) {
+			console.error(e);
+			return message.reply("❌ Error: Could not send message to Admin Group. Make sure the bot is a member of that group.");
 		}
 	},
 
@@ -115,3 +110,4 @@ module.exports = {
 		}, messageIDSender);
 	}
 };
+													
