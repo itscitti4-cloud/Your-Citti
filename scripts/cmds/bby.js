@@ -4,7 +4,6 @@ const { MongoClient } = require("mongodb");
 const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const dbName = "test";
 const collectionName = "babies";
-const specialCollection = "special_chat";
 
 const ADMIN_1 = "61583939430347"; // আখি ম্যাম
 const ADMIN_2 = "61585634146171"; // নবাব সাহেব
@@ -12,11 +11,11 @@ const ADMIN_2 = "61585634146171"; // নবাব সাহেব
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot", "citti"],
-    version: "4.0.0",
+    version: "4.1.0",
     author: "AkHi",
     countDown: 5,
     role: 0,
-    description: "Fixed Reply Chain & Context Aware Chat",
+    description: "Fixed Reply Chain, Context Aware & Mention Support",
     category: "chat",
     guide: "{pn} [message]\n{pn} teach [Q] - [A]\n{pn} adteach [Q] - [A]"
 };
@@ -36,13 +35,13 @@ function createRegex(text) {
     return new RegExp(`^${pattern}$`, "i");
 }
 
-async function getReply(text, senderID, isSpecial = false) {
+async function getReply(text, senderID) {
     let client;
     try {
         client = new MongoClient(mongoURI);
         await client.connect();
         const db = client.db(dbName);
-        const collection = db.collection(isSpecial ? specialCollection : collectionName);
+        const collection = db.collection(collectionName);
         
         const cleanedInput = cleanText(text);
         const allData = await collection.find({}).toArray();
@@ -61,8 +60,6 @@ async function getReply(text, senderID, isSpecial = false) {
         }
         
         await client.close();
-        if (isSpecial) return null;
-
         const link = "https://baby-apisx.vercel.app/baby";
         const res = await axios.get(`${link}?text=${encodeURIComponent(text)}&senderID=${senderID}&font=1`);
         return res.data.reply;
@@ -76,26 +73,10 @@ module.exports.onStart = async ({ api, event, args }) => {
     const { threadID, messageID, senderID } = event;
     const client = new MongoClient(mongoURI);
 
-    if (args[0] === 'adteach') {
-        if (senderID !== ADMIN_1 && senderID !== ADMIN_2) {
+    if (args[0] === 'teach' || args[0] === 'adteach') {
+        if (args[0] === 'adteach' && (senderID !== ADMIN_1 && senderID !== ADMIN_2)) {
             return api.sendMessage("❌ Access Denied", threadID, messageID);
         }
-        const content = args.slice(1).join(" ");
-        if (!content.includes('-')) return api.sendMessage('❌ Format: adteach [Q] - [A]', threadID, messageID);
-        const [msg, rep] = content.split(/\s*-\s*/);
-        try {
-            await client.connect();
-            await client.db(dbName).collection(specialCollection).insertOne({
-                question: msg.trim(),
-                answer: rep.trim(),
-                uid: String(senderID)
-            });
-            await client.close();
-            return api.sendMessage(`✅ Added Admin Special Reply!`, threadID, messageID);
-        } catch (e) { return api.sendMessage("❌ Failed", threadID, messageID); }
-    }
-
-    if (args[0] === 'teach') {
         const content = args.slice(1).join(" ");
         if (!content.includes('-')) return api.sendMessage('❌ Format: teach [Q] - [A]', threadID, messageID);
         let [questions, answers] = content.split(/\s*-\s*/);
@@ -108,7 +89,7 @@ module.exports.onStart = async ({ api, event, args }) => {
             }
             await client.close();
             return api.sendMessage(`✅ Added ${qList.length} questions!`, threadID, messageID);
-        } catch (e) { return api.sendMessage("❌ Error", threadID, messageID); }
+        } catch (e) { return api.sendMessage("❌ Error saving data", threadID, messageID); }
     }
 
     const input = args.join(" ");
@@ -129,9 +110,7 @@ module.exports.onReply = async ({ api, event, Reply }) => {
     const { threadID, messageID, senderID, body } = event;
     if (Reply.commandName !== this.config.name) return;
     
-    const isSpecial = (senderID === ADMIN_1 || senderID === ADMIN_2);
-    const reply = await getReply(body, senderID, isSpecial);
-    
+    const reply = await getReply(body, senderID);
     if (reply) {
         global.babyContext.set(senderID, body);
         api.sendMessage(reply, threadID, (err, info) => {
@@ -144,20 +123,15 @@ module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
     const { threadID, messageID, senderID, mentions, body } = event;
 
-    // মেনশন লজিক
+    // --- মেনশন ডিটেক্টর (অ্যাডমিনদের জন্য মেসেজ) ---
     if (mentions && Object.keys(mentions).length > 0) {
-        if ((senderID === ADMIN_1 && mentions[ADMIN_2]) || (senderID === ADMIN_2 && mentions[ADMIN_1])) {
-            const reply = await getReply(body, senderID, true);
-            if (reply) return api.sendMessage(reply, threadID, (err, info) => {
-                global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-            }, messageID);
-        }
+        if (mentions[ADMIN_1]) return api.sendMessage("আখি ম্যাম'কে মেনশন দিছো কেন? কি সমস্যা তোমার?", threadID, messageID);
+        if (mentions[ADMIN_2]) return api.sendMessage("নবাব সাহেব'কে মেনশন দিছো কেন? কি সমস্যা তোমার?", threadID, messageID);
     }
 
-    // বটের মেসেজে রিপ্লাই করলে রেসপন্স
+    // --- রিপ্লাই চেইন লজিক ---
     if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) {
-        const isSpecial = (senderID === ADMIN_1 || senderID === ADMIN_2);
-        const reply = await getReply(body, senderID, isSpecial);
+        const reply = await getReply(body, senderID);
         if (reply) {
             global.babyContext.set(senderID, body);
             return api.sendMessage(reply, threadID, (err, info) => {
@@ -181,4 +155,4 @@ module.exports.onChat = async ({ api, event }) => {
         }
     }
 };
-                                     
+                                   
