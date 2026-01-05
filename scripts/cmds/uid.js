@@ -4,7 +4,7 @@ const regExCheckURL = /^(http|https):\/\/[^ "]+$/;
 module.exports = {
 	config: {
 		name: "uid",
-		version: "1.3",
+		version: "1.4",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
@@ -14,50 +14,65 @@ module.exports = {
 		},
 		category: "information",
 		guide: {
-			vi: "   {pn}: dùng để xem id facebook của bạn"
-				+ "\n   {pn} @tag: xem id facebook của những người được tag"
-				+ "\n   {pn} <link profile>: xem id facebook của link profile"
-				+ "\n   Phản hồi tin nhắn của người khác kèm lệnh để xem id facebook của họ",
-			en: "   {pn}: use to view your facebook user id"
-				+ "\n   {pn} @tag: view facebook user id of tagged people"
-				+ "\n   {pn} <profile link>: view facebook user id of profile link"
-				+ "\n   Reply to someone's message with the command to view their facebook user id"
+			vi: "{pn} <link profile>: xem id facebook của link profile",
+			en: "{pn} <profile link>: view facebook user id of profile link"
 		}
 	},
 
 	langs: {
 		vi: {
-			syntaxError: "Vui lòng tag người muốn xem uid hoặc để trống để xem uid của bản thân"
+			syntaxError: "Vui lòng tag người muốn xem uid hoặc để trống để xem uid của bản thân",
+			error: "Không thể tìm thấy UID cho liên kết này: "
 		},
 		en: {
-			syntaxError: "Please tag the person you want to view uid or leave it blank to view your own uid"
+			syntaxError: "Please tag the person you want to view uid or leave it blank to view your own uid",
+			error: "Could not find UID for this link: "
 		}
 	},
 
 	onStart: async function ({ message, event, args, getLang }) {
-		if (event.messageReply)
-			return message.reply(event.messageReply.senderID);
-		if (!args[0])
-			return message.reply(event.senderID);
-		if (args[0].match(regExCheckURL)) {
-			let msg = '';
-			for (const link of args) {
-				try {
-					const uid = await findUid(link);
-					msg += `${link} => ${uid}\n`;
-				}
-				catch (e) {
-					msg += `${link} (ERROR) => ${e.message}\n`;
-				}
-			}
-			message.reply(msg);
-			return;
+		const { senderID, messageReply, mentions } = event;
+
+		// ১. রিপ্লাই করলে আইডি দেখাবে
+		if (messageReply) {
+			return message.reply(messageReply.senderID);
 		}
 
-		let msg = "";
-		const { mentions } = event;
-		for (const id in mentions)
-			msg += `${mentions[id].replace("@", "")}: ${id}\n`;
-		message.reply(msg || getLang("syntaxError"));
+		// ২. শুধু কমান্ড দিলে নিজের আইডি দেখাবে
+		if (args.length === 0) {
+			return message.reply(senderID);
+		}
+
+		// ৩. লিংক থেকে আইডি বের করা
+		if (args[0].match(regExCheckURL)) {
+			let msg = "";
+			for (const link of args) {
+				try {
+					// findUid এর জন্য অপেক্ষা করা হচ্ছে
+					const uid = await findUid(link);
+					if (uid) {
+						msg += `🔗 Link: ${link}\n🆔 UID: ${uid}\n\n`;
+					} else {
+						msg += `❌ ${getLang("error")}${link}\n\n`;
+					}
+				}
+				catch (e) {
+					msg += `❌ Error: ${link} => ${e.message}\n\n`;
+				}
+			}
+			return message.reply(msg.trim());
+		}
+
+		// ৪. মেনশন থেকে আইডি বের করা
+		let msgMentions = "";
+		const mentionKeys = Object.keys(mentions);
+		if (mentionKeys.length > 0) {
+			for (const id of mentionKeys) {
+				msgMentions += `${mentions[id].replace("@", "")}: ${id}\n`;
+			}
+			return message.reply(msgMentions.trim());
+		}
+
+		return message.reply(getLang("syntaxError"));
 	}
 };
