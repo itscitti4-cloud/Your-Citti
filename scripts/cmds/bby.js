@@ -11,7 +11,7 @@ const ADMIN_2 = "61585634146171"; // নবাব সাহেব
 module.exports.config = {
     name: "bby",
     aliases: ["baby", "bot", "citti"],
-    version: "3.2.0",
+    version: "3.2.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -22,7 +22,6 @@ module.exports.config = {
 
 if (!global.babyContext) global.babyContext = new Map();
 
-// অটো ইমোজি লিস্ট
 const autoEmojis = ["😊", "😇", "🙂", "😘", "😍", "🙈", "✨", "🌸", "💫", "🐾", "🐥", "🍬", "🎀","😾", "🥹", "🫩", "😴", "🙂", "🫡", "😩", "😕", "🐸", "🤨", "🦵", "😤", "🤫"];
 
 function cleanText(text) {
@@ -55,7 +54,6 @@ async function getReply(text, senderID) {
             return regex.test(cleanedInput);
         });
 
-        // ইমোজি ডিটেক্টর (ইউজার ইমোজি দিলে বটও দিবে)
         const hasEmoji = /\p{Emoji}/u.test(text);
 
         if (match && match.answer) {
@@ -63,7 +61,6 @@ async function getReply(text, senderID) {
             const answers = match.answer.split(/\s*\+\s*/);
             let finalReply = answers[Math.floor(Math.random() * answers.length)];
             
-            // অটো ইমোজি যুক্ত করা (যদি উত্তরে অলরেডি না থাকে)
             const randomEmoji = autoEmojis[Math.floor(Math.random() * autoEmojis.length)];
             if (!/\p{Emoji}/u.test(finalReply) || hasEmoji) {
                 finalReply += ` ${randomEmoji}`;
@@ -72,11 +69,13 @@ async function getReply(text, senderID) {
         }
         await client.close();
 
+        // API কল করার সময় একই মেসেজ এড়াতে কন্ডিশন
         const link = "https://baby-apisx.vercel.app/baby";
         const res = await axios.get(`${link}?text=${encodeURIComponent(text)}&senderID=${senderID}&font=1`);
         let apiReply = res.data.reply;
 
-        // API উত্তরেও ইমোজি না থাকলে বা ইউজার ইমোজি দিলে ইমোজি যোগ হবে
+        if (apiReply.includes("teach me") && text.length < 2) return "বলো জানু, শুনছি! 😊";
+
         if (hasEmoji && !/\p{Emoji}/u.test(apiReply)) {
             apiReply += ` ${autoEmojis[Math.floor(Math.random() * autoEmojis.length)]}`;
         }
@@ -84,6 +83,25 @@ async function getReply(text, senderID) {
     } catch (err) {
         if (client) await client.close();
         return null;
+    }
+}
+
+// কমন রিপ্লাই ফাংশন (ডবল রিপ্লাই এড়াতে)
+async function handleReply(api, event, text) {
+    const reply = await getReply(text, event.senderID);
+    if (reply) {
+        global.babyContext.set(event.senderID, text);
+        api.sendMessage(reply, event.threadID, (err, info) => {
+            if (info) {
+                // রিপ্লাই সেট করা হচ্ছে যাতে চেইন বজায় থাকে
+                if (global.GoatBot && global.GoatBot.onReply) {
+                    global.GoatBot.onReply.set(info.messageID, { 
+                        commandName: "bby", 
+                        author: event.senderID 
+                    });
+                }
+            }
+        }, event.messageID);
     }
 }
 
@@ -101,15 +119,14 @@ module.exports.onStart = async ({ api, event, args }) => {
             await client.connect();
             const collection = client.db(dbName).collection(collectionName);
             for (let q of qList) {
-                await collection.insertOne({
-                    uid: String(senderID),
-                    question: q.trim(),
-                    answer: answers.trim(),
-                    time: new Date()
-                });
+                await collection.updateOne(
+                    { question: q.trim() },
+                    { $set: { uid: String(senderID), answer: answers.trim(), time: new Date() } },
+                    { upsert: true }
+                );
             }
             await client.close();
-            return api.sendMessage(`✅ Added ${qList.length} questions!`, threadID, messageID);
+            return api.sendMessage(`✅ Added/Updated ${qList.length} questions!`, threadID, messageID);
         } catch (e) { return api.sendMessage("❌ Error saving.", threadID, messageID); }
     }
 
@@ -125,6 +142,7 @@ module.exports.onStart = async ({ api, event, args }) => {
         } catch (e) { return api.sendMessage("❌ Error.", threadID, messageID); }
     }
 
+    // Top/List logic remain same...
     if (args[0] === 'top' || args[0] === 'list') {
         try {
             await client.connect();
@@ -133,16 +151,10 @@ module.exports.onStart = async ({ api, event, args }) => {
                 const topTeachers = await collection.aggregate([{ $group: { _id: "$uid", count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 10 }]).toArray();
                 let msg = "🏆 [ TOP TEACHERS ] 🏆\n\n";
                 for (let i = 0; i < topTeachers.length; i++) {
-                    const info = await api.getUserInfo(topTeachers[i]._id);
-                    msg += `${i + 1}. ${info[topTeachers[i]._id].name}: ${topTeachers[i].count} Teach\n`;
-                }
-                return api.sendMessage(msg, threadID, messageID);
-            } else {
-                const teachers = await collection.distinct("uid");
-                let msg = `[ TEACHER LIST ]\ntotal: ${teachers.length}\n\n`;
-                for (let i = 0; i < teachers.length; i++) {
-                    const info = await api.getUserInfo(teachers[i]);
-                    msg += `${i + 1}. ${info[teachers[i]].name}\n`;
+                    try {
+                        const info = await api.getUserInfo(topTeachers[i]._id);
+                        msg += `${i + 1}. ${info[topTeachers[i]._id].name}: ${topTeachers[i].count} Teach\n`;
+                    } catch(e) { msg += `${i + 1}. Unknown: ${topTeachers[i].count}\n`; }
                 }
                 return api.sendMessage(msg, threadID, messageID);
             }
@@ -155,45 +167,27 @@ module.exports.onStart = async ({ api, event, args }) => {
         if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
     }, messageID);
 
-    const reply = await getReply(input, senderID);
-    if (reply) {
-        global.babyContext.set(senderID, input);
-        api.sendMessage(reply, threadID, (err, info) => {
-            if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-        }, messageID);
-    }
+    await handleReply(api, event, input);
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
     if (Reply.commandName !== this.config.name) return;
-    const reply = await getReply(event.body, event.senderID);
-    if (reply) {
-        global.babyContext.set(event.senderID, event.body);
-        api.sendMessage(reply, event.threadID, (err, info) => {
-            if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
-        }, event.messageID);
-    }
+    // এখানে শুধু রিপ্লাই হ্যান্ডেল হবে
+    await handleReply(api, event, event.body);
 };
 
 module.exports.onChat = async ({ api, event }) => {
     if (event.senderID == api.getCurrentUserID() || !event.body) return;
     const { threadID, messageID, senderID, mentions, body } = event;
 
-    if (mentions && Object.keys(mentions).length > 0) {
-        if (mentions[ADMIN_1]) return api.sendMessage("আখি ম্যাম'কে মেনশন দিছো কেন?", threadID, messageID);
-        if (mentions[ADMIN_2]) return api.sendMessage("নবাব সাহেব'কে মেনশন দিছো কেন?", threadID, messageID);
+    // মেনশন চেক
+    if (mentions && (mentions[ADMIN_1] || mentions[ADMIN_2])) {
+        const msg = mentions[ADMIN_1] ? "আখি ম্যাম'কে মেনশন দিছো কেন?" : "নবাব সাহেব'কে মেনশন দিছো কেন?";
+        return api.sendMessage(msg, threadID, messageID);
     }
 
-    if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) {
-        const reply = await getReply(body, senderID);
-        if (reply) {
-            global.babyContext.set(senderID, body);
-            api.sendMessage(reply, threadID, (err, info) => {
-                if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-            }, messageID);
-            return;
-        }
-    }
+    // যদি এটি কোনো রিপ্লাই হয়, তবে onReply এটি হ্যান্ডেল করবে। onChat এ ডবল রিপ্লাই এড়াতে রিপ্লাই কন্ডিশন বাদ দেওয়া হয়েছে।
+    if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) return;
 
     const lowerBody = body.toLowerCase();
     const triggers = ["bby", "baby", "citti", "bot", "বেবি", "বট"];
@@ -201,13 +195,6 @@ module.exports.onChat = async ({ api, event }) => {
 
     if (matchedTrigger) {
         let text = body.slice(matchedTrigger.length).trim();
-        const reply = await getReply(text || "হুম", senderID);
-        if (reply) {
-            global.babyContext.set(senderID, text || "হুম");
-            api.sendMessage(reply, threadID, (err, info) => {
-                if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-            }, messageID);
-        }
+        await handleReply(api, event, text || "হুম");
     }
 };
-        
