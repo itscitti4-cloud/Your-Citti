@@ -4,51 +4,77 @@ module.exports = {
   config: {
     name: "cricket",
     aliases: ["sports", "crckt"],
-    version: "2.1.0",
+    version: "3.0.0",
     author: "Sabu",
     countDown: 5,
     role: 0,
-    shortDescription: "Live Cricket Scores for IPL, BPL, WC, etc.",
-    longDescription: "Get live cricket score updates using series names like IPL, BPL, etc.",
+    shortDescription: "Live Cricket Scores with details on reply",
+    longDescription: "Get live cricket score list and reply with match number for full details.",
     category: "sports",
     guide: {
-      en: "{p}cricket ipl\n{p}cricket bpl\n{p}cricket wc"
+      en: "{p}cricket ipl\n{p}cricket bpl"
     }
   },
 
   onStart: async function ({ api, event, args, message }) {
     const query = args.join(" ").toLowerCase();
-    
-    if (!query) {
-      return message.reply("Please provide a series name. Example: !cricket ipl");
-    }
+    if (!query) return message.reply("Please provide a series name. Example: !cricket ipl");
 
-    message.reply("Searching for live scores, please wait...");
+    message.reply("🔍 Searching for matches, please wait...");
 
     try {
-      // Fetching data from the cricket API
-      const res = await axios.get(`https://cricket-api-nodejs-six.vercel.app/score?series=${query}`);
-      const data = res.data;
+      const res = await axios.get(`https://api.cric-score.vic79.workers.dev/score?series=${query}`);
+      const matches = res.data.match;
 
-      if (!data || data.length === 0) {
-        return message.reply(`Sorry, no live matches found for ${query.toUpperCase()} at the moment.`);
+      if (!matches || matches.length === 0) {
+        return message.reply(`❌ No live matches found for "${query.toUpperCase()}".`);
       }
 
-      let responseText = `🏏 **Live Cricket Score: ${query.toUpperCase()}**\n\n`;
+      let responseText = `🏏 **MATCH LIST: ${query.toUpperCase()}**\n━━━━━━━━━━━━━━━━━━━━\n`;
+      let matchData = [];
 
-      // Displaying up to top 3 matches
-      data.slice(0, 3).forEach((match, index) => {
-        responseText += `🔹 Match ${index + 1}: ${match.title}\n`;
-        responseText += `📊 Status: ${match.update}\n`;
-        responseText += `🏟️ Venue: ${match.venue || 'N/A'}\n`;
-        responseText += `--------------------------\n`;
+      matches.slice(0, 10).forEach((match, index) => {
+        const matchNum = index + 1;
+        responseText += `[ ${matchNum} ] 📝 ${match.title}\n📊 Status: ${match.status}\n━━━━━━━━━━━━━━━━━━━━\n`;
+        matchData.push(match);
       });
 
-      message.reply(responseText);
+      responseText += `\n💡 *Reply with the Match Number (e.g., 1) to see full details.*`;
+
+      message.reply(responseText, (err, info) => {
+        global.GoatBot.onReply.set(info.messageID, {
+          commandName: this.config.name,
+          messageID: info.messageID,
+          author: event.senderID,
+          matches: matchData
+        });
+      });
 
     } catch (error) {
-      console.error(error);
-      message.reply("Error fetching scores. The API might be down or busy. Please try again later.");
+      message.reply("⚠️ Error: Unable to fetch scores. Please try again later.");
     }
+  },
+
+  onReply: async function ({ api, event, Reply, message }) {
+    const { matches, author } = Reply;
+    if (event.senderID !== author) return;
+
+    const selectedIndex = parseInt(event.body) - 1;
+
+    if (isNaN(selectedIndex) || !matches[selectedIndex]) {
+      return message.reply("❌ Invalid selection. Please reply with a valid match number from the list.");
+    }
+
+    const match = matches[selectedIndex];
+
+    let detailText = `🏏 **MATCH DETAILS**\n━━━━━━━━━━━━━━━━━━━━\n`;
+    detailText += `📝 **Title:** ${match.title}\n`;
+    detailText += `📊 **Status:** ${match.status}\n`;
+    detailText += `⭐ **Current Score:** ${match.score || "N/A"}\n`;
+    detailText += `🏟️ **Venue:** ${match.venue || "N/A"}\n`;
+    detailText += `━━━━━━━━━━━━━━━━━━━━\n`;
+    detailText += `🕒 *Update: Just Now*`;
+
+    message.reply(detailText);
   }
 };
