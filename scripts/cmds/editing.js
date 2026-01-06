@@ -9,7 +9,7 @@ module.exports = {
     role: 0,
     shortDescription: "Edit images using AI",
     longDescription: "Reply to an image with prompts to edit it.",
-    category: "image",
+    category: "ai-image",
     guide: "{pn} <edit details>"
   },
 
