@@ -4,7 +4,7 @@ const FormData = require('form-data');
 module.exports = {
   config: {
     name: "18+detector",
-    aliases: ["nsfw", "adult"],
+    aliases: ["18+", "adult"],
     version: "9.0.0",
     author: "AkHi & Nawab",
     countDown: 5,
