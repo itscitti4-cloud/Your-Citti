@@ -26,7 +26,7 @@ module.exports = {
       if (!threadData || !threadData.nsfwDetector) return;
 
       // DeepAI API Key (Get it from deepai.org)
-      const DEEPAI_KEY = 'YOUR_DEEPAI_API_KEY_HERE'; 
+      const DEEPAI_KEY = '48f12782-ad9b-48eb-bae9-73651495beeb'; 
 
       for (const attachment of attachments) {
         if (attachment.type === "photo") {
