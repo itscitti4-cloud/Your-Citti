@@ -1,24 +1,34 @@
 const fs = require('fs');
+const path = require('path');
 
-// মিউট করা ইউজারদের ডাটা রাখার জন্য গ্লোবাল ভ্যারিয়েবল
-if (!global.mutedUsers) global.mutedUsers = new Map();
+const cachePath = path.join(__dirname, 'cache', 'mutedUsers.json');
+
+// cache ফোল্ডার এবং ফাইল চেক ও তৈরি করা
+if (!fs.existsSync(path.join(__dirname, 'cache'))) {
+  fs.mkdirSync(path.join(__dirname, 'cache'), { recursive: true });
+}
+if (!fs.existsSync(cachePath)) {
+  fs.writeFileSync(cachePath, JSON.stringify({}));
+}
 
 module.exports = {
   config: {
     name: "mute",
-    version: "2.0.0",
+    aliases: ["unmute"], // একই ফাইলে আনমিউট কাজ করবে
+    version: "2.1.0",
     author: "AkHi",
     countDown: 2,
-    role: 1, // Admin & Bot Admin
-    description: "Mute members to auto-delete their messages.",
+    role: 1, 
+    description: "Mute/Unmute members with auto-delete and persistent storage.",
     category: "admin",
     guide: {
-      en: "{p}mute [@mention / reply / uid] | {p}unmute [@mention / reply / uid] | {p}mute all [@mention / reply / uid]"
+      en: "{p}mute [reply/@mention/uid] | {p}unmute [reply/@mention/uid] | {p}mute all [reply/@mention/uid]"
     }
   },
 
-  onStart: async function ({ api, event, args, threadsData, role }) {
-    const { threadID, messageID, senderID, messageReply, mentions } = event;
+  onStart: async function ({ api, event, args }) {
+    const { threadID, messageID, senderID, messageReply, mentions, body } = event;
+    let mutedData = JSON.parse(fs.readFileSync(cachePath));
 
     // ১. টার্গেট আইডি নির্ধারণ
     let targetID;
@@ -29,51 +39,53 @@ module.exports = {
     } else if (args.length > 0 && /^\d{10,16}$/.test(args[args.length - 1])) {
       targetID = args[args.length - 1];
     } else {
-      return api.sendMessage("❌ | Please mention, reply, or provide a UID to mute/unmute.", threadID, messageID);
+      return api.sendMessage("❌ | Please reply, mention, or give a UID.", threadID, messageID);
     }
 
-    if (targetID == api.getCurrentUserID()) return api.sendMessage("❌ | I cannot mute myself!", threadID);
+    if (targetID == api.getCurrentUserID()) return api.sendMessage("❌ | I can't mute myself!", threadID);
 
-    // ২. কমান্ড হ্যান্ডলিং
-    const command = args[0]?.toLowerCase();
+    const isUnmute = body.toLowerCase().startsWith("!unmute") || args[0] === "unmute";
 
-    // !unmute
-    if (this.config.name === "unmute" || command === "unmute") {
-      if (global.mutedUsers.has(`${threadID}_${targetID}`)) {
-        global.mutedUsers.delete(`${threadID}_${targetID}`);
-        return api.sendMessage("✅ | User has been unmuted. Messages will no longer be deleted.", threadID);
-      } else {
-        return api.sendMessage("⚠️ | This user is not muted.", threadID);
+    // --- Unmute Logic ---
+    if (isUnmute) {
+      if (!mutedData[threadID] || !mutedData[threadID].includes(targetID)) {
+        return api.sendMessage("⚠️ | This user is not muted in this group.", threadID);
       }
+      mutedData[threadID] = mutedData[threadID].filter(id => id !== targetID);
+      fs.writeFileSync(cachePath, JSON.stringify(mutedData, null, 2));
+      return api.sendMessage("✅ | User has been unmuted.", threadID);
     }
 
-    // !mute all
-    if (command === "all") {
-      global.mutedUsers.set(`${threadID}_${targetID}`, true);
-      api.sendMessage("⏳ | Muting and cleaning up all previous messages...", threadID);
-      
-      // পুরাতন মেসেজ ডিলিট করার চেষ্টা (বটের কাছে মেসেজ হিস্ট্রি পারমিশন থাকলে)
-      const threadInfo = await api.getThreadInfo(threadID);
-      // নোট: অনেক ক্ষেত্রে API সব পুরাতন মেসেজ একসাথে ডিলিট করার অনুমতি দেয় না, তবে এটি ভবিষ্যতের মেসেজ ব্লক করবে।
-      return api.sendMessage(`🚫 | User (UID: ${targetID}) is now muted globally in this group. All their messages will be deleted.`, threadID);
+    // --- Mute Logic ---
+    if (!mutedData[threadID]) mutedData[threadID] = [];
+    
+    if (mutedData[threadID].includes(targetID)) {
+      return api.sendMessage("⚠️ | This user is already muted.", threadID);
     }
 
-    // !mute (সাধারণ মিউট)
-    global.mutedUsers.set(`${threadID}_${targetID}`, true);
-    return api.sendMessage(`🔇 | User has been muted. Their new messages will be auto-deleted.`, threadID);
+    mutedData[threadID].push(targetID);
+    fs.writeFileSync(cachePath, JSON.stringify(mutedData, null, 2));
+
+    if (args[0] === "all") {
+       return api.sendMessage(`🚫 | User (UID: ${targetID}) is now muted. All their new messages will be auto-deleted.`, threadID);
+    }
+
+    return api.sendMessage(`🔇 | User has been muted successfully.`, threadID);
   },
 
-  // মেসেজ ডিলিট করার লজিক
+  // মেসেজ ডিলিট করার জন্য মেইন লজিক
   onChat: async function ({ api, event }) {
     const { threadID, senderID, messageID } = event;
+    
+    // ফাইল থেকে লেটেস্ট মিউট লিস্ট পড়া
+    if (!fs.existsSync(cachePath)) return;
+    const mutedData = JSON.parse(fs.readFileSync(cachePath));
 
-    // যদি ইউজার মিউট লিস্টে থাকে
-    if (global.mutedUsers.has(`${threadID}_${senderID}`)) {
+    if (mutedData[threadID] && mutedData[threadID].includes(senderID)) {
       try {
         await api.unsendMessage(messageID);
       } catch (err) {
-        // যদি বট অ্যাডমিন না হয় তবে ডিলিট করতে পারবে না
-        console.error("Failed to auto-delete message: " + err);
+        console.error("Mute system couldn't delete message: " + err.message);
       }
     }
   }
