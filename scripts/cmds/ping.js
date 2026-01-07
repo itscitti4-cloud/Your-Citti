@@ -9,9 +9,7 @@ module.exports = {
     role: 0,
     description: "Check bot's speed and real system status.",
     category: "system",
-    guide: {
-      en: "{p}ping"
-    }
+    guide: "{p}ping"
   },
 
   onStart: async function ({ api, event }) {
@@ -45,8 +43,8 @@ module.exports = {
 ╰━━━━━━━━━━━━━━━━━━━╯
 ╭━━━〔 𝗗𝗘𝗩𝗘𝗟𝗢𝗣𝗘𝗥 〕━━━🌟
 ┃
-┃ 🙎🏻 𝚂𝙷𝙰𝙷𝚁𝚈𝙰𝚁 𝚂𝙰𝙱𝚄
-┃ 🙎🏻‍♀️ 𝙻𝚄𝙱𝙽𝙰 𝙹𝙰𝙽𝙽𝙰𝚃
+┃ 🙎🏻 SHAHRYAR SABU
+┃ 🙎🏻‍♀️ LUBNA JANNAT
 ┃
 ╰━━━━━━━━━━━━━━━━━━━╯`;
 
