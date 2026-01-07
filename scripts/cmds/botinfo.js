@@ -6,7 +6,7 @@ const path = require('path');
 module.exports = {
     config: {
         name: "botinfo",
-        aliases: ["inf", "in4"],
+        aliases: ["inf", "info", "in4"],
         version: "2.7",
         author: "AkHi",
         countDown: 5,
