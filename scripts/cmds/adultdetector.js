@@ -4,13 +4,13 @@ const FormData = require('form-data');
 module.exports = {
   config: {
     name: "18+detector",
-    aliases: ["18+", "adult", "nsfw"],
-    version: "2.6.0",
+    aliases: ["18+", "adult"],
+    version: "2.8.0",
     author: "AkHi & Nawab",
     countDown: 5,
     role: 1, 
     description: "Detects NSFW content and takes strict action.",
-    category: "box chat",
+    category: "admin",
     guide: {
         en: "{p}18+detector on | off"
     }
@@ -23,19 +23,22 @@ module.exports = {
     if (args[0] === "on") {
       data.nsfwDetector = true;
       await threadsData.set(threadID, data);
-      return api.sendMessage("🛡️ | Adult Content Detector has been ACTIVATED. Strictly monitoring media...", threadID);
+      return api.sendMessage("🛡️ | 18+ Content Detector has been ACTIVATED. Media monitoring is now live.", threadID);
     }
 
     if (args[0] === "off") {
       data.nsfwDetector = false;
       await threadsData.set(threadID, data);
-      return api.sendMessage("⚠️ | Adult Content Detector has been DEACTIVATED.", threadID);
+      return api.sendMessage("⚠️ | 18+ Content Detector has been DEACTIVATED.", threadID);
     }
   },
 
-  onChat: async function ({ api, event, threadsData, usersData }) {
-    const { threadID, senderID, attachments, messageID } = event;
-    if (!attachments || attachments.length === 0) return;
+  // Goatbot v2 তে handleEvent প্রতিটি ইনকামিং মেসেজ স্ক্যান করতে বেশি কার্যকর
+  handleEvent: async function ({ api, event, threadsData, usersData }) {
+    const { threadID, senderID, attachments, messageID, type } = event;
+    
+    // মেসেজে অ্যাটাচমেন্ট না থাকলে বা এটি যদি সাধারণ মেসেজ না হয় তবে রিটার্ন করবে
+    if (!attachments || attachments.length === 0 || senderID === api.getCurrentUserID()) return;
 
     const data = await threadsData.get(threadID) || {};
     if (!data.nsfwDetector) return;
@@ -47,12 +50,12 @@ module.exports = {
     for (const attachment of attachments) {
       if (attachment.type === "photo") {
         try {
-          // ইমেজটিকে বাফার (Buffer) হিসেবে ডাউনলোড করা
+          // ইমেজ ইউআরএল থেকে বাফার তৈরি
           const responseImage = await axios.get(attachment.url, { responseType: 'arraybuffer' });
-          const buffer = Buffer.from(responseImage.data, 'utf-8');
+          const buffer = Buffer.from(responseImage.data, 'binary');
 
           const form = new FormData();
-          form.append('media', buffer, { filename: 'media.jpg' });
+          form.append('media', buffer, { filename: 'check.jpg' });
           form.append('models', 'nudity-2.0');
           form.append('api_user', api_user);
           form.append('api_secret', api_secret);
@@ -61,44 +64,44 @@ module.exports = {
             headers: form.getHeaders()
           });
 
-          const nsfwResult = checkNSFW.data;
-          let violationDetected = false;
+          const res = checkNSFW.data;
+          let isNSFW = false;
 
-          if (nsfwResult.status === "success") {
-            const n = nsfwResult.nudity;
-            // স্কোর চেক (০.৫০ বা তার বেশি হলে পর্নোগ্রাফি হিসেবে গণ্য হবে)
-            if (n.sexual_display >= 0.50 || n.erotica >= 0.50 || n.sexting >= 0.50) {
-              violationDetected = true;
+          if (res.status === "success" && res.nudity) {
+            // পর্নোগ্রাফি স্কোর চেক
+            if (res.nudity.sexual_display >= 0.50 || res.nudity.erotica >= 0.50 || res.nudity.sexting >= 0.50) {
+              isNSFW = true;
             }
           }
 
-          if (violationDetected) {
-            // ১. তৎক্ষণাৎ ডিলিট
+          if (isNSFW) {
+            // ১. আপনার API ফাংশন unsendMessage ব্যবহার করে ডিলিট
             await api.unsendMessage(messageID);
             
-            // ২. ইউজার ডাটা চেক এবং ব্যবস্থা নেওয়া
-            const userData = await usersData.get(senderID) || {};
-            if (!userData.warnNSFW) userData.warnNSFW = {};
-            if (!userData.warnNSFW[threadID]) userData.warnNSFW[threadID] = 0;
+            // ২. ইউজার ডাটা আপডেট ও ওয়ার্নিং
+            const user = await usersData.get(senderID) || {};
+            if (!user.data) user.data = {};
+            if (!user.data.warnNSFW) user.data.warnNSFW = {};
+            if (!user.data.warnNSFW[threadID]) user.data.warnNSFW[threadID] = 0;
 
-            userData.warnNSFW[threadID] += 1;
-            const count = userData.warnNSFW[threadID];
+            user.data.warnNSFW[threadID] += 1;
+            const warnCount = user.data.warnNSFW[threadID];
 
-            if (count >= 2) {
-              await api.sendMessage(`🚫 | Removing @${userData.name || "User"} due to repeated ADULT violations.`, threadID);
+            if (warnCount >= 2) {
+              await api.sendMessage(`🚫 | Removing ID: ${senderID} for repeated adult content violations.`, threadID);
               api.removeUserFromGroup(senderID, threadID);
-              userData.warnNSFW[threadID] = 0; 
+              user.data.warnNSFW[threadID] = 0; 
             } else {
-              const name = userData.name || "User";
+              const name = (await usersData.get(senderID)).name || "User";
               api.sendMessage({
-                body: `⚠️ RED ALERT ❌\nAdult Content Detect! [Warning ${count}/2]\nUser: ${name}\nViolation: Sharing explicit content.\n\nYour message was automatically deleted. Another violation will result in a kick.`,
+                body: `⚠️ RED ALERT ❌\nAdult Content Detected! [Warning ${warnCount}/2]\nUser: ${name}\n\nYour message was deleted. Next violation will lead to a kick.`,
                 mentions: [{ tag: name, id: senderID }]
               }, threadID);
             }
-            await usersData.set(senderID, userData);
+            await usersData.set(senderID, user);
           }
-        } catch (err) {
-          console.error("Sightengine Error:", err.message);
+        } catch (error) {
+          console.error("NSFW Detector Error:", error.message);
         }
       }
     }
