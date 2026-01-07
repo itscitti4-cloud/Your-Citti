@@ -51,7 +51,8 @@ module.exports = {
                 // ইমেজের পাথ সেট করা
                 const imagePath = path.join(process.cwd(), "scripts/cmds/assets/image/Picsart_25-11-04_14-05-39-316.jpg");
 
-                const msgBody = `╭──── BOT & DEV INFO ────╮
+                const msgBody = `
+╭──── BOT & DEV INFO ────╮
   🤖 Bot: ${botName}
   🔰 Prefix: ${botPrefix}
   👤 Owner: Nawab & AkHi
@@ -64,7 +65,7 @@ module.exports = {
   
   🌐 Dev info: {pn} dinfo
   🌐 Dev2 info: {pn} adinfo
-╰──────────────────────╯`;
+╰─────────────────────╯`;
 
                 // চেক করা হচ্ছে ফাইলটি ওই লোকেশনে আছে কি না
                 if (fs.existsSync(imagePath)) {
