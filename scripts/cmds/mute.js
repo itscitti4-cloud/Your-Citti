@@ -7,18 +7,15 @@ module.exports = {
   config: {
     name: "mute",
     aliases: ["unmute"],
-    version: "2.5.0",
+    version: "2.7.0",
     author: "AkHi",
     countDown: 2,
     role: 1, 
-    description: "Strictly mute members with real-time deletion.",
+    description: "Strictly mute members and auto-delete messages in real-time.",
     category: "admin",
-    guide: {
-      en: "{p}mute [reply/@mention/uid] | {p}unmute | {p}mute all"
-    }
+    guide: "{p}mute [reply/@mention/uid] | {p}unmute | {p}mute all"
   },
 
-  // ফাইলটি লোড হওয়ার সময় ক্যাশ নিশ্চিত করা
   onLoad: function () {
     if (!fs.existsSync(path.join(__dirname, 'cache'))) {
       fs.mkdirSync(path.join(__dirname, 'cache'), { recursive: true });
@@ -53,7 +50,7 @@ module.exports = {
       }
       mutedData[threadID] = mutedData[threadID].filter(id => id !== targetID);
       fs.writeJsonSync(cachePath, mutedData);
-      return api.sendMessage("✅ | User has been unmuted.", threadID);
+      return api.sendMessage("✅ | User has been unmuted successfully.", threadID);
     }
 
     if (!mutedData[threadID]) mutedData[threadID] = [];
@@ -64,33 +61,25 @@ module.exports = {
     mutedData[threadID].push(targetID);
     fs.writeJsonSync(cachePath, mutedData);
 
-    if (args[0] === "all") {
-      return api.sendMessage(`🚫 | User muted with 'Strict Mode'. All future messages will be deleted instantly.`, threadID);
-    }
-
-    return api.sendMessage(`🔇 | User has been muted successfully.`, threadID);
+    return api.sendMessage(`🔇 | User has been muted successfully. Messages will be auto-deleted.`, threadID);
   },
 
-  // ইভেন্ট লিসেনার যা প্রতিটি মেসেজ চেক করবে
-  handleEvent: async function ({ api, event }) {
-    const { threadID, senderID, messageID, type } = event;
+  // Goatbot v2 তে onChat সাধারণত ইভেন্ট লিসেনার হিসেবে কাজ করে
+  onChat: async function ({ api, event }) {
+    const { threadID, senderID, messageID } = event;
     
-    // শুধু মেসেজ এবং ইমোজি টাইপ চেক করা
-    if (type !== "message" && type !== "message_reply") return;
-
     if (!fs.existsSync(cachePath)) return;
     const mutedData = fs.readJsonSync(cachePath);
 
+    // চেক করা হচ্ছে ইউজার মিউট লিস্টে আছে কি না
     if (mutedData[threadID] && mutedData[threadID].includes(senderID)) {
       try {
-        // ডিলিট করার আগে ৩৫০ মিলি-সেকেন্ড বিরতি (বট ডিটেকশন এড়াতে)
-        setTimeout(() => {
-          api.unsendMessage(messageID);
-        }, 350);
+        // আপনার API এর unsendMessage ফাংশন ব্যবহার করে ডিলিট করা
+        await api.unsendMessage(messageID);
       } catch (err) {
-        console.error("Mute Error: " + err.message);
+        // কনসোলে এরর দেখালে বোঝা যাবে পারমিশন সমস্যা কি না
+        console.error("Auto-delete failed:", err);
       }
     }
   }
 };
-        
