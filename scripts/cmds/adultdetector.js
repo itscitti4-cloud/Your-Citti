@@ -1,16 +1,19 @@
 const axios = require('axios');
+const FormData = require('form-data');
 
 module.exports = {
   config: {
-    name: "18+detector",
+    name: "adult_detector",
     aliases: ["18+", "adult"],
-    version: "2.1.0",
+    version: "2.5.0",
     author: "AkHi and Nawab",
     countDown: 5,
     role: 1, 
-    description: "Automatically detect NSFW/Adult content and take action (Warn/Kick).",
+    description: "Detects NSFW content by uploading the media to Sightengine API.",
     category: "box chat",
-    guide: "{p}18+detector on | off"
+    guide: {
+        en: "{p}18+detector on | off"
+    }
   },
 
   onStart: async function ({ api, event, args, threadsData }) {
@@ -20,7 +23,7 @@ module.exports = {
     if (args[0] === "on") {
       data.nsfwDetector = true;
       await threadsData.set(threadID, data);
-      return api.sendMessage("✅ | 18+ Content Detector has been enabled. Members will be warned first and then kicked for violations.", threadID);
+      return api.sendMessage("✅ | 18+ Content Detector has been enabled.", threadID);
     }
 
     if (args[0] === "off") {
@@ -42,34 +45,36 @@ module.exports = {
     const api_secret = '6g4CMAaBUNPEBmqf5RRjJ4qZ2V8qD5gC'; 
 
     for (const attachment of attachments) {
-      if (attachment.type === "photo" || attachment.type === "video") {
+      if (attachment.type === "photo") {
         try {
-          // API Call (এটি ইমেজ এবং ভিডিও দুইটার লিঙ্কেই কাজ করবে nudity মডেলের জন্য)
-          const response = await axios.get('https://api.sightengine.com/1.0/check.json', {
-            params: {
-              'url': attachment.url,
-              'models': 'nudity-2.0',
-              'api_user': api_user,
-              'api_secret': api_secret
-            }
+          // ইমেজটি ডাউনলোড করে স্ট্রিম হিসেবে নেওয়া
+          const imageStream = (await axios.get(attachment.url, { responseType: 'stream' })).data;
+
+          const form = new FormData();
+          form.append('media', imageStream);
+          form.append('models', 'nudity-2.0');
+          form.append('api_user', api_user);
+          form.append('api_secret', api_secret);
+
+          const response = await axios.post('https://api.sightengine.com/1.0/check.json', form, {
+            headers: form.getHeaders()
           });
 
           const nsfwData = response.data;
           let isNSFW = false;
 
           if (nsfwData.status === "success") {
-            // NSFW স্কোর চেক (sexual_display বা erotica যদি ০.৫০ এর বেশি হয়)
             const nudity = nsfwData.nudity;
+            // স্কোর চেক
             if (nudity.sexual_display >= 0.50 || nudity.erotica >= 0.50 || nudity.sexting >= 0.50) {
               isNSFW = true;
             }
           }
 
           if (isNSFW) {
-            // ১. মেসেজ সাথে সাথে ডিলিট
+            // মেসেজ আনসেন্ড করা
             await api.unsendMessage(messageID);
             
-            // ২. ইউজার ডাটা চেক এবং ওয়ার্নিং
             const user = await usersData.get(senderID) || {};
             if (!user.data) user.data = {};
             if (!user.data.warnNSFW) user.data.warnNSFW = {};
@@ -79,25 +84,22 @@ module.exports = {
             const currentWarn = user.data.warnNSFW[threadID];
 
             if (currentWarn >= 2) {
-              // ২য় বার হলে কিক
-              await api.sendMessage(`🚫 | User ID: ${senderID}\nSecond violation detected. Removing user from group.`, threadID);
+              await api.sendMessage(`🚫 | User ID: ${senderID}\nSecond violation. Removing from group.`, threadID);
               api.removeUserFromGroup(senderID, threadID);
-              user.data.warnNSFW[threadID] = 0; // রিসেট
+              user.data.warnNSFW[threadID] = 0; 
             } else {
-              // ১ম বার হলে ওয়ার্নিং
-              const name = (await usersData.get(senderID)).name;
+              const name = (await usersData.get(senderID)).name || "User";
               api.sendMessage({
-                body: `⚠️ | Warning [${currentWarn}/2]\nUser: ${name}\nReason: NSFW/18+ content detected. Your message has been deleted. Sending such content again will result in a kick.`,
+                body: `⚠️ | Warning [${currentWarn}/2]\nUser: ${name}\nReason: NSFW content detected. Message deleted.`,
                 mentions: [{ tag: name, id: senderID }]
               }, threadID);
             }
             await usersData.set(senderID, user);
           }
         } catch (error) {
-          console.error("18+ Detector Error:", error.message);
+          console.error("NSFW Detector Error:", error.message);
         }
       }
     }
   }
 };
-                                      
