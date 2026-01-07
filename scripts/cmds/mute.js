@@ -1,34 +1,36 @@
-const fs = require('fs');
+const fs = require('fs-extra');
 const path = require('path');
 
 const cachePath = path.join(__dirname, 'cache', 'mutedUsers.json');
-
-// cache ফোল্ডার এবং ফাইল নিশ্চিত করা
-if (!fs.existsSync(path.join(__dirname, 'cache'))) {
-  fs.mkdirSync(path.join(__dirname, 'cache'), { recursive: true });
-}
-if (!fs.existsSync(cachePath)) {
-  fs.writeFileSync(cachePath, JSON.stringify({}));
-}
 
 module.exports = {
   config: {
     name: "mute",
     aliases: ["unmute"],
-    version: "2.2.0",
+    version: "2.5.0",
     author: "AkHi",
     countDown: 2,
     role: 1, 
-    description: "Mute members and auto-delete messages (Real-time).",
+    description: "Strictly mute members with real-time deletion.",
     category: "admin",
     guide: {
       en: "{p}mute [reply/@mention/uid] | {p}unmute | {p}mute all"
     }
   },
 
+  // ফাইলটি লোড হওয়ার সময় ক্যাশ নিশ্চিত করা
+  onLoad: function () {
+    if (!fs.existsSync(path.join(__dirname, 'cache'))) {
+      fs.mkdirSync(path.join(__dirname, 'cache'), { recursive: true });
+    }
+    if (!fs.existsSync(cachePath)) {
+      fs.writeJsonSync(cachePath, {});
+    }
+  },
+
   onStart: async function ({ api, event, args }) {
     const { threadID, messageID, messageReply, mentions, body } = event;
-    let mutedData = JSON.parse(fs.readFileSync(cachePath));
+    let mutedData = fs.readJsonSync(cachePath);
 
     let targetID;
     if (event.type === "message_reply") {
@@ -50,7 +52,7 @@ module.exports = {
         return api.sendMessage("⚠️ | User is not muted.", threadID);
       }
       mutedData[threadID] = mutedData[threadID].filter(id => id !== targetID);
-      fs.writeFileSync(cachePath, JSON.stringify(mutedData, null, 2));
+      fs.writeJsonSync(cachePath, mutedData);
       return api.sendMessage("✅ | User has been unmuted.", threadID);
     }
 
@@ -60,29 +62,35 @@ module.exports = {
     }
 
     mutedData[threadID].push(targetID);
-    fs.writeFileSync(cachePath, JSON.stringify(mutedData, null, 2));
+    fs.writeJsonSync(cachePath, mutedData);
 
     if (args[0] === "all") {
-      api.sendMessage(`🚫 | Muting user and clearing track...`, threadID);
-      // এখানে 'mute all' মানে ওই ইউজারের আসা মাত্রই ডিলিট হওয়া নিশ্চিত করা হয়েছে।
-      return;
+      return api.sendMessage(`🚫 | User muted with 'Strict Mode'. All future messages will be deleted instantly.`, threadID);
     }
 
     return api.sendMessage(`🔇 | User has been muted successfully.`, threadID);
   },
 
-  // এই অংশটি মেসেজ ডিলিট হওয়া নিশ্চিত করবে
-  onChat: async function ({ api, event }) {
-    const { threadID, senderID, messageID } = event;
+  // ইভেন্ট লিসেনার যা প্রতিটি মেসেজ চেক করবে
+  handleEvent: async function ({ api, event }) {
+    const { threadID, senderID, messageID, type } = event;
+    
+    // শুধু মেসেজ এবং ইমোজি টাইপ চেক করা
+    if (type !== "message" && type !== "message_reply") return;
+
     if (!fs.existsSync(cachePath)) return;
-    const mutedData = JSON.parse(fs.readFileSync(cachePath));
+    const mutedData = fs.readJsonSync(cachePath);
 
     if (mutedData[threadID] && mutedData[threadID].includes(senderID)) {
-      // মেসেজ আসার সাথে সাথে ডিলিট করার চেষ্টা
-      return api.unsendMessage(messageID).catch(err => {
-        console.error("Failed to unsend: " + err.message);
-      });
+      try {
+        // ডিলিট করার আগে ৩৫০ মিলি-সেকেন্ড বিরতি (বট ডিটেকশন এড়াতে)
+        setTimeout(() => {
+          api.unsendMessage(messageID);
+        }, 350);
+      } catch (err) {
+        console.error("Mute Error: " + err.message);
+      }
     }
   }
 };
-  
+        
