@@ -4,10 +4,10 @@ module.exports = {
   config: {
     name: "18+detector",
     aliases: ["18+", "adult"],
-    version: "2.0.0",
+    version: "2.1.0",
     author: "AkHi and Nawab",
     countDown: 5,
-    role: 1, // Admin & Bot Admin
+    role: 1, 
     description: "Automatically detect NSFW/Adult content and take action (Warn/Kick).",
     category: "box chat",
     guide: "{p}18+detector on | off"
@@ -20,7 +20,7 @@ module.exports = {
     if (args[0] === "on") {
       data.nsfwDetector = true;
       await threadsData.set(threadID, data);
-      return api.sendMessage("✅ | 18+ Content Detector has been enabled. Members will be warned first and then kicked for violating rules.", threadID);
+      return api.sendMessage("✅ | 18+ Content Detector has been enabled. Members will be warned first and then kicked for violations.", threadID);
     }
 
     if (args[0] === "off") {
@@ -32,57 +32,72 @@ module.exports = {
 
   onChat: async function ({ api, event, threadsData, usersData }) {
     const { threadID, senderID, attachments, messageID } = event;
-    const data = await threadsData.get(threadID) || {};
+    if (!attachments || attachments.length === 0) return;
 
-    if (!data.nsfwDetector || attachments.length === 0) return;
+    const data = await threadsData.get(threadID) || {};
+    if (!data.nsfwDetector) return;
 
     // Sightengine API Credentials
-    const api_user = '839186748'; // Sample API User (Replace if needed)
+    const api_user = '839186748'; 
     const api_secret = '6g4CMAaBUNPEBmqf5RRjJ4qZ2V8qD5gC'; 
 
     for (const attachment of attachments) {
       if (attachment.type === "photo" || attachment.type === "video") {
-        const imageUrl = attachment.url;
-
         try {
-          const res = await axios.get('https://api.sightengine.com/1.0/check.json', {
+          // API Call (এটি ইমেজ এবং ভিডিও দুইটার লিঙ্কেই কাজ করবে nudity মডেলের জন্য)
+          const response = await axios.get('https://api.sightengine.com/1.0/check.json', {
             params: {
-              'url': imageUrl,
+              'url': attachment.url,
               'models': 'nudity-2.0',
               'api_user': api_user,
               'api_secret': api_secret
             }
           });
 
-          const nsfwScore = res.data.nudity.sexual_display + res.data.nudity.erotica;
+          const nsfwData = response.data;
+          let isNSFW = false;
 
-          if (nsfwScore > 0.5) { // 50% এর বেশি পর্নোগ্রাফিক সম্ভাবনা থাকলে
+          if (nsfwData.status === "success") {
+            // NSFW স্কোর চেক (sexual_display বা erotica যদি ০.৫০ এর বেশি হয়)
+            const nudity = nsfwData.nudity;
+            if (nudity.sexual_display >= 0.50 || nudity.erotica >= 0.50 || nudity.sexting >= 0.50) {
+              isNSFW = true;
+            }
+          }
+
+          if (isNSFW) {
+            // ১. মেসেজ সাথে সাথে ডিলিট
             await api.unsendMessage(messageID);
             
-            const userData = await usersData.get(senderID) || {};
-            if (!userData.warnCount) userData.warnCount = {};
-            if (!userData.warnCount[threadID]) userData.warnCount[threadID] = 0;
+            // ২. ইউজার ডাটা চেক এবং ওয়ার্নিং
+            const user = await usersData.get(senderID) || {};
+            if (!user.data) user.data = {};
+            if (!user.data.warnNSFW) user.data.warnNSFW = {};
+            if (!user.data.warnNSFW[threadID]) user.data.warnNSFW[threadID] = 0;
 
-            userData.warnCount[threadID] += 1;
+            user.data.warnNSFW[threadID] += 1;
+            const currentWarn = user.data.warnNSFW[threadID];
 
-            if (userData.warnCount[threadID] >= 2) {
-              // ২য় বার অপরাধ করলে কিক
-              await api.sendMessage("🚫 | Second violation detected. Removing user from the group.", threadID);
+            if (currentWarn >= 2) {
+              // ২য় বার হলে কিক
+              await api.sendMessage(`🚫 | User ID: ${senderID}\nSecond violation detected. Removing user from group.`, threadID);
               api.removeUserFromGroup(senderID, threadID);
-              userData.warnCount[threadID] = 0; // রিসেট
+              user.data.warnNSFW[threadID] = 0; // রিসেট
             } else {
-              // ১ম বার সতর্কবার্তা
-              api.sendMessage(`⚠️ | Warning! [1/2]\nUser: @${userData.name}\nReason: Sending 18+ content is strictly prohibited. Your message has been deleted.`, threadID, (err, info) => {
-                if (!err) api.mention(senderID, threadID);
-              });
+              // ১ম বার হলে ওয়ার্নিং
+              const name = (await usersData.get(senderID)).name;
+              api.sendMessage({
+                body: `⚠️ | Warning [${currentWarn}/2]\nUser: ${name}\nReason: NSFW/18+ content detected. Your message has been deleted. Sending such content again will result in a kick.`,
+                mentions: [{ tag: name, id: senderID }]
+              }, threadID);
             }
-            await usersData.set(senderID, userData);
+            await usersData.set(senderID, user);
           }
-        } catch (e) {
-          console.error("NSFW Detector Error: ", e);
+        } catch (error) {
+          console.error("18+ Detector Error:", error.message);
         }
       }
     }
   }
 };
-          
+                                      
