@@ -2,7 +2,7 @@ module.exports = {
   config: {
     name: "richest",
     aliases: ["top", "rich"],
-    version: "1.0.0",
+    version: "1.0.1",
     author: "AkHi",
     countDown: 5,
     role: 0,
@@ -14,44 +14,45 @@ module.exports = {
     },
     category: "game",
     guide: {
-      en: "{p}richest"
+      en: "{pn}"
     }
   },
 
-  onStart: async function ({ api, event, Users }) {
+  onStart: async function ({ api, event, usersData }) {
     try {
-      // Fetch all users from database
-      const allUsers = await Users.getAll();
+      // Fetch all users data
+      // GoatBot এ সাধারণত usersData.getAll() সব ডাটা রিটার্ন করে
+      const allUsers = await usersData.getAll();
       
-      // Sort users by balance in descending order
-      const topUsers = allUsers
-        .sort((a, b) => (b.money || 0) - (a.money || 0))
-        .slice(0, 20);
-
-      if (topUsers.length === 0) {
+      if (!allUsers || allUsers.length === 0) {
         return api.sendMessage("No user data found in the database.", event.threadID);
       }
 
-      let msg = "🏆 TOP 20 RICHEST USERS 🏆\n";
+      // Sort users by money (descending)
+      const topUsers = allUsers
+        .filter(user => user.money !== undefined) // যাদের টাকা আছে শুধু তাদের নিবে
+        .sort((a, b) => b.money - a.money)
+        .slice(0, 20);
+
+      let msg = "🏆 **TOP 20 RICHEST USERS** 🏆\n";
       msg += "━━━━━━━━━━━━━━━━━━\n";
 
-      for (let i = 0; i < topUsers.length; i++) {
-        const user = topUsers[i];
+      topUsers.forEach((user, index) => {
         const name = user.name || "Unknown User";
         const balance = (user.money || 0).toLocaleString();
+        const icon = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "👤";
         
-        // Formatting each line
-        msg += `${i + 1}. ${name}\n💰 Balance: $${balance}\n`;
-        if (i < topUsers.length - 1) msg += "------------------\n";
-      }
+        msg += `${index + 1}. ${icon} ${name}\n💰 Balance: $${balance}\n`;
+        if (index < topUsers.length - 1) msg += "------------------\n";
+      });
 
       msg += "━━━━━━━━━━━━━━━━━━\n";
       msg += "Keep earning to reach the top!";
 
-      return api.sendMessage(msg, event.threadID);
+      return api.sendMessage(msg, event.threadID, event.messageID);
     } catch (error) {
       console.error(error);
-      return api.sendMessage("An error occurred while fetching the rich list.", event.threadID);
+      return api.sendMessage("An error occurred: " + error.message, event.threadID);
     }
   }
 };
