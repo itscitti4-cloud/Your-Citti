@@ -4,153 +4,135 @@ module.exports = {
 	config: {
 		name: "setwelcome",
 		aliases: ["setwc"],
-		version: "1.7",
-		author: "AkHi",
+		version: "2.6",
+		author: "AkHi & Nawab",
 		countDown: 5,
-		role: 1,
-		description: {
-			vi: "Chỉnh sửa nội dung tin nhắn chào mừng thành viên mới tham gia vào nhóm chat của bạn",
-			en: "Edit welcome message content when new member join your group chat"
-		},
+		role: 0,
+		description: "Edit welcome message content with Global, Admin, and Dev support",
 		category: "custom",
 		guide: {
-			vi: {
-				body: "   {pn} text [<nội dung> | reset]: chỉnh sửa nội dung văn bản hoặc reset về mặc định, với những shortcut có sẵn:"
-					+ "\n  + {userName}: tên của thành viên mới"
-					+ "\n  + {userNameTag}: tên của thành viên mới (tag)"
-					+ "\n  + {boxName}:  tên của nhóm chat"
-					+ "\n  + {multiple}: bạn || các bạn"
-					+ "\n  + {session}:  buổi trong ngày"
-					+ "\n\n   Ví dụ:"
-					+ "\n    {pn} text Hello {userName}, welcome to {boxName}, chúc {multiple} một ngày mới vui vẻ"
-					+ "\n"
-					+ "\n   Reply (phản hồi) hoặc gửi kèm một tin nhắn có file với nội dung {pn} file: để thêm tệp đính kèm vào tin nhắn chào mừng (ảnh, video, audio)"
-					+ "\n\n   Ví dụ:"
-					+ "\n    {pn} file reset: xóa gửi file",
-				attachment: {
-					[`${__dirname}/assets/guide/setwelcome/setwelcome_vi_1.png`]: "https://i.ibb.co/vd6bQrW/setwelcome-vi-1.png"
-				}
-			},
-			en: {
-				body: "   {pn} text [<content> | reset]: edit text content or reset to default, with some shortcuts:"
-					+ "\n  + {userName}: new member name"
-					+ "\n  + {userNameTag}: new member name (tag)"
-					+ "\n  + {boxName}:  group chat name"
-					+ "\n  + {multiple}: you || you guys"
-					+ "\n  + {session}:  session in day"
-					+ "\n\n   Example:"
-					+ "\n    {pn} text Hello {userName}, welcome to {boxName}, have a nice day {multiple}"
-					+ "\n"
-					+ "\n   Reply (phản hồi) or send a message with file with content {pn} file: to add file attachments to welcome message (image, video, audio)"
-					+ "\n\n   Example:"
-					+ "\n    {pn} file reset: delete file attachments",
-				attachment: {
-					[`${__dirname}/assets/guide/setwelcome/setwelcome_en_1.png`]: "https://i.ibb.co/vsCz0ks/setwelcome-en-1.png"
-				}
+			body: "   {pn} text [<content> | reset]: edit group welcome message content."
+				+ "\n   {pn} global [<content> | reset]: set global welcome message (Bot Admin only)."
+				+ "\n   {pn} admin [<content> | reset]: set welcome message for Bot Admins (Bot Admin only)."
+				+ "\n   {pn} dev [<content> | reset]: set welcome message for Developers (Bot Admin only)."
+				+ "\n   {pn} view: view current group welcome message."
+				+ "\n   {pn} [global | admin | dev] view: view specific special messages."
+				+ "\n\n   Shortcuts:"
+				+ "\n  + {userName}: new member name"
+				+ "\n  + {userNameTag}: new member name (tag)"
+				+ "\n  + {boxName}:  group chat name"
+				+ "\n  + {multiple}: you || you guys"
+				+ "\n  + {session}:  session in day"
+				+ "\n\n   Example:"
+				+ "\n    {pn} text Hello {userName}, welcome to {boxName}"
+				+ "\n    {pn} global Hello {userName}, this is a global welcome!"
+				+ "\n"
+				+ "\n   Reply or send a file with {pn} file: to add attachments."
+				+ "\n   Example: {pn} file reset: delete attachments",
+			attachment: {
+				[`${__dirname}/assets/guide/setwelcome/setwelcome_en_1.png`]: "https://i.ibb.co/vsCz0ks/setwelcome-en-1.png"
 			}
 		}
 	},
 
-	langs: {
-		vi: {
-			turnedOn: "Đã bật chức năng chào mừng thành viên mới",
-			turnedOff: "Đã tắt chức năng chào mừng thành viên mới",
-			missingContent: "Vui lùng nhập nội dung tin nhắn",
-			edited: "Đã chỉnh sửa nội dung tin nhắn chào mừng của nhóm bạn thành: %1",
-			reseted: "Đã reset nội dung tin nhắn chào mừng",
-			noFile: "Không có tệp đính kèm tin nhắn chào mừng nào để xóa",
-			resetedFile: "Đã reset tệp đính kèm thành công",
-			missingFile: "Hãy phản hồi tin nhắn này kèm file ảnh/video/audio",
-			addedFile: "Đã thêm %1 tệp đính kèm vào tin nhắn chào mừng của nhóm bạn"
-		},
-		en: {
-			turnedOn: "Turned on welcome message",
-			turnedOff: "Turned off welcome message",
-			missingContent: "Please enter welcome message content",
-			edited: "Edited welcome message content of your group to: %1",
-			reseted: "Reseted welcome message content",
-			noFile: "No file attachments to delete",
-			resetedFile: "Reseted file attachments successfully",
-			missingFile: "Please reply this message with image/video/audio file",
-			addedFile: "Added %1 file attachments to your group welcome message"
-		}
-	},
-
-	onStart: async function ({ args, threadsData, message, event, commandName, getLang }) {
+	onStart: async function ({ args, threadsData, message, event, commandName }) {
 		const { threadID, senderID, body } = event;
 		const { data, settings } = await threadsData.get(threadID);
+		
+		const botAdmins = global.config.adminBot || [];
+		const isBotAdmin = botAdmins.includes(senderID);
 
-		switch (args[0]) {
-			case "text": {
-				if (!args[1])
-					return message.reply(getLang("missingContent"));
-				else if (args[1] == "reset")
-					delete data.welcomeMessage;
-				else
-					data.welcomeMessage = body.slice(body.indexOf(args[0]) + args[0].length).trim();
-				await threadsData.set(threadID, {
-					data
-				});
-				message.reply(data.welcomeMessage ? getLang("edited", data.welcomeMessage) : getLang("reseted"));
+		const type = args[0]?.toLowerCase();
+
+		if (["global", "admin", "dev"].includes(type) && !isBotAdmin) {
+			return message.reply("Only Bot Admins can use this mode!");
+		}
+
+		switch (type) {
+			case "text":
+			case "global":
+			case "admin":
+			case "dev": {
+				let targetKey = type === "text" ? "welcomeMessage" : `${type}WelcomeMessage`;
+
+				if (args[1] === "view") {
+					let msg = (type === "text" ? data.welcomeMessage : global.config[targetKey]) || "Not set";
+					return message.reply(`${type.charAt(0).toUpperCase() + type.slice(1)} Welcome: ${msg}`);
+				}
+
+				if (!args[1]) return message.reply("Please enter welcome message content");
+
+				if (args[1] === "reset") {
+					if (type === "text") delete data.welcomeMessage;
+					else delete global.config[targetKey];
+					message.reply(`Reseted ${type} message content`);
+				} else {
+					const content = body.slice(body.indexOf(args[1])).trim();
+					if (type === "text") data.welcomeMessage = content;
+					else global.config[targetKey] = content;
+					message.reply(`Edited ${type} message content to: ${content}`);
+				}
+
+				if (type === "text") await threadsData.set(threadID, { data });
 				break;
 			}
+
 			case "file": {
 				if (args[1] == "reset") {
-					const { welcomeAttachment } = data;
-					if (!welcomeAttachment)
-						return message.reply(getLang("noFile"));
+					if (!data.welcomeAttachment) return message.reply("No file attachments to delete");
 					try {
 						await Promise.all(data.welcomeAttachment.map(fileId => drive.deleteFile(fileId)));
 						delete data.welcomeAttachment;
-					}
-					catch (e) { }
-					await threadsData.set(threadID, {
-						data
-					});
-					message.reply(getLang("resetedFile"));
+					} catch (e) { }
+					await threadsData.set(threadID, { data });
+					return message.reply("Reseted file attachments successfully");
 				}
-				else if (event.attachments.length == 0 && (!event.messageReply || event.messageReply.attachments.length == 0))
-					return message.reply(getLang("missingFile"), (err, info) => {
+				if (event.attachments.length == 0 && (!event.messageReply || event.messageReply.attachments.length == 0)) {
+					return message.reply("Please reply this message with image/video/audio file", (err, info) => {
 						global.GoatBot.onReply.set(info.messageID, {
 							messageID: info.messageID,
 							author: senderID,
 							commandName
 						});
 					});
-				else {
-					saveChanges(message, event, threadID, senderID, threadsData, getLang);
 				}
+				saveChanges(message, event, threadID, senderID, threadsData);
 				break;
 			}
+
+			case "view": {
+				const groupMsg = data.welcomeMessage || "Default (Not set)";
+				const files = data.welcomeAttachment ? data.welcomeAttachment.length : 0;
+				return message.reply(`Welcome settings for this group:\nText: ${groupMsg}\nFiles: ${files}`);
+			}
+
 			case "on":
 			case "off": {
 				settings.sendWelcomeMessage = args[0] == "on";
 				await threadsData.set(threadID, { settings });
-				message.reply(settings.sendWelcomeMessage ? getLang("turnedOn") : getLang("turnedOff"));
+				message.reply(settings.sendWelcomeMessage ? "Turned on welcome message" : "Turned off welcome message");
 				break;
 			}
+
 			default:
 				message.SyntaxError();
 				break;
 		}
 	},
 
-	onReply: async function ({ event, Reply, message, threadsData, getLang }) {
+	onReply: async function ({ event, Reply, message, threadsData }) {
 		const { threadID, senderID } = event;
-		if (senderID != Reply.author)
-			return;
-
+		if (senderID != Reply.author) return;
 		if (event.attachments.length == 0 && (!event.messageReply || event.messageReply.attachments.length == 0))
-			return message.reply(getLang("missingFile"));
-		saveChanges(message, event, threadID, senderID, threadsData, getLang);
+			return message.reply("Please reply this message with image/video/audio file");
+		saveChanges(message, event, threadID, senderID, threadsData);
 	}
 };
 
-async function saveChanges(message, event, threadID, senderID, threadsData, getLang) {
+async function saveChanges(message, event, threadID, senderID, threadsData) {
 	const { data } = await threadsData.get(threadID);
 	const attachments = [...event.attachments, ...(event.messageReply?.attachments || [])].filter(item => ["photo", 'png', "animated_image", "video", "audio"].includes(item.type));
-	if (!data.welcomeAttachment)
-		data.welcomeAttachment = [];
+	if (!data.welcomeAttachment) data.welcomeAttachment = [];
 
 	await Promise.all(attachments.map(async attachment => {
 		const { url } = attachment;
@@ -160,8 +142,6 @@ async function saveChanges(message, event, threadID, senderID, threadsData, getL
 		data.welcomeAttachment.push(infoFile.id);
 	}));
 
-	await threadsData.set(threadID, {
-		data
-	});
-	message.reply(getLang("addedFile", attachments.length));
+	await threadsData.set(threadID, { data });
+	message.reply(`Added ${attachments.length} file attachments`);
 }
