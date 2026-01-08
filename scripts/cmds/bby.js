@@ -3,13 +3,13 @@ const axios = require('axios');
 const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
 
 module.exports.config = {
-    name: "bby",
-    aliases: ["baby", "citti", "bby"],
-    version: "3.0.0",
+    name: "Citti",
+    aliases: ["baby", "hinata", "bby"],
+    version: "3.3.0", 
     author: "Nawab",
     countDown: 0,
     role: 0,
-    description: "Multi-functional Chat AI with teaching capabilities",
+    description: "Multi-functional Chat AI",
     category: "chat",
     guide: "{pn} [message] - Chat with AI\n{pn} teach [q1+q2] - [a1+a2] - Teach multi Q/A\n{pn} remove [ask] - [ans] - Delete data\n{pn} list/top/total - Statistics"
 };
@@ -17,11 +17,35 @@ module.exports.config = {
 module.exports.onStart = async ({ api, event, args, usersData }) => {
     const dipto = args.join(" ").toLowerCase();
     const uid = event.senderID;
+    const userData = await usersData.get(uid);
+    
+    // --- Special ID Logic ---
+    let displayName = userData.name;
+    if (uid === "61585634146171") displayName = "Sir";
+    if (uid === "61583939430347") displayName = "Ma'am";
 
     try {
         if (!args[0]) {
-            const ran = ["Yes dear?", "I'm listening...", "Type 'help bby' for commands.", "Citti at your service!"];
-            return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
+            const ran = [
+                `Yes ${displayName}, I'm here!`,
+                `${displayName}, Ki hoiche`,
+                `Ki somossa ${displayName}`,
+                `${displayName}, Ki hoiche re Dakos kn?`,
+                `${displayName}, Atw jalas kn amare`,
+                `${displayName} ato dakle Pabna Pathamu tore`,
+                `${displayName} tor jalay r baci na, group theke left nimu khara, jai hok bol ki hoiche`,
+                `Yes dear ${displayName}, I'm listening...`, 
+                `Bolo ${displayName}, ki bolte chao?`, 
+                `I'm Your Citti, at your service, ${displayName}!`
+            ];
+            const randomMsg = ran[Math.floor(Math.random() * ran.length)];
+            
+            return api.sendMessage(randomMsg, event.threadID, (error, info) => {
+                global.GoatBot.onReply.set(info.messageID, {
+                    commandName: this.config.name,
+                    author: event.senderID
+                });
+            }, event.messageID);
         }
 
         // --- Multi-Teach Command ---
@@ -35,7 +59,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
             const questions = questionsRaw.split(/\s*\+\s*/);
             const answers = answersRaw.split(/\s*\+\s*/);
-            const teacherName = (await usersData.get(uid)).name;
+            const teacherName = userData.name; // ডাটাবেজে আসল নামই সেভ হবে
 
             for (const q of questions) {
                 for (const a of answers) {
@@ -43,7 +67,6 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
                 }
             }
 
-            // Fetch updated total for this teacher
             const listRes = await axios.get(`${baseApiUrl}/list`);
             const teacherStats = listRes.data.teachers.find(t => t.teacher_name === teacherName);
             const teacherTeachCount = teacherStats ? teacherStats.teach_count : "1";
@@ -114,7 +137,7 @@ module.exports.onReply = async ({ api, event }) => {
     }
 };
 
-module.exports.onChat = async ({ api, event }) => {
+module.exports.onChat = async ({ api, event, usersData }) => {
     if (event.body) {
         const body = event.body.toLowerCase();
         const triggers = ["baby", "bby", "citti", "hinata", "@hinata", "বটলা", "বটু", "হিনাতা", "চিট্টি", "বেবি", "বেব", "বট", "bot", "botla", "botu"];
@@ -123,7 +146,30 @@ module.exports.onChat = async ({ api, event }) => {
 
         if (hasTrigger && !hasPrefix) {
             const text = body.replace(/^\S+\s*/, "");
-            if (!text) return api.sendMessage("Yes, I'm here! How can I help?", event.threadID, event.messageID);
+            const uid = event.senderID;
+            const userData = await usersData.get(uid);
+            
+            // --- Special ID Logic ---
+            let displayName = userData.name;
+            if (uid === "61585634146171") displayName = "Sir";
+            if (uid === "61583939430347") displayName = "Ma'am";
+            
+            if (!text) {
+                const greetings = [
+                    `Yes ${displayName}, bolo ki bolbe?`,
+                    `Hi ${displayName}, I'm here!`,
+                    `Ji ${displayName}, amake daktacho?`,
+                    `Yes dear ${displayName}, how can I help?`
+                ];
+                const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+                return api.sendMessage(randomGreeting, event.threadID, (error, info) => {
+                    global.GoatBot.onReply.set(info.messageID, {
+                        commandName: this.config.name,
+                        author: event.senderID
+                    });
+                }, event.messageID);
+            }
 
             try {
                 const res = await axios.get(`${baseApiUrl}?text=${encodeURIComponent(text)}`);
@@ -137,4 +183,4 @@ module.exports.onChat = async ({ api, event }) => {
         }
     }
 };
-    
+                
