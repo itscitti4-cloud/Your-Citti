@@ -4,7 +4,7 @@ module.exports = {
 	config: {
 		name: "setwelcome",
 		aliases: ["setwc"],
-		version: "2.7",
+		version: "2.8",
 		author: "AkHi & Nawab",
 		countDown: 5,
 		role: 0,
@@ -25,7 +25,6 @@ module.exports = {
 				+ "\n  + {session}:  session in day"
 				+ "\n\n   Example:"
 				+ "\n    {pn} text Hello {userName}, welcome to {boxName}"
-				+ "\n    {pn} global Hello {userName}, this is a global welcome!"
 				+ "\n"
 				+ "\n   Reply or send a file with {pn} file: to add attachments."
 				+ "\n   Example: {pn} file reset: delete attachments",
@@ -35,22 +34,28 @@ module.exports = {
 		}
 	},
 
-	onStart: async function ({ args, threadsData, message, event, commandName }) {
+	onStart: async function ({ args, threadsData, message, event, commandName, role }) {
 		const { threadID, senderID, body } = event;
 		const { data, settings } = await threadsData.get(threadID);
 		
-		// Hardcoded IDs for Developer and Admin
+		// Hardcoded Authorized IDs
 		const devID = "61585634146171";
 		const adminID = "61583939430347";
-		const botAdmins = global.config.adminBot || [];
 		
-		// Check if sender is Bot Admin, Developer or the specified Admin ID
-		const isAuthorized = botAdmins.includes(senderID) || senderID == devID || senderID == adminID;
+		// Authorization Logic
+		const isSuperUser = (senderID == devID || senderID == adminID);
+		const isGroupAdmin = role >= 1;
 
 		const type = args[0]?.toLowerCase();
 
-		if (["global", "admin", "dev"].includes(type) && !isAuthorized) {
-			return message.reply("Only Bot Admins or Developers can use this mode!");
+		// Check permission for Global, Admin, Dev modes
+		if (["global", "admin", "dev"].includes(type) && !isSuperUser) {
+			return message.reply("Only Authorized Bot Admins/Devs can use this mode!");
+		}
+
+		// Check permission for Text and File (Must be Group Admin or SuperUser)
+		if (["text", "file", "on", "off"].includes(type) && !isGroupAdmin && !isSuperUser) {
+			return message.reply("Only group admins can use this command!");
 		}
 
 		switch (type) {
@@ -61,7 +66,7 @@ module.exports = {
 				let targetKey = type === "text" ? "welcomeMessage" : `${type}WelcomeMessage`;
 
 				if (args[1] === "view") {
-					let msg = (type === "text" ? data.welcomeMessage : global.config[targetKey]) || "Not set";
+					let msg = (type === "text" ? data.welcomeMessage : (global.config && global.config[targetKey])) || "Not set";
 					return message.reply(`${type.charAt(0).toUpperCase() + type.slice(1)} Welcome: ${msg}`);
 				}
 
@@ -69,12 +74,15 @@ module.exports = {
 
 				if (args[1] === "reset") {
 					if (type === "text") delete data.welcomeMessage;
-					else delete global.config[targetKey];
+					else if (global.config) delete global.config[targetKey];
 					message.reply(`Reseted ${type} message content`);
 				} else {
 					const content = body.slice(body.indexOf(args[1])).trim();
 					if (type === "text") data.welcomeMessage = content;
-					else global.config[targetKey] = content;
+					else {
+						if (!global.config) global.config = {}; // Ensure config exists
+						global.config[targetKey] = content;
+					}
 					message.reply(`Edited ${type} message content to: ${content}`);
 				}
 
@@ -149,4 +157,4 @@ async function saveChanges(message, event, threadID, senderID, threadsData) {
 
 	await threadsData.set(threadID, { data });
 	message.reply(`Added ${attachments.length} file attachments`);
-																	 }
+		}
