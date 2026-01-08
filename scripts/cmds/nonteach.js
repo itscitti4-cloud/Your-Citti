@@ -1,29 +1,27 @@
 const axios = require('axios');
-
 const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
 
 module.exports.config = {
-    name: "non-teach",
-    aliases: ["nt", "nonteach"],
-    version: "2.0.0",
+    name: "nonteach",
+    aliases: ["nt"],
+    version: "3.0.0",
     author: "Nawab",
     countDown: 5,
     role: 0,
-    description: "Answer questions to help the bot learn.",
+    description: "Learn and answer questions.",
     category: "chat",
-    guide: "{pn}"
+    guide: "{pn} OR {pn} repeat"
 };
 
-module.exports.onStart = async ({ api, event }) => {
+module.exports.onStart = async ({ api, event, args }) => {
     try {
-        // API থেকে র্যান্ডম প্রশ্ন আনা
-        const response = await axios.get(`${baseApiUrl}/questions`);
+        const type = args[0] === "repeat" ? "repeat" : "new";
+        const response = await axios.get(`${baseApiUrl}/questions?type=${type}`);
         const randomQuestion = response.data.question;
-        const totalAvailable = Math.floor(Math.random() * 50000) + 100000;
 
-        const msg = `🧠 **Next Question:** 🤯\n\n"${randomQuestion}"\n\n📦 **Available:** ${totalAvailable}\n💬 Reply this message with your answer.`;
+        const msg = type === "repeat" ? `🔄 **Repeat Question (Add more answers):**\n\n"${randomQuestion}"` : `🧠 **Next Unanswered Question:**\n\n"${randomQuestion}"`;
 
-        return api.sendMessage(msg, event.threadID, (error, info) => {
+        return api.sendMessage(msg + `\n\n💬 Reply with answer!`, event.threadID, (error, info) => {
             global.GoatBot.onReply.set(info.messageID, {
                 commandName: this.config.name,
                 type: "teach_reply",
@@ -31,40 +29,24 @@ module.exports.onStart = async ({ api, event }) => {
                 author: event.senderID
             });
         }, event.messageID);
-
-    } catch (e) {
-        return api.sendMessage("⚠️ Server is busy. Try again later!", event.threadID, event.messageID);
-    }
+    } catch (e) { return api.sendMessage("⚠️ API Offline!", event.threadID); }
 };
 
 module.exports.onReply = async ({ api, event, Reply, usersData, Currencies }) => {
-    const { question, author, type } = Reply;
-    if (event.senderID !== author || type !== "teach_reply") return;
+    const { question, author } = Reply;
+    if (event.senderID !== author) return;
 
     try {
         const answer = event.body;
         const teacherName = (await usersData.get(author)).name;
-
-        // আপনার API-তে ডাটা সেভ করা (bby কমান্ডের ডাটাবেজেই সেভ হবে)
         await axios.get(`${baseApiUrl}/teach?ask=${encodeURIComponent(question)}&ans=${encodeURIComponent(answer)}&teacher=${encodeURIComponent(teacherName)}`);
-
-        // টিচারের মোট টিচ সংখ্যা জানার জন্য লিস্ট চেক করা
+        
+        if (Currencies) await Currencies.increaseMoney(author, 1000);
+        
         const listRes = await axios.get(`${baseApiUrl}/list`);
         const teacherStats = listRes.data.teachers.find(t => t.teacher_name === teacherName);
-        const totalTeachs = teacherStats ? teacherStats.teach_count : "1";
 
-        // রিওয়ার্ড সিস্টেম (GoatBot V2 এর জন্য)
-        if (Currencies) {
-            await Currencies.increaseMoney(author, 1000);
-        }
-
-        const successMsg = `✅ **Reply saved:**\nReplies "${answer}" added to "${question}".\n\n👤 **Teacher:** ${teacherName}\n📚 **Total Teachs:** ${totalTeachs}\n\n🎁 **Earned:** +1000$ & +100 EXP`;
-
-        api.sendMessage(successMsg, event.threadID, event.messageID);
+        api.sendMessage(`✅ **Saved!**\nTeacher: ${teacherName}\nTotal Teachs: ${teacherStats?.teach_count || 1}\n🎁 +1000$ & +100 EXP`, event.threadID, event.messageID);
         global.GoatBot.onReply.delete(Reply.messageID);
-
-    } catch (err) {
-        return api.sendMessage("❌ Error saving reply!", event.threadID, event.messageID);
-    }
+    } catch (err) { api.sendMessage("❌ Error!", event.threadID); }
 };
-          
