@@ -55,7 +55,7 @@ function formatCardNumber(cardNumber) {
 }
 
 function formatMoney(amount) {
-    return amount.toLocaleString("en-US");
+    return (amount || 0).toLocaleString("en-US");
 }
 
 function getExpiryDate() {
@@ -126,7 +126,7 @@ module.exports = {
     config: {
         name: "bank",
         aliases: ["atm", "bnk"],
-        version: "2.5",
+        version: "2.6",
         author: "AkHi",
         countDown: 5,
         role: 0,
@@ -258,8 +258,38 @@ module.exports = {
                     return message.reply(msg);
                 }
 
+                case "top": {
+                    const allUsers = await User.find({ "data.bank.accountNumber": { $exists: true } });
+                    const sorted = allUsers.sort((a, b) => (b.data.bank.balance + (b.data.bank.savings || 0)) - (a.data.bank.balance + (a.data.bank.savings || 0))).slice(0, 10);
+                    if (sorted.length === 0) return message.reply("❌ No bank accounts found in database.");
+                    
+                    let msg = `🏦 [ ${BANK_NAME} TOP 10 ]\n━━━━━━━━━━━━━━━━━━━━━\n`;
+                    sorted.forEach((u, i) => {
+                        const total = u.data.bank.balance + (u.data.bank.savings || 0);
+                        msg += `${i + 1}. ${u.name}\n💰 Balance: ${CURRENCY_SYMBOL}${formatMoney(total)}\n`;
+                    });
+                    return message.reply(msg);
+                }
+
+                case "rank": {
+                    let targetID = senderID;
+                    if (event.type === "message_reply") targetID = event.messageReply.senderID;
+                    else if (Object.keys(event.mentions).length > 0) targetID = Object.keys(event.mentions)[0];
+                    else if (args[1]) targetID = args[1];
+
+                    const allUsers = await User.find({ "data.bank.accountNumber": { $exists: true } });
+                    const sorted = allUsers.sort((a, b) => (b.data.bank.balance + (b.data.bank.savings || 0)) - (a.data.bank.balance + (a.data.bank.savings || 0)));
+                    
+                    const rankIndex = sorted.findIndex(u => u.userID == targetID);
+                    if (rankIndex === -1) return message.reply("❌ This user does not have a bank account.");
+                    
+                    const userRank = sorted[rankIndex];
+                    const total = userRank.data.bank.balance + (userRank.data.bank.savings || 0);
+                    return message.reply(`🏦 [ ${BANK_NAME} RANKING ]\n👤 User: ${userRank.name}\n🏆 Rank: #${rankIndex + 1} of ${sorted.length}\n💰 Total Holdings: ${CURRENCY_SYMBOL}${formatMoney(total)}`);
+                }
+
                 default:
-                    return message.reply("💡 Bank Commands: register, balance, deposit, withdraw, transfer, card, statement");
+                    return message.reply("💡 Bank Commands: register, balance, deposit, withdraw, transfer, card, statement, top, rank");
             }
         } catch (error) {
             console.error(error);
@@ -267,3 +297,4 @@ module.exports = {
         }
     }
 };
+                                                        
