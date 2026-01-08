@@ -1,15 +1,17 @@
 const axios = require('axios');
-
 const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
+
+// অনুমোদিত গ্রুপ আইডির তালিকা
+const allowedThreads = ["2593974107646263", "25416434654648555"];
 
 module.exports.config = {
     name: "citti",
     aliases: ["baby", "hinata", "bby"],
-    version: "3.3.0", 
+    version: "3.4.0", 
     author: "Nawab",
     countDown: 0,
     role: 0,
-    description: "Multi-functional Chat AI",
+    description: "Multi-functional Chat AI with Admin Restrictions",
     category: "chat",
     guide: "{pn} [message] - Chat with AI\n{pn} teach [q1+q2] - [a1+a2] - Teach multi Q/A\n{pn} remove [ask] - [ans] - Delete data\n{pn} list/top/total - Statistics"
 };
@@ -48,8 +50,12 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             }, event.messageID);
         }
 
-        // --- Multi-Teach Command ---
+        // --- Multi-Teach Command (Thread Restricted) ---
         if (args[0] === 'teach') {
+            if (!allowedThreads.includes(event.threadID)) {
+                return api.sendMessage(`⚠️ Access Restrictions! This group doesn't have permission to teach me.\n\nYou can teach me on our official groups. To join our support group, type: {p}supportgc`, event.threadID, event.messageID);
+            }
+
             const content = dipto.replace("teach ", "");
             const [questionsRaw, answersRaw] = content.split(/\s*-\s*/);
             
@@ -59,7 +65,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
             const questions = questionsRaw.split(/\s*\+\s*/);
             const answers = answersRaw.split(/\s*\+\s*/);
-            const teacherName = userData.name; // ডাটাবেজে আসল নামই সেভ হবে
+            const teacherName = userData.name;
 
             for (const q of questions) {
                 for (const a of answers) {
@@ -80,8 +86,12 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(successMsg, event.threadID, event.messageID);
         }
 
-        // --- Remove Command ---
+        // --- Remove Command (Thread Restricted) ---
         if (args[0] === 'remove') {
+            if (!allowedThreads.includes(event.threadID)) {
+                return api.sendMessage(`⚠️ Access Restrictions! This group doesn't have permission to modify my database.\n\nYou can contact admin or use our support group. Type: {p}supportgc`, event.threadID, event.messageID);
+            }
+
             const content = dipto.replace("remove ", "");
             const [ask, ans] = content.split(/\s*-\s*/);
             if (!ask || !ans) return api.sendMessage('❌ Use: remove question - answer', event.threadID, event.messageID);
@@ -183,4 +193,4 @@ module.exports.onChat = async ({ api, event, usersData }) => {
         }
     }
 };
-                
+        
