@@ -3,7 +3,7 @@ const axios = require('axios');
 const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
 
 module.exports.config = {
-    name: "Citti",
+    name: "citti",
     aliases: ["baby", "hinata", "bby"],
     version: "3.3.0", 
     author: "Nawab",
