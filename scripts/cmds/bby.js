@@ -1,200 +1,120 @@
 const axios = require('axios');
-const { MongoClient } = require("mongodb");
 
-const mongoURI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const dbName = "test";
-const collectionName = "babies";
-
-const ADMIN_1 = "61583939430347"; // আখি ম্যাম
-const ADMIN_2 = "61585634146171"; // নবাব সাহেব
+const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
 
 module.exports.config = {
     name: "bby",
-    aliases: ["baby", "bot", "citti"],
-    version: "3.2.1",
-    author: "AkHi",
-    countDown: 5,
+    aliases: ["baby", "citti", "bby"],
+    version: "2.0.0",
+    author: "Nawab",
+    countDown: 0,
     role: 0,
-    description: "Advanced Teach with Emoji Injection & Auto-Emoji Response",
+    description: "Chat with Citti AI (like simisim)",
     category: "chat",
-    guide: "{pn} [message]\n{pn} teach [Q] - [A]\n{pn} teach (hi/hello) 😊 - Hi Sweetie\n{pn} teach Q1 + Q2 - A1 + A2"
+    guide: "{pn} [message] - To talk\n{pn} teach [ask] - [ans] - To teach\n{pn} remove [ask] - [ans] - To remove\n{pn} list - To see teachers\n{pn} top - To see top teachers\n{pn} total - Total data count"
 };
 
-if (!global.babyContext) global.babyContext = new Map();
+module.exports.onStart = async ({ api, event, args, usersData }) => {
+    const dipto = args.join(" ").toLowerCase();
+    const uid = event.senderID;
 
-const autoEmojis = ["😊", "😇", "🙂", "😘", "😍", "🙈", "✨", "🌸", "💫", "🐾", "🐥", "🍬", "🎀","😾", "🥹", "🫩", "😴", "🙂", "🫡", "😩", "😕", "🐸", "🤨", "🦵", "😤", "🤫"];
-
-function cleanText(text) {
-    if (!text) return "";
-    return text.replace(/\s+/g, ' ').trim();
-}
-
-function createRegex(text) {
-    let pattern = cleanText(text);
-    pattern = pattern.replace(/[.*+?^${}|[\]\\]/g, '\\$&');
-    pattern = pattern.replace(/\\\((.*?)\\\)/g, (match, content) => {
-        return "(" + content.replace(/\\/g, '').split('/').map(s => s.trim()).join('|') + ")";
-    });
-    return new RegExp(`^${pattern}$`, "i");
-}
-
-async function getReply(text, senderID) {
-    let client;
     try {
-        client = new MongoClient(mongoURI);
-        await client.connect();
-        const db = client.db(dbName);
-        const collection = db.collection(collectionName);
-        
-        const cleanedInput = cleanText(text);
-        const allData = await collection.find({}).toArray();
-        
-        const match = allData.find(item => {
-            const regex = createRegex(item.question);
-            return regex.test(cleanedInput);
-        });
+        if (!args[0]) {
+            const ran = ["Bolo baby", "Hum bolo?", "Type help bby", "Citti is here!"];
+            return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
+        }
 
-        const hasEmoji = /\p{Emoji}/u.test(text);
-
-        if (match && match.answer) {
-            await client.close();
-            const answers = match.answer.split(/\s*\+\s*/);
-            let finalReply = answers[Math.floor(Math.random() * answers.length)];
+        // --- Teach Command ---
+        if (args[0] === 'teach') {
+            const content = dipto.replace("teach ", "");
+            const [ask, ans] = content.split(/\s*-\s*/);
+            if (!ask || !ans) return api.sendMessage('❌ Invalid format! Use: teach hi - hello', event.threadID, event.messageID);
             
-            const randomEmoji = autoEmojis[Math.floor(Math.random() * autoEmojis.length)];
-            if (!/\p{Emoji}/u.test(finalReply) || hasEmoji) {
-                finalReply += ` ${randomEmoji}`;
-            }
-            return finalReply;
+            const teacherName = (await usersData.get(uid)).name;
+            const res = await axios.get(`${baseApiUrl}/teach?ask=${encodeURIComponent(ask)}&ans=${encodeURIComponent(ans)}&teacher=${encodeURIComponent(teacherName)}`);
+            return api.sendMessage(`✅ Added! \nAsk: ${ask}\nAns: ${ans}\nTeacher: ${teacherName}`, event.threadID, event.messageID);
         }
-        await client.close();
 
-        // API কল করার সময় একই মেসেজ এড়াতে কন্ডিশন
-        const link = "https://baby-apisx.vercel.app/baby";
-        const res = await axios.get(`${link}?text=${encodeURIComponent(text)}&senderID=${senderID}&font=1`);
-        let apiReply = res.data.reply;
-
-        if (apiReply.includes("teach me") && text.length < 2) return "বলো জানু, শুনছি! 😊";
-
-        if (hasEmoji && !/\p{Emoji}/u.test(apiReply)) {
-            apiReply += ` ${autoEmojis[Math.floor(Math.random() * autoEmojis.length)]}`;
+        // --- Remove Command ---
+        if (args[0] === 'remove') {
+            const content = dipto.replace("remove ", "");
+            const [ask, ans] = content.split(/\s*-\s*/);
+            const res = await axios.get(`${baseApiUrl}/remove?ask=${encodeURIComponent(ask)}&ans=${encodeURIComponent(ans)}`);
+            return api.sendMessage(res.data.message, event.threadID, event.messageID);
         }
-        return apiReply;
-    } catch (err) {
-        if (client) await client.close();
-        return null;
-    }
-}
 
-// কমন রিপ্লাই ফাংশন (ডবল রিপ্লাই এড়াতে)
-async function handleReply(api, event, text) {
-    const reply = await getReply(text, event.senderID);
-    if (reply) {
-        global.babyContext.set(event.senderID, text);
-        api.sendMessage(reply, event.threadID, (err, info) => {
-            if (info) {
-                // রিপ্লাই সেট করা হচ্ছে যাতে চেইন বজায় থাকে
-                if (global.GoatBot && global.GoatBot.onReply) {
-                    global.GoatBot.onReply.set(info.messageID, { 
-                        commandName: "bby", 
-                        author: event.senderID 
-                    });
-                }
-            }
-        }, event.messageID);
-    }
-}
+        // --- List & Top ---
+        if (args[0] === 'list') {
+            const res = await axios.get(`${baseApiUrl}/list`);
+            const teachers = res.data.teachers.map(t => `• ${t.teacher_name}: ${t.teach_count}`).join('\n');
+            return api.sendMessage(`👑 Teacher List:\n${teachers}`, event.threadID, event.messageID);
+        }
 
-module.exports.onStart = async ({ api, event, args }) => {
-    const { threadID, messageID, senderID } = event;
-    const client = new MongoClient(mongoURI);
+        if (args[0] === 'top') {
+            const res = await axios.get(`${baseApiUrl}/top`);
+            const top = res.data.top_10_teachers.map((t, i) => `${i+1}. ${t.teacher_name}: ${t.teach_count}`).join('\n');
+            return api.sendMessage(`🏆 Top 10 Teachers:\n${top}`, event.threadID, event.messageID);
+        }
 
-    if (args[0] === 'teach') {
-        const content = args.slice(1).join(" ");
-        if (!content.includes('-')) return api.sendMessage('❌ | Format: teach [Q] - [A]', threadID, messageID);
-        let [questions, answers] = content.split(/\s*-\s*/);
-        const qList = questions.split(/\s*\+\s*/);
+        if (args[0] === 'total') {
+            const res = await axios.get(`${baseApiUrl}/total`);
+            return api.sendMessage(`📊 Total Database Count: ${res.data.total_commands}`, event.threadID, event.messageID);
+        }
+
+        // --- Default Chat ---
+        const res = await axios.get(`${baseApiUrl}?text=${encodeURIComponent(dipto)}`);
+        const reply = res.data.reply;
         
-        try {
-            await client.connect();
-            const collection = client.db(dbName).collection(collectionName);
-            for (let q of qList) {
-                await collection.updateOne(
-                    { question: q.trim() },
-                    { $set: { uid: String(senderID), answer: answers.trim(), time: new Date() } },
-                    { upsert: true }
-                );
-            }
-            await client.close();
-            return api.sendMessage(`✅ Added/Updated ${qList.length} questions!`, threadID, messageID);
-        } catch (e) { return api.sendMessage("❌ Error saving.", threadID, messageID); }
-    }
-
-    if (args[0] === 'rem' && args[1] === 'qus') {
-        const targetQ = args.slice(2).join(" ");
-        try {
-            await client.connect();
-            const res = await client.db(dbName).collection(collectionName).deleteMany({ 
-                question: targetQ.trim() 
+        return api.sendMessage(reply, event.threadID, (error, info) => {
+            global.GoatBot.onReply.set(info.messageID, {
+                commandName: this.config.name,
+                author: event.senderID
             });
-            await client.close();
-            return api.sendMessage(res.deletedCount > 0 ? `✅ Deleted.` : "❌ Not found.", threadID, messageID);
-        } catch (e) { return api.sendMessage("❌ Error.", threadID, messageID); }
+        }, event.messageID);
+
+    } catch (e) {
+        return api.sendMessage("API Error or Server Down!", event.threadID, event.messageID);
     }
-
-    // Top/List logic remain same...
-    if (args[0] === 'top' || args[0] === 'list') {
-        try {
-            await client.connect();
-            const collection = client.db(dbName).collection(collectionName);
-            if (args[0] === 'top') {
-                const topTeachers = await collection.aggregate([{ $group: { _id: "$uid", count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 10 }]).toArray();
-                let msg = "🏆 [ TOP TEACHERS ] 🏆\n\n";
-                for (let i = 0; i < topTeachers.length; i++) {
-                    try {
-                        const info = await api.getUserInfo(topTeachers[i]._id);
-                        msg += `${i + 1}. ${info[topTeachers[i]._id].name}: ${topTeachers[i].count} Teach\n`;
-                    } catch(e) { msg += `${i + 1}. Unknown: ${topTeachers[i].count}\n`; }
-                }
-                return api.sendMessage(msg, threadID, messageID);
-            }
-        } catch (e) { return api.sendMessage("Error.", threadID, messageID); }
-        finally { await client.close(); }
-    }
-
-    const input = args.join(" ");
-    if (!input) return api.sendMessage("জি জানু, বলো!", threadID, (err, info) => {
-        if (info) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: senderID });
-    }, messageID);
-
-    await handleReply(api, event, input);
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
-    if (Reply.commandName !== this.config.name) return;
-    // এখানে শুধু রিপ্লাই হ্যান্ডেল হবে
-    await handleReply(api, event, event.body);
+    try {
+        const res = await axios.get(`${baseApiUrl}?text=${encodeURIComponent(event.body)}`);
+        return api.sendMessage(res.data.reply, event.threadID, (error, info) => {
+            global.GoatBot.onReply.set(info.messageID, {
+                commandName: this.config.name,
+                author: event.senderID
+            });
+        }, event.messageID);
+    } catch (err) {
+        return api.sendMessage("Error connection!", event.threadID, event.messageID);
+    }
 };
 
 module.exports.onChat = async ({ api, event }) => {
-    if (event.senderID == api.getCurrentUserID() || !event.body) return;
-    const { threadID, messageID, senderID, mentions, body } = event;
+    if (event.body) {
+        const body = event.body.toLowerCase();
+        const triggers = ["baby", "bby", "citti", "hinata", "@hinata", "বটলা", "বটু", "হিনাতা", "চিট্টি", "বেবি", "বেব", "বট", "bot", "botla", "botu"];
+        
+        // চেক করবে মেসেজ ট্রিগার দিয়ে শুরু কি না এবং প্রিপিক্স আছে কি না
+        const hasTrigger = triggers.some(t => body.startsWith(t));
+        const hasPrefix = global.GoatBot.config.prefix && body.startsWith(global.GoatBot.config.prefix);
 
-    // মেনশন চেক
-    if (mentions && (mentions[ADMIN_1] || mentions[ADMIN_2])) {
-        const msg = mentions[ADMIN_1] ? "আখি ম্যাম'কে মেনশন দিছো কেন?" : "নবাব সাহেব'কে মেনশন দিছো কেন?";
-        return api.sendMessage(msg, threadID, messageID);
-    }
+        if (hasTrigger && !hasPrefix) {
+            const text = body.replace(/^\S+\s*/, "");
+            if (!text) return api.sendMessage("Bolo jaan?", event.threadID, event.messageID);
 
-    // যদি এটি কোনো রিপ্লাই হয়, তবে onReply এটি হ্যান্ডেল করবে। onChat এ ডবল রিপ্লাই এড়াতে রিপ্লাই কন্ডিশন বাদ দেওয়া হয়েছে।
-    if (event.messageReply && event.messageReply.senderID == api.getCurrentUserID()) return;
-
-    const lowerBody = body.toLowerCase();
-    const triggers = ["bby", "baby", "citti", "bot", "বেবি", "বট"];
-    const matchedTrigger = triggers.find(t => lowerBody.startsWith(t));
-
-    if (matchedTrigger) {
-        let text = body.slice(matchedTrigger.length).trim();
-        await handleReply(api, event, text || "হুম");
+            try {
+                const res = await axios.get(`${baseApiUrl}?text=${encodeURIComponent(text)}`);
+                return api.sendMessage(res.data.reply, event.threadID, (error, info) => {
+                    global.GoatBot.onReply.set(info.messageID, {
+                        commandName: this.config.name,
+                        author: event.senderID
+                    });
+                }, event.messageID);
+            } catch (err) {
+                console.log(err);
+            }
+        }
     }
 };
