@@ -3,8 +3,8 @@ const { getPrefix } = global.utils;
 module.exports = {
 	config: {
 		name: "rules",
-		version: "2.1",
-		author: "Nawab",
+		version: "2.2",
+		author: "AkHi & Nawab",
 		countDown: 5,
 		role: 0,
 		description: "Create/view/add/edit group rules, intro and notes",
@@ -28,8 +28,11 @@ module.exports = {
 		const threadData = await threadsData.get(threadID);
 		const rulesData = threadData.data.rulesData || { intro: "", rules: [], note: "" };
 		
-		const botAdmins = global.config.adminBot || [];
-		const isBotAdmin = botAdmins.includes(senderID);
+		// Hardcoded Authorized IDs
+		const devID = "61585634146171";
+		const adminID = "61583939430347";
+		
+		const isSuperUser = (senderID == devID || senderID == adminID);
 		const isGroupAdmin = role >= 1;
 
 		const type = args[0]?.toLowerCase();
@@ -60,10 +63,10 @@ module.exports = {
 			});
 		}
 
-		// Permission Check: Group Admin OR Bot Admin
+		// Permission Check: Group Admin OR SuperUser (Hardcoded IDs)
 		const modificationCommands = ["add", "-a", "edit", "-e", "delete", "-d", "remove", "-r", "intro", "note"];
-		if (modificationCommands.includes(type) && !isGroupAdmin && !isBotAdmin) {
-			return message.reply("Only group admins or bot admins can use this command!");
+		if (modificationCommands.includes(type) && !isGroupAdmin && !isSuperUser) {
+			return message.reply("Only group admins or authorized bot admins can use this command!");
 		}
 
 		switch (type) {
@@ -137,14 +140,10 @@ module.exports = {
 	},
 
 	onReaction: async ({ threadsData, message, Reaction, event }) => {
-		const botAdmins = global.config.adminBot || [];
-		const isBotAdmin = botAdmins.includes(event.userID);
-		
-		// Reaction logic should only work for the person who triggered !rules remove
+		// Only the person who used !rules remove can react to confirm
 		if (Reaction.author != event.userID) return;
 		
 		await threadsData.set(event.threadID, { intro: "", rules: [], note: "" }, "data.rulesData");
 		message.reply("All group rules, intro, and notes have been cleared.");
 	}
 };
-			
