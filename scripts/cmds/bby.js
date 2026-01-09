@@ -4,40 +4,40 @@ const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
 // অনুমোদিত গ্রুপ আইডির তালিকা
 const allowedThreads = ["2593974107646263", "25416434654648555"];
 
-// র্যান্ডম ইমোজি ফাংশন (বটের কথার শেষে যুক্ত হবে)
+// র্যান্ডম ইমোজি ফাংশন
 function getEmoji() {
     const emojis = ["😊", "😇", "😻", "✨", "🌸", "🧸", "🐥", "💫", "🍃", "🙃"];
     return emojis[Math.floor(Math.random() * emojis.length)];
 }
 
-// টেক্সট ক্লিন করার ফাংশন (ইমোজি এবং সিম্বল সরাবে)
+// টেক্সট ক্লিন করার ফাংশন (সিম্বল ও ইমোজি সরাবে)
 function cleanText(text) {
     if (!text) return "";
-    // ইমোজি এবং পাঙ্কচুয়েশন সরাবে, শুধু অক্ষর এবং স্পেস রাখবে
     return text.replace(/[^\w\s\u0980-\u09FF]/gi, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 module.exports.config = {
     name: "citti",
     aliases: ["baby", "hinata", "bby"],
-    version: "3.5.0", 
+    version: "3.5.1", 
     author: "Nawab",
     countDown: 0,
     role: 0,
-    description: "Multi-functional Chat AI with Symbol/Emoji Cleaner",
+    description: "Multi-functional Chat AI with Symbol/Emoji Cleaner and Fixed Stats",
     category: "chat",
     guide: "{pn} [message] - Chat with AI\n{pn} teach [q1+q2] - [a1+a2] - Teach multi Q/A\n{pn} remove [ask] - [ans] - Delete data\n{pn} list/top/total - Statistics"
 };
 
 module.exports.onStart = async ({ api, event, args, usersData }) => {
     const dipto = args.join(" ").toLowerCase();
-    const cleanedDipto = cleanText(dipto); // প্রশ্ন ক্লিন করা হলো
+    const cleanedDipto = cleanText(dipto);
     const uid = event.senderID;
     const userData = await usersData.get(uid);
     
+    // --- Sir/Ma'am Logic Fixed ---
     let displayName = userData.name;
     if (uid === "61585634146171") displayName = "Sir";
-    if (uid === "61583939430347") displayName = "Ma'am";
+    else if (uid === "61583939430347") displayName = "Ma'am";
 
     try {
         if (!args[0]) {
@@ -61,7 +61,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
         // --- Multi-Teach Command ---
         if (args[0] === 'teach') {
             if (!allowedThreads.includes(event.threadID)) {
-                return api.sendMessage(`⚠️ Access Restrictions! This group doesn't have permission to teach me.\n\nYou can teach me on our official groups. ${getEmoji()}`, event.threadID, event.messageID);
+                return api.sendMessage(`⚠️ Access Restrictions! This group doesn't have permission to teach me. ${getEmoji()}`, event.threadID, event.messageID);
             }
 
             const content = dipto.replace("teach ", "");
@@ -76,7 +76,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             const teacherName = userData.name;
 
             for (const q of questions) {
-                const qClean = cleanText(q); // টিচ করার সময়ও প্রশ্ন ক্লিন হবে
+                const qClean = cleanText(q);
                 for (const a of answers) {
                     await axios.get(`${baseApiUrl}/teach`, {
                         params: { ask: qClean, ans: a.trim(), teacher: teacherName },
@@ -85,7 +85,20 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
                 }
             }
 
-            const successMsg = `╭───『 **SUCCESSFUL** 』───⟡\n│ 📝 **Questions:** ${questions.length}\n│ 📩 **Answers:** ${answers.length}\n│ 👤 **Teacher:** ${teacherName}\n╰───────────────⟡ ${getEmoji()}`;
+            // --- Fetch Total Teach Stats ---
+            let teacherTeachCount = "1";
+            try {
+                const listRes = await axios.get(`${baseApiUrl}/list`);
+                const teacherStats = listRes.data.teachers.find(t => t.teacher_name === teacherName);
+                teacherTeachCount = teacherStats ? teacherStats.teach_count : "1";
+            } catch (err) { console.log("Stats fetch error"); }
+
+            const successMsg = `╭───『 **SUCCESSFUL** 』───⟡\n` +
+                               `│ 📝 **Questions:** ${questions.length}\n` +
+                               `│ 📩 **Answers:** ${answers.length}\n` +
+                               `│ 👤 **Teacher:** ${teacherName}\n` +
+                               `│ 📊 **Your Total Teach:** ${teacherTeachCount}\n` +
+                               `╰───────────────⟡ ${getEmoji()}`;
             return api.sendMessage(successMsg, event.threadID, event.messageID);
         }
 
@@ -96,6 +109,8 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             }
             const content = dipto.replace("remove ", "");
             const [ask, ans] = content.split(/\s*-\s*/);
+            if (!ask || !ans) return api.sendMessage('❌ Use: remove q - a', event.threadID, event.messageID);
+            
             const res = await axios.get(`${baseApiUrl}/remove`, {
                 params: { ask: cleanText(ask), ans: ans.trim() }
             });
@@ -109,9 +124,20 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(`📜 **Teacher Contributions:**\n${teachers} ${getEmoji()}`, event.threadID, event.messageID);
         }
 
-        // --- Default Chat (With Cleaner & Emoji) ---
+        if (args[0] === 'top') {
+            const res = await axios.get(`${baseApiUrl}/top`);
+            const top = res.data.top_10_teachers.map((t, i) => `🏆 ${i+1}. ${t.teacher_name} (${t.teach_count})`).join('\n');
+            return api.sendMessage(`🌟 **Top 10 Contributors:**\n${top} ${getEmoji()}`, event.threadID, event.messageID);
+        }
+
+        if (args[0] === 'total') {
+            const res = await axios.get(`${baseApiUrl}/total`);
+            return api.sendMessage(`📊 **Global Database:** ${res.data.total_commands} entries. ${getEmoji()}`, event.threadID, event.messageID);
+        }
+
+        // --- Default Chat ---
         const chatRes = await axios.get(`${baseApiUrl}`, {
-            params: { text: cleanedDipto }, // ক্লিন করা টেক্সট পাঠানো হলো
+            params: { text: cleanedDipto },
             timeout: 10000
         });
         return api.sendMessage(`${chatRes.data.reply} ${getEmoji()}`, event.threadID, (error, info) => {
@@ -156,8 +182,10 @@ module.exports.onChat = async ({ api, event, usersData }) => {
             const cleanedText = cleanText(rawText);
             const uid = event.senderID;
             const userData = await usersData.get(uid);
+            
             let displayName = userData.name;
             if (uid === "61585634146171") displayName = "Sir";
+            else if (uid === "61583939430347") displayName = "Ma'am";
             
             if (!cleanedText) {
                 return api.sendMessage(`Yes ${displayName}, bolo ki bolbe? ${getEmoji()}`, event.threadID, (error, info) => {
@@ -183,4 +211,4 @@ module.exports.onChat = async ({ api, event, usersData }) => {
         }
     }
 };
-            
+        
