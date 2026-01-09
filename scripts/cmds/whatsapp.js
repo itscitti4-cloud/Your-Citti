@@ -5,7 +5,7 @@ const path = require('path');
 module.exports.config = {
     name: "whatsapp",
     aliases: ["wa"],
-    version: "1.2.6",
+    version: "1.3.0",
     author: "Nawab",
     countDown: 5,
     role: 0,
@@ -29,17 +29,19 @@ module.exports.onStart = async ({ api, event, args }) => {
     const tempPath = path.join(cacheDir, `wa_dp_${cleanNumber}.jpg`);
 
     try {
-        api.sendMessage("🔍 Fetching profile picture, please wait...", threadID, messageID);
+        const wait = await api.sendMessage("🔍 Fetching profile picture, please wait...", threadID);
 
-        // একটি পাবলিক এপিআই ব্যবহার করা হচ্ছে (এটি পরিবর্তন হতে পারে)
-        // Note: WhatsApp প্রোফাইল পিকচার অনেক সময় প্রাইভেসি সেটিংসের কারণে পাওয়া যায় না
-        const imgUrl = `https://api.vyturex.com/wa-pp?number=${cleanNumber}`;
+        // বিকল্প এপিআই সোর্স যা বর্তমানে বেশি কাজ করছে
+        const imgUrl = `https://wa-pfp-downloader.onrender.com/api/get-pfp?number=${cleanNumber}`;
 
         const response = await axios({
             url: imgUrl,
             method: 'GET',
             responseType: 'stream',
-            timeout: 15000
+            timeout: 20000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36'
+            }
         });
 
         const writer = fs.createWriteStream(tempPath);
@@ -48,10 +50,11 @@ module.exports.onStart = async ({ api, event, args }) => {
         writer.on('finish', async () => {
             const stats = fs.statSync(tempPath);
             
-            // যদি ফাইল খুব ছোট হয় বা কোনো ডিফল্ট ইমেজ আসে
-            if (stats.size < 500) { 
+            // ফাইলের সাইজ চেক করা হচ্ছে (খুব ছোট হলে সেটি এরর পেজ হতে পারে)
+            if (stats.size < 1000) { 
                 if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-                return api.sendMessage("❌ Profile picture is private or the number is not on WhatsApp.", threadID, messageID);
+                api.unsendMessage(wait.messageID);
+                return api.sendMessage("❌ Profile picture is private or the number is not on WhatsApp. (Make sure to include country code)", threadID, messageID);
             }
 
             await api.sendMessage({
@@ -60,14 +63,16 @@ module.exports.onStart = async ({ api, event, args }) => {
             }, threadID);
 
             if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+            api.unsendMessage(wait.messageID);
         });
 
         writer.on('error', () => {
-            api.sendMessage("❌ Write error occurred while saving the image.", threadID, messageID);
+            api.unsendMessage(wait.messageID);
+            api.sendMessage("❌ Error while saving the image.", threadID, messageID);
         });
 
     } catch (error) {
         console.error("WA Fetch Error:", error.message);
-        api.sendMessage(`❌ Error: Could not fetch image. Ensure the number has a public DP and is on WhatsApp.`, threadID, messageID);
+        api.sendMessage(`❌ API Error: বর্তমানে সার্ভার রেসপন্স করছে না। পরে আবার চেষ্টা করুন অথবা নম্বরটি চেক করুন।`, threadID, messageID);
     }
 };
