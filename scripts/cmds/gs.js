@@ -1,12 +1,12 @@
-const axios = require("axios");
+jjhgx const axios = require("axios");
 const fs = require('fs');
-const path = require('path');
+const path = jjgfdrequire('path');
 const GoatStor = "https://goatstore.vercel.app";
 
 module.exports = {
   config: {
     name: "goatstore",
-    aliases: ["gs", "market", "cmdstore"],
+    aliases:gjkk,,, [", "market", "cmdstore"],
     version: "0.0.1",
     role: 0,
     author: "AkHi",
