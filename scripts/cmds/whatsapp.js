@@ -9,7 +9,7 @@ module.exports.config = {
     author: "Nawab",
     countDown: 5,
     role: 0,
-    description: "Download WhatsApp profile picture by number using multiple sources.",
+    description: "Download WhatsApp profile picture by number using your own API.",
     category: "utility",
     guide: "{pn} [phone_number]"
 };
@@ -29,19 +29,22 @@ module.exports.onStart = async ({ api, event, args }) => {
     const tempPath = path.join(cacheDir, `wa_dp_${cleanNumber}.jpg`);
 
     try {
-        const wait = await api.sendMessage("🔍 Searching multiple servers, please wait...", threadID);
+        const wait = await api.sendMessage("🔍 Searching profile picture via your API...", threadID);
 
-        // Source 1: This is a robust gateway
-        const imgUrl = `https://wa-profile-pic.onrender.com/fetch?number=${cleanNumber}`;
+        // --- আপনার Render API লিঙ্কটি এখানে বসান ---
+        // উদাহরণ: https://nawab-api.onrender.com
+        const yourApiUrl = "আপনার-রেন্ডার-লিঙ্ক-এখানে-দিন"; 
         
-        // রিকোয়েস্ট পাঠানো হচ্ছে
+        const imgUrl = `${yourApiUrl}/api/whatsapp?number=${cleanNumber}`;
+        
+        // আপনার API থেকে ইমেজ জেনারেট করে স্ট্রিম করা হচ্ছে
         const response = await axios({
             url: imgUrl,
             method: 'GET',
             responseType: 'stream',
             timeout: 25000,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
         });
 
@@ -49,13 +52,18 @@ module.exports.onStart = async ({ api, event, args }) => {
         response.data.pipe(writer);
 
         writer.on('finish', async () => {
+            if (!fs.existsSync(tempPath)) {
+                api.unsendMessage(wait.messageID);
+                return api.sendMessage("❌ Failed to download image from API.", threadID, messageID);
+            }
+
             const stats = fs.statSync(tempPath);
             
-            // যদি এপিআই থেকে কোনো ছবি না পাওয়া যায় তবে ছোট ফাইল আসবে
+            // সাইজ চেক (যদি ছবি না পাওয়া যায় তবে ছোট সাইজ হবে)
             if (stats.size < 2000) { 
                 if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
                 api.unsendMessage(wait.messageID);
-                return api.sendMessage("❌ প্রোফাইল পিকচারটি 'Private' করা অথবা এই নম্বরে হোয়াটসঅ্যাপ নেই।\n\nপরামর্শ: নম্বরটি অবশ্যই কান্ট্রি কোড সহ দিন (যেমন: 88017...)", threadID, messageID);
+                return api.sendMessage("❌ প্রোফাইল পিকচারটি পাওয়া যায়নি। নম্বরটি সঠিক কিনা বা এটি 'Private' কিনা চেক করুন।", threadID, messageID);
             }
 
             await api.sendMessage({
@@ -63,12 +71,18 @@ module.exports.onStart = async ({ api, event, args }) => {
                 attachment: fs.createReadStream(tempPath)
             }, threadID);
 
+            // ক্যাশ ফাইল ডিলিট
             if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
             api.unsendMessage(wait.messageID);
         });
 
+        writer.on('error', (err) => {
+            console.error("Writer Error:", err);
+            api.sendMessage("⚠️ Error saving the image.", threadID, messageID);
+        });
+
     } catch (error) {
         console.error("WA Fetch Error:", error.message);
-        api.sendMessage(`❌ সার্ভার বর্তমানে ওভারলোডেড। কয়েক মিনিট পর আবার চেষ্টা করুন অথবা নিশ্চিত হোন যে নম্বরটি সঠিক।`, threadID, messageID);
+        api.sendMessage(`❌ আপনার API সার্ভার বর্তমানে রেসপন্স দিচ্ছে না। নিশ্চিত হোন যে আপনার Render সার্ভারটি চালু আছে।`, threadID, messageID);
     }
 };
