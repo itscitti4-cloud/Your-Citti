@@ -1,11 +1,11 @@
 const axios = require('axios');
-const fs = require('fs-extra'); // fs এর বদলে fs-extra ব্যবহার করা ভালো
+const fs = require('fs');
 const path = require('path');
 
 module.exports.config = {
     name: "whatsapp",
     aliases: ["wa"],
-    version: "1.1.0",
+    version: "1.2.0",
     author: "Nawab",
     countDown: 5,
     role: 0,
@@ -24,53 +24,56 @@ module.exports.onStart = async ({ api, event, args }) => {
     // নম্বর থেকে শুধু ডিজিট রাখা
     const cleanNumber = number.replace(/[^\d]/g, '');
 
-    // ক্যাশ ফোল্ডার চেক করা
+    // ক্যাশ ফোল্ডার পাথ নিশ্চিত করা
     const cacheDir = path.join(__dirname, 'cache');
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
 
-    const tempPath = path.join(cacheDir, `wa_dp_${cleanNumber}.jpg`);
+    const tempPath = path.join(cacheDir, `wa_dp_${cleanNumber}.png`);
 
     try {
-        api.sendMessage("🔍 Fetching profile picture, please wait...", event.threadID, event.messageID);
+        const waitMessage = await api.sendMessage("🔍 Fetching profile picture, please wait...", event.threadID);
 
-        // বিকল্প এপিআই সোর্স (এটি সাধারণত পাবলিক ডিপি ফেচ করতে ভালো কাজ করে)
-        const imgUrl = `https://api.whatsapp.com/v1/profile-picture/${cleanNumber}?size=large`;
-        
-        // কিছু ক্ষেত্রে এই লিঙ্কটি কাজ করে: 
-        // const imgUrl = `https://pps.whatsapp.net/v/t61.2488-24/...` (এটি সরাসরি পাওয়া কঠিন)
-        // তাই আমরা একটি স্থিতিশীল গেটওয়ে ব্যবহার করার চেষ্টা করছি:
-        const proxyUrl = `https://wa-profile-pic-downloader.vercel.app/api/photo?number=${cleanNumber}`;
+        // স্টেবল পাবলিক গেটওয়ে ব্যবহার করা হয়েছে
+        const imgUrl = `https://unwa.me/v1/profile-picture/${cleanNumber}`;
 
         const response = await axios({
-            url: proxyUrl, // আমি এখানে একটি প্রক্সি গেটওয়ে সাজেস্ট করছি
+            url: imgUrl,
             method: 'GET',
             responseType: 'stream',
-            timeout: 10000
+            timeout: 15000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
         });
 
         const writer = fs.createWriteStream(tempPath);
         response.data.pipe(writer);
 
-        writer.on('finish', () => {
-            if (fs.statSync(tempPath).size < 1000) { // যদি ফাইল সাইজ খুব ছোট হয় (অর্থাৎ ইমেজ পাওয়া যায়নি)
-                fs.unlinkSync(tempPath);
-                return api.sendMessage("❌ Profile picture is private or not found for this number.", event.threadID, event.messageID);
+        writer.on('finish', async () => {
+            // চেক করা হচ্ছে ফাইলটি আসলেও ইমেজ কি না (খালি ফাইল বা এরর পেজ কি না)
+            const stats = fs.statSync(tempPath);
+            if (stats.size < 500) { 
+                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+                return api.sendMessage("❌ Profile picture is private or not set for this number.", event.threadID, event.messageID);
             }
 
-            api.sendMessage({
+            await api.sendMessage({
                 body: `✅ WhatsApp Profile Picture found for: +${cleanNumber}`,
                 attachment: fs.createReadStream(tempPath)
-            }, event.threadID, () => {
-                if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-            }, event.messageID);
+            }, event.threadID);
+
+            // ফাইল পাঠানো হয়ে গেলে ডিলিট করা
+            if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+            if (waitMessage) api.unsendMessage(waitMessage.messageID);
         });
 
-        writer.on('error', () => {
-            api.sendMessage("❌ Error while downloading the image.", event.threadID, event.messageID);
+        writer.on('error', (err) => {
+            console.error(err);
+            api.sendMessage("❌ Write error occurred.", event.threadID, event.messageID);
         });
 
     } catch (error) {
-        console.error(error.message);
-        api.sendMessage("❌ Could not fetch the image. The number might be invalid, or the profile picture is set to 'Nobody'.", event.threadID, event.messageID);
+        console.error("WA Fetch Error:", error.message);
+        api.sendMessage("❌ Could not connect to the server. Make sure the number is correct with country code.", event.threadID, event.messageID);
     }
 };
