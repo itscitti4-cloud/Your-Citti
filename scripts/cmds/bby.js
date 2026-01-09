@@ -34,7 +34,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     const uid = event.senderID;
     const userData = await usersData.get(uid);
     
-    let displayName = userData.name;
+    let displayName = userData?.name || "User";
     if (uid === "61585634146171") displayName = "Sir";
     else if (uid === "61583939430347") displayName = "Ma'am";
 
@@ -67,14 +67,14 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
             const questions = questionsRaw.split(/\s*\+\s*/);
             const answers = answersRaw.split(/\s*\+\s*/);
-            const teacherName = userData.name;
+            const teacherName = userData?.name || "Unknown";
 
             for (const q of questions) {
                 const qClean = cleanText(q);
                 for (const a of answers) {
                     await axios.get(`${baseApiUrl}/teach`, {
                         params: { ask: qClean, ans: a.trim(), teacher: teacherName },
-                        timeout: 20000 // টিচ করার সময় সময় বেশি দেওয়া হয়েছে
+                        timeout: 20000 
                     });
                 }
             }
@@ -107,10 +107,9 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             return api.sendMessage(`${msg} ${getEmoji()}`, event.threadID, event.messageID);
         }
 
-        // --- Chat Request with Validation ---
         const chatRes = await axios.get(`${baseApiUrl}`, {
             params: { text: cleanedDipto },
-            timeout: 20000 // ১৫ সেকেন্ডের পরিবর্তে ২০ সেকেন্ড করা হয়েছে
+            timeout: 20000 
         });
 
         if (chatRes.data && chatRes.data.reply) {
@@ -127,16 +126,23 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     }
 };
 
-module.exports.onReply = async ({ api, event }) => {
+module.exports.onReply = async ({ api, event, Reply }) => {
+    // Reply অবজেক্ট ব্যবহার করে নিশ্চিত করা হয়েছে যে এটি এই কমান্ডেরই রিপ্লাই
     try {
         const cleanedReply = cleanText(event.body);
+        if (!cleanedReply) return;
+
         const res = await axios.get(`${baseApiUrl}`, { params: { text: cleanedReply }, timeout: 20000 });
         if (res.data && res.data.reply) {
             return api.sendMessage(`${res.data.reply} ${getEmoji()}`, event.threadID, (error, info) => {
-                global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
+                global.GoatBot.onReply.set(info.messageID, { 
+                    commandName: this.config.name, 
+                    author: event.senderID 
+                });
             }, event.messageID);
         }
     } catch (err) {
+        console.error("Reply Error:", err.message);
         return api.sendMessage(`⚠️ Connection ektu slow, abar reply dao! ${getEmoji()}`, event.threadID, event.messageID);
     }
 };
@@ -149,15 +155,20 @@ module.exports.onChat = async ({ api, event, usersData }) => {
         const hasPrefix = global.GoatBot.config.prefix && body.startsWith(global.GoatBot.config.prefix);
 
         if (hasTrigger && !hasPrefix) {
-            const rawText = body.replace(/^\S+\s*/, "");
+            // ট্রিগার শব্দটা বাদ দিয়ে মেইন টেক্সট বের করা
+            const triggerUsed = triggers.find(t => body.startsWith(t));
+            const rawText = body.slice(triggerUsed.length).trim();
             const cleanedText = cleanText(rawText);
+            
             const uid = event.senderID;
             const userData = await usersData.get(uid);
-            let displayName = userData.name;
+            let displayName = userData?.name || "User";
             if (uid === "61585634146171") displayName = "Sir";
             else if (uid === "61583939430347") displayName = "Ma'am";
             
-            if (!cleanedText) return api.sendMessage(`Yes ${displayName}, bolo ki bolbe? ${getEmoji()}`, event.threadID);
+            if (!cleanedText) return api.sendMessage(`Yes ${displayName}, bolo ki bolbe? ${getEmoji()}`, event.threadID, (error, info) => {
+                global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
+            });
 
             try {
                 const res = await axios.get(`${baseApiUrl}`, { params: { text: cleanedText }, timeout: 20000 });
@@ -170,3 +181,4 @@ module.exports.onChat = async ({ api, event, usersData }) => {
         }
     }
 };
+                                 
