@@ -33,9 +33,9 @@ module.exports.onStart = async ({ api, event, args }) => {
 
         // --- আপনার Render API লিঙ্কটি এখানে বসান ---
         // উদাহরণ: https://nawab-api.onrender.com
-        const yourApiUrl = "আপনার-রেন্ডার-লিঙ্ক-এখানে-দিন"; 
+        const yourApiUrl = "https://nawab-api.onrender.com"; 
         
-        const imgUrl = `${yourApiUrl}/api/whatsapp?number=${cleanNumber}`;
+        const imgUrl = `https://nawab-api.onrender.com/api/whatsapp?number=${cleanNumber}`;
         
         // আপনার API থেকে ইমেজ জেনারেট করে স্ট্রিম করা হচ্ছে
         const response = await axios({
