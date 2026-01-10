@@ -3,7 +3,7 @@ const antispamConfig = new Map();
 module.exports = {
   config: {
     name: "antispam",
-    version: "1.0.0",
+    version: "1.0.1",
     author: "AkHi",
     countDown: 5,
     role: 1, // Only admins can configure
@@ -37,7 +37,8 @@ module.exports = {
     if (!global.antispamStatus || !global.antispamStatus.get(threadID)) return;
 
     // Don't monitor bot or admins
-    if (senderID === api.getCurrentUserID()) return;
+    const botID = api.getCurrentUserID();
+    if (senderID === botID) return;
 
     const now = Date.now();
     const threadData = antispamConfig.get(threadID + senderID) || { count: 0, lastMessage: now };
@@ -55,6 +56,15 @@ module.exports = {
     // If user sends more than 5 messages in 5 seconds
     if (threadData.count > 5) {
       try {
+        // Fetch thread info to check if bot is admin
+        const threadInfo = await api.getThreadInfo(threadID);
+        const adminIDs = threadInfo.adminIDs.map(admin => admin.id);
+
+        if (!adminIDs.includes(botID)) {
+          antispamConfig.delete(threadID + senderID); // Reset to avoid spamming the warning
+          return message.reply("Security Alert: Spam detected, but I cannot remove the user because I am not an admin in this group.");
+        }
+
         // Clear data to prevent infinite loop
         antispamConfig.delete(threadID + senderID);
 
@@ -67,4 +77,3 @@ module.exports = {
     }
   }
 };
-        
