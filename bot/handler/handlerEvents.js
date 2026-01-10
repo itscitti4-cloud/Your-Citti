@@ -921,7 +921,27 @@ module.exports = function (api, threadModel, userModel, dashBoardModel, globalMo
                  +------------------------------------------------+
                 */
                 async function typ() {
-                        // Your code here
+                                        // —————— GLOBAL MENTION FIX —————— //
+                if (event.body && event.body.includes("@") && Object.keys(event.mentions || {}).length === 0) {
+                    try {
+                        const threadInfo = await api.getThreadInfo(threadID);
+                        const participantIDs = threadInfo.participantIDs;
+                        for (let id of participantIDs) {
+                            const name = (await usersData.getName(id)).toLowerCase();
+                            if (event.body.toLowerCase().includes(name)) {
+                                event.mentions = event.mentions || {};
+                                event.mentions[id] = name;
+                            }
+                        }
+                    } catch (e) { /* ignore error */ }
+                }
+
+                if (event.messageReply && Object.keys(event.mentions || {}).length === 0) {
+                    event.mentions = event.mentions || {};
+                    event.mentions[event.messageReply.senderID] = event.body;
+                }
+                // ———————————————————————————————— //
+                        
                 }
 
                 return {
