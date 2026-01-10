@@ -3,7 +3,7 @@ const { getTime } = global.utils;
 module.exports = {
 	config: {
 		name: "warn",
-		version: "1.8",
+		version: "1.9",
 		author: "AkHi",
 		countDown: 5,
 		role: 0,
@@ -12,16 +12,8 @@ module.exports = {
 			en: "warn member in group, if they have 3 warns, they will be banned"
 		},
 		category: "box chat",
-		guide: {
-			vi: "   {pn} @tag <lý do>: dùng cảnh cáo thành viên"
-				+ "\n   {pn} list: xem danh sách những thành viên đã bị cảnh cáo"
-				+ "\n   {pn} listban: xem danh sách những thành viên đã bị cảnh cáo đủ 3 lần và bị ban khỏi box"
-				+ "\n   {pn} info [@tag | <uid> | reply | để trống]: xem thông tin cảnh cáo của người được tag hoặc uid hoặc bản thân"
-				+ "\n   {pn} unban [@tag | <uid> | reply | để trống]: gỡ ban thành viên, đồng thời gỡ tất cả cảnh cáo của thành viên đó"
-				+ "\n   {pn} unwarn [@tag | <uid> | reply | để trống] [<số thứ tự> | để trống]: gỡ cảnh cáo thành viên bằng uid và số thứ tự cảnh cáo, nếu để trống sẽ gỡ cảnh cáo cuối cùng"
-				+ "\n   {pn} reset: reset tất cả dữ liệu cảnh cáo"
-				+ "\n⚠ Cần set quản trị viên cho bot để bot tự kick thành viên bị ban",
-			en: "   {pn} @tag <reason>: warn member"
+		guide: 
+			      "   {pn} @tag <reason>: warn member"
 				+ "\n   {pn} list: view list of warned members"
 				+ "\n   {pn} listban: view list of banned members"
 				+ "\n   {pn} info [@tag | <uid> | reply | leave blank]: view warning information of tagged person or uid or yourself"
@@ -29,7 +21,7 @@ module.exports = {
 				+ "\n   {pn} unwarn [@tag | <uid> | reply | leave blank] [<number> | leave blank]: remove warning of member by uid and number of warning, if leave blank will remove the last warning"
 				+ "\n   {pn} reset: reset all warn data"
 				+ "\n⚠ You need to set admin for bot to auto kick banned members"
-		}
+		
 	},
 
 	langs: {
@@ -255,31 +247,38 @@ module.exports = {
 
 				const userName = await usersData.getName(uid);
 				if (times >= 3) {
-					message.reply(getLang("warnSuccess", userName, times, uid, reason, dateTime, prefix), () => {
+					message.reply(getLang("warnSuccess", userName, times, uid, reason, dateTime, prefix), async () => {
+						// সরাসরি ফেসবুক থেকে ডাটা নিয়ে অ্যাডমিন চেক
+						const threadInfo = await api.getThreadInfo(threadID);
+						const botID = api.getCurrentUserID();
+						const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id === botID);
+
+						if (!isBotAdmin) {
+							return message.reply(getLang("noPermission5"), (e, info) => {
+								const { onEvent } = global.GoatBot;
+								onEvent.push({
+									messageID: info.messageID,
+									onStart: async ({ event }) => {
+										if (event.logMessageType === "log:thread-admins" && event.logMessageData.ADMIN_EVENT == "add_admin") {
+											const { TARGET_ID } = event.logMessageData;
+											if (TARGET_ID == api.getCurrentUserID()) {
+												const warnList = await threadsData.get(event.threadID, "data.warn", []);
+												if ((warnList.find(user => user.uid == uid)?.list.length ?? 0) < 3)
+													global.GoatBot.onEvent = onEvent.filter(item => item.messageID != info.messageID);
+												else
+													api.removeUserFromGroup(uid, event.threadID, () => global.GoatBot.onEvent = onEvent.filter(item => item.messageID != info.messageID));
+											}
+										}
+									}
+								});
+							});
+						}
+
 						api.removeUserFromGroup(uid, threadID, async (err) => {
 							if (err) {
 								const members = await threadsData.get(event.threadID, "members");
-								if (members.find(item => item.userID == uid)?.inGroup) // check if user is still in group
+								if (!members.find(item => item.userID == uid)?.inGroup)
 									return message.reply(getLang("userNotInGroup", userName));
-								else
-									return message.reply(getLang("noPermission5"), (e, info) => {
-										const { onEvent } = global.GoatBot;
-										onEvent.push({
-											messageID: info.messageID,
-											onStart: async ({ event }) => {
-												if (event.logMessageType === "log:thread-admins" && event.logMessageData.ADMIN_EVENT == "add_admin") {
-													const { TARGET_ID } = event.logMessageData;
-													if (TARGET_ID == api.getCurrentUserID()) {
-														const warnList = await threadsData.get(event.threadID, "data.warn", []);
-														if ((warnList.find(user => user.uid == uid)?.list.length ?? 0) <= 3)
-															global.GoatBot.onEvent = onEvent.filter(item => item.messageID != info.messageID);
-														else
-															api.removeUserFromGroup(uid, event.threadID, () => global.GoatBot.onEvent = onEvent.filter(item => item.messageID != info.messageID));
-													}
-												}
-											}
-										});
-									});
 							}
 						});
 					});
@@ -294,7 +293,8 @@ module.exports = {
 		const { logMessageType, logMessageData } = event;
 		if (logMessageType === "log:subscribe") {
 			return async () => {
-				const { data, adminIDs } = await threadsData.get(event.threadID);
+				const threadInfo = await api.getThreadInfo(event.threadID);
+				const { data } = await threadsData.get(event.threadID);
 				const warnList = data.warn || [];
 				if (!warnList.length)
 					return;
@@ -318,7 +318,10 @@ module.exports = {
 
 				if (hasBanned.length) {
 					await message.send(getLang("hasBanned", hasBanned.map(item => `  - ${item.name} (uid: ${item.uid})`).join("\n")));
-					if (!adminIDs.includes(api.getCurrentUserID()))
+					const botID = api.getCurrentUserID();
+					const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id === botID);
+
+					if (!isBotAdmin) {
 						message.reply(getLang("noPermission5"), (e, info) => {
 							const { onEvent } = global.GoatBot;
 							onEvent.push({
@@ -338,6 +341,7 @@ module.exports = {
 								}
 							});
 						});
+					}
 					else {
 						const members = await threadsData.get(event.threadID, "members");
 						removeUsers(hasBanned, warnList, api, event, message, getLang, members);
@@ -351,9 +355,9 @@ module.exports = {
 async function removeUsers(hasBanned, warnList, api, event, message, getLang, members) {
 	const failed = [];
 	for (const user of hasBanned) {
-		if (members.find(item => item.userID == user.uid)?.inGroup) { // check if user is still in group
+		if (members.find(item => item.userID == user.uid)?.inGroup) { 
 			try {
-				if (warnList.find(item => item.uid == user.uid)?.list.length ?? 0 >= 3)
+				if ((warnList.find(item => item.uid == user.uid)?.list.length ?? 0) >= 3)
 					await api.removeUserFromGroup(user.uid, event.threadID);
 			}
 			catch (e) {
@@ -366,4 +370,5 @@ async function removeUsers(hasBanned, warnList, api, event, message, getLang, me
 	}
 	if (failed.length)
 		message.reply(getLang("failedKick", failed.map(item => `  - ${item.name} (uid: ${item.uid})`).join("\n")));
-}
+				}
+			
