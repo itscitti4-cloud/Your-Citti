@@ -4,7 +4,7 @@ const path = require("path");
 module.exports = {
   config: {
     name: "lock",
-    version: "1.5.0",
+    version: "1.5.1",
     role: 1,
     author: "AkHi",
     description: "group name, theme, Emoji And cover lock/antichange",
@@ -25,6 +25,13 @@ module.exports = {
 
     if (args[0] === "on") {
       const threadInfo = await api.getThreadInfo(threadID);
+      const botID = api.getCurrentUserID();
+
+      // সরাসরি ফেসবুক থেকে ডাটা নিয়ে অ্যাডমিন চেক
+      if (!threadInfo.adminIDs.some(admin => admin.id === botID)) {
+        return message.reply("⚠️ | I need admin privileges to lock group information.");
+      }
+
       lockData[threadID] = {
         name: threadInfo.threadName,
         emoji: threadInfo.emoji,
@@ -54,28 +61,36 @@ module.exports = {
     if (!fs.existsSync(lockFile)) return;
     let lockData = fs.readJsonSync(lockFile);
 
-    // যদি লক অন না থাকে বা পরিবর্তনকারী ব্যক্তি খোদ বট নিজে হয়, তবে কাজ করবে না
     if (!lockData[threadID] || !lockData[threadID].status || author === api.getCurrentUserID()) return;
 
-    const data = lockData[threadID];
+    try {
+      // ইভেন্ট চলাকালীন বট অ্যাডমিন কি না তা সরাসরি ফেসবুক থেকে চেক
+      const threadInfo = await api.getThreadInfo(threadID);
+      const botID = api.getCurrentUserID();
+      if (!threadInfo.adminIDs.some(admin => admin.id === botID)) return;
 
-    switch (logMessageType) {
-      case "log:thread-name":
-        if (logMessageData.name !== data.name) {
-          api.setTitle(data.name, threadID);
-        }
-        break;
-      case "log:thread-icon":
-        if (logMessageData.thread_icon !== data.emoji) {
-          api.setEmoji(data.emoji, threadID);
-        }
-        break;
-      case "log:thread-color":
-      case "log:thread-style":
-        if (logMessageData.thread_color !== data.color) {
-          api.changeThreadColor(data.color, threadID);
-        }
-        break;
+      const data = lockData[threadID];
+
+      switch (logMessageType) {
+        case "log:thread-name":
+          if (logMessageData.name !== data.name) {
+            api.setTitle(data.name, threadID);
+          }
+          break;
+        case "log:thread-icon":
+          if (logMessageData.thread_icon !== data.emoji) {
+            api.setChatEmoji(data.emoji, threadID);
+          }
+          break;
+        case "log:thread-color":
+        case "log:thread-style":
+          if (logMessageData.thread_color !== data.color) {
+            api.changeThreadColor(data.color, threadID);
+          }
+          break;
+      }
+    } catch (e) {
+      console.error("Lock Error:", e);
     }
   }
 };
