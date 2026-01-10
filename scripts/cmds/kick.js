@@ -1,8 +1,8 @@
 module.exports = {
 	config: {
 		name: "kick",
-		version: "1.3",
-		author: "NTKhang",
+		version: "1.5",
+		author: "Nawab",
 		countDown: 5,
 		role: 1,
 		description: {
@@ -10,47 +10,47 @@ module.exports = {
 			en: "Kick member out of chat box"
 		},
 		category: "box chat",
-		guide: {
-			vi: "   {pn} @tags: dùng để kick những người được tag",
-			en: "   {pn} @tags: use to kick members who are tagged"
-		}
+		guide: "{pn} @tags: Use to kick members who are tagged\n   {pn} reply: Reply to a message to kick that user"
 	},
 
-	langs: {
-		vi: {
-			needAdmin: "Vui lòng thêm quản trị viên cho bot trước khi sử dụng tính năng này"
-		},
-		en: {
-			needAdmin: "Please add admin for bot before using this feature"
-		}
-	},
+	onStart: async function ({ message, event, args, api }) {
+		const { threadID, messageReply, mentions, senderID } = event;
 
-	onStart: async function ({ message, event, args, threadsData, api, getLang }) {
-		const adminIDs = await threadsData.get(event.threadID, "adminIDs");
-		if (!adminIDs.includes(api.getCurrentUserID()))
-			return message.reply(getLang("needAdmin"));
-		async function kickAndCheckError(uid) {
-			try {
-				await api.removeUserFromGroup(uid, event.threadID);
+		// সরাসরি ফেসবুক থেকে গ্রুপের লেটেস্ট তথ্য সংগ্রহ
+		const threadInfo = await api.getThreadInfo(threadID);
+		const botID = api.getCurrentUserID();
+
+		// বট অ্যাডমিন কি না তা রিয়েল-টাইম চেক করা
+		const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id == botID);
+
+		if (!isBotAdmin) {
+			return message.reply("⚠ | I am an admin in this group, but my database is old. Please un-admin me and re-admin me, or wait for the system to sync.");
+		}
+
+		// কিক দেওয়ার ফাংশন
+		const kick = (uid) => {
+			api.removeUserFromGroup(uid, threadID, (err) => {
+				if (err) return message.reply("❌ | Could not kick this user. Make sure I have enough permissions.");
+			});
+		};
+
+		// ১. যদি কোনো মেসেজে রিপ্লাই করে !kick লেখা হয়
+		if (messageReply) {
+			if (messageReply.senderID == botID) return message.reply("I can't kick myself!");
+			return kick(messageReply.senderID);
+		}
+
+		// ২. যদি মেনশন (Tag) করা হয়
+		const uids = Object.keys(mentions);
+		if (uids.length > 0) {
+			for (const uid of uids) {
+				if (uid == botID) continue;
+				kick(uid);
 			}
-			catch (e) {
-				message.reply(getLang("needAdmin"));
-				return "ERROR";
-			}
+			return;
 		}
-		if (!args[0]) {
-			if (!event.messageReply)
-				return message.SyntaxError();
-			await kickAndCheckError(event.messageReply.senderID);
-		}
-		else {
-			const uids = Object.keys(event.mentions);
-			if (uids.length === 0)
-				return message.SyntaxError();
-			if (await kickAndCheckError(uids.shift()) === "ERROR")
-				return;
-			for (const uid of uids)
-				api.removeUserFromGroup(uid, event.threadID);
-		}
+
+		// ৩. যদি রিপ্লাই বা মেনশন না থাকে তবে সিনট্যাক্স এরর
+		return message.reply("⚠ | Please tag the person you want to kick or reply to their message.");
 	}
 };
