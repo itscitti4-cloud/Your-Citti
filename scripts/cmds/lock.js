@@ -23,7 +23,7 @@ module.exports = {
     name: "lock",
     version: "2.0.0",
     role: 1,
-    author: "AkHi & Gemini",
+    author: "AkHi",
     description: "Group name, theme, Emoji and cover lock using MongoDB",
     category: "admin",
     guide: "{pn} on/off",
