@@ -18,31 +18,32 @@ module.exports = {
 	onStart: async function ({ message, event, api }) {
 		const { threadID, messageReply, senderID } = event;
 
-		// রিপ্লাই না করলে এরর দিবে
 		if (!messageReply) {
 			return message.reply("⚠ | Please reply to the message you want to unsend.");
 		}
 
 		try {
-			// যদি রিপ্লাই করা মেসেজটি বটের নিজের হয়, তবে সরাসরি আনসেন্ড করবে
+			// বটের নিজের মেসেজ হলে সরাসরি ডিলিট করবে
 			if (messageReply.senderID === api.getCurrentUserID()) {
-				await api.unsendMessage(messageReply.messageID);
+				return await api.unsendMessage(messageReply.messageID);
 			} 
-			else {
-				// যদি অন্য কারো মেসেজ হয়, তবে সরাসরি ফেসবুক থেকে চেক করবে বট এডমিন কি না
-				const threadInfo = await api.getThreadInfo(threadID);
-				const botID = api.getCurrentUserID();
-				const adminIDs = threadInfo.adminIDs.map(admin => admin.id);
+			
+			// অন্য কারো মেসেজ হলে বটের অ্যাডমিন স্ট্যাটাস চেক করবে
+			const threadInfo = await api.getThreadInfo(threadID);
+			const botID = api.getCurrentUserID();
+			const adminIDs = threadInfo.adminIDs.map(admin => admin.id.toString());
 
-				if (!adminIDs.includes(botID)) {
-					return message.reply("⚠ | I need Admin privileges to unsend messages from others!");
-				}
-
-				await api.unsendMessage(messageReply.messageID);
+			if (!adminIDs.includes(botID.toString())) {
+				return message.reply("⚠ | I need Admin privileges to unsend messages from others!");
 			}
+
+			// মেসেজ ডিলিট করার চেষ্টা
+			await api.unsendMessage(messageReply.messageID);
+
 		} catch (e) {
 			console.error("Unsend Error:", e);
-			return message.reply("✗ | An error occurred while trying to unsend the message.");
+			// যদি অ্যাডমিন হওয়ার পরেও এরর আসে, তার মানে API অন্যদের মেসেজ মোছার অনুমতি দিচ্ছে না
+			return message.reply("✗ | Failed to unsend. Note: I can only unsend others' messages if the API/Account allows it.");
 		}
 	}
 };
