@@ -4,28 +4,29 @@ const moment = require("moment-timezone");
 module.exports = {
     config: {
         name: "ban",
-        version: "1.7",
-        author: "AkHi",
+        version: "1.8",
+        author: "AkHi & Nawab",
         countDown: 5,
         role: 1,
-        description: "Ban user from box chat",
+        description: "Ban user from box chat with real-time admin check",
         category: "box chat",
-        guide:
-                  "     {pn} [@tag|uid|fb link|reply] [<reason>]: Ban user from box chat"
-                + "\n   {pn} check: Check and kick banned members"
-                + "\n   {pn} unban [@tag|uid|fb link|reply]: Unban user"
-                + "\n   {pn} list: View banned members list"
+        guide: "{pn} [@tag|uid|fb link|reply] [<reason>]: Ban user\n   {pn} unban [@tag|uid|fb link|reply]: Unban user\n   {pn} list: View banned members list\n   {pn} check: Kick currently present banned members"
     },
 
     onStart: async function ({ message, event, args, threadsData, usersData, api }) {
-        const { members, adminIDs } = await threadsData.get(event.threadID);
         const { senderID, threadID, mentions, messageReply } = event;
         let target;
         let reason = "";
 
+        // সরাসরি ফেসবুক থেকে লেটেস্ট গ্রুপ ডাটা এবং অ্যাডমিন লিস্ট সংগ্রহ
+        const threadInfo = await api.getThreadInfo(threadID);
+        const botID = api.getCurrentUserID();
+        const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id == botID);
+        const groupAdmins = threadInfo.adminIDs.map(admin => admin.id);
+
         const dataBanned = await threadsData.get(threadID, 'data.banned_ban', []);
 
-        // --- UNBAN LOGIC ---
+        // --- ১. আনব্যান লজিক (UNBAN LOGIC) ---
         if (args[0] == 'unban') {
             let unbanTarget;
             if (messageReply) unbanTarget = messageReply.senderID;
@@ -36,19 +37,39 @@ module.exports = {
             if (!unbanTarget) return message.reply("⚠ | Please tag, reply, or provide a link/UID to unban.");
 
             const index = dataBanned.findIndex(item => item.id == unbanTarget);
-            if (index == -1) return message.reply(`⚠ | User with ID ${unbanTarget} is not banned.`);
+            if (index == -1) return message.reply(`⚠ | User with ID ${unbanTarget} is not banned in this chat.`);
 
             dataBanned.splice(index, 1);
             await threadsData.set(threadID, dataBanned, 'data.banned_ban');
             const name = await usersData.getName(unbanTarget) || "Facebook User";
-            return message.reply(`✓ | Unbanned ${name} from box chat!`);
+            return message.reply(`✓ | Unbanned ${name} successfully!`);
         }
 
-        // --- CHECK & LIST LOGIC (আগের মতোই ঠিক আছে) ---
-        if (args[0] == "check") { /* ... */ }
-        if (args[0] == 'list') { /* ... */ }
+        // --- ২. লিস্ট লজিক (LIST LOGIC) ---
+        if (args[0] == 'list') {
+            if (!dataBanned.length) return message.reply("≡ | There are no banned members in this chat.");
+            let msg = '≡ | List of banned members:\n\n';
+            for (let i = 0; i < dataBanned.length; i++) {
+                const name = await usersData.getName(dataBanned[i].id) || "Facebook User";
+                msg += `${i + 1}/ ${name} (${dataBanned[i].id})\nReason: ${dataBanned[i].reason}\nTime: ${dataBanned[i].time}\n\n`;
+            }
+            return message.reply(msg);
+        }
 
-        // --- IMPROVED BAN TARGETING (মেনশন ডিটেকশন ফিক্স) ---
+        // --- ৩. চেক লজিক (CHECK LOGIC) ---
+        if (args[0] == 'check') {
+            if (!isBotAdmin) return message.reply("⚠ | I need admin power to check and kick members.");
+            let count = 0;
+            for (const user of dataBanned) {
+                if (event.participantIDs.includes(user.id)) {
+                    await api.removeUserFromGroup(user.id, threadID);
+                    count++;
+                }
+            }
+            return message.reply(`✅ Checked. Kicked ${count} banned members found in the group.`);
+        }
+
+        // --- ৪. ব্যান টার্গেট ডিটেকশন (BAN TARGETING) ---
         if (messageReply) {
             target = messageReply.senderID;
             reason = args.join(' ');
@@ -67,13 +88,10 @@ module.exports = {
             reason = args.join(' ').replace(target, '').trim();
         }
 
-        // --- ERROR HANDLING ---
-        if (!target) {
-            return message.reply("⚠ | বট মেনশন চিনতে পারছে না। দয়া করে সাধারণ ফন্ট ব্যবহার করে ট্যাগ করুন অথবা ইউজারকে 'Reply' দিয়ে !ban লিখুন।");
-        }
-
+        // --- ৫. কন্ডিশন চেক এবং একশন ---
+        if (!target) return message.reply("⚠ | Please tag, reply, or provide a link to ban.");
         if (target == senderID) return message.reply("⚠ | You can't ban yourself!");
-        if (adminIDs.includes(target)) return message.reply("✗ | You can't ban an administrator!");
+        if (groupAdmins.includes(target)) return message.reply("✗ | You can't ban an administrator!");
         if (dataBanned.some(item => item.id == target)) return message.reply("✗ | This person is already banned!");
 
         const name = await usersData.getName(target) || "Facebook User";
@@ -85,9 +103,13 @@ module.exports = {
         await threadsData.set(threadID, dataBanned, 'data.banned_ban');
         
         message.reply(`✓ | Banned ${name} from box chat!`, () => {
-            api.removeUserFromGroup(target, threadID, (err) => {
-                if (err) message.send("⚠ | Bot needs admin power to kick.");
-            });
+            if (!isBotAdmin) {
+                message.send("⚠ | I've added them to the ban list, but I can't kick them because I'm not an admin (or my database is outdated).");
+            } else {
+                api.removeUserFromGroup(target, threadID, (err) => {
+                    if (err) message.send("❌ | Failed to kick. Please ensure I have admin permissions.");
+                });
+            }
         });
     },
 
@@ -97,14 +119,23 @@ module.exports = {
             const dataBanned = await threadsData.get(threadID, 'data.banned_ban', []);
             if (dataBanned.length === 0) return;
 
+            // বটের অ্যাডমিন স্ট্যাটাস চেক
+            const threadInfo = await api.getThreadInfo(threadID);
+            const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id == api.getCurrentUserID());
+
             for (const user of logMessageData.addedParticipants) {
                 const bannedUser = dataBanned.find(item => item.id == user.userFbId);
                 if (bannedUser) {
-                    api.removeUserFromGroup(user.userFbId, threadID, (err) => {
-                        if (!err) api.sendMessage(`⚠ | ${user.fullName} was previously banned and auto-kicked.`, threadID);
-                    });
+                    if (isBotAdmin) {
+                        api.removeUserFromGroup(user.userFbId, threadID, (err) => {
+                            if (!err) api.sendMessage(`⚠ | ${user.fullName} was previously banned!\nReason: ${bannedUser.reason}\nAction: Auto-kicked.`, threadID);
+                        });
+                    } else {
+                        api.sendMessage(`⚠ | Banned user ${user.fullName} joined, but I lack admin power to kick them.`, threadID);
+                    }
                 }
             }
         }
     }
 };
+            
