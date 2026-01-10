@@ -19,8 +19,8 @@ module.exports = {
     config: {
         name: "wordmonitor",
         aliases: ["wm", "wrdmntr"],
-        version: "3.5.0",
-        role: 0, // আমরা ভেতরে ম্যানুয়ালি ১ এবং ২ রোল চেক করবো
+        version: "3.5.1",
+        role: 0, 
         author: "AkHi",
         description: "Automatic badword filter (Supports Group & Bot Admin)",
         category: "Box",
@@ -38,8 +38,12 @@ module.exports = {
             const addedParticipants = logMessageData.addedParticipants;
             for (let user of addedParticipants) {
                 if (data.bannedUsers.includes(user.userFbId)) {
-                    api.removeUserFromGroup(user.userFbId, threadID);
-                    api.sendMessage(`🚫 Banned user (${user.userFbId}) detected and removed.`, threadID);
+                    // রিয়েল-টাইম এডমিন চেক
+                    const threadInfo = await api.getThreadInfo(threadID);
+                    if (threadInfo.adminIDs.some(admin => admin.id === api.getCurrentUserID())) {
+                        api.removeUserFromGroup(user.userFbId, threadID);
+                        api.sendMessage(`🚫 Banned user (${user.userFbId}) detected and removed.`, threadID);
+                    }
                 }
             }
         }
@@ -107,8 +111,15 @@ module.exports = {
 async function handleViolation(api, event, data, targetID) {
     const { threadID, messageID } = event;
     
-    // Delete message
-    api.unsendMessage(messageID);
+    // রিয়েল-টাইম ডাটা নিয়ে এডমিন চেক
+    const threadInfo = await api.getThreadInfo(threadID);
+    const botID = api.getCurrentUserID();
+    const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id === botID);
+
+    // ১. মেসেজ ডিলিট (বট এডমিন না হলেও নিজের মেসেজ বা সাধারণ ক্ষেত্রে ট্রাই করবে, এরর হ্যান্ডেল করা আছে)
+    try {
+        await api.unsendMessage(messageID);
+    } catch (e) { console.error("Unsend failed:", e); }
     
     let currentWarns = (data.warnings.get(targetID) || 0) + 1;
 
@@ -116,11 +127,16 @@ async function handleViolation(api, event, data, targetID) {
         data.bannedUsers.push(targetID);
         data.warnings.set(targetID, 0);
         await data.save();
-        api.removeUserFromGroup(targetID, threadID);
-        return api.sendMessage(`❌ User ${targetID} Banned! Reached 3/3 warnings.`, threadID);
+
+        if (isBotAdmin) {
+            api.removeUserFromGroup(targetID, threadID);
+            return api.sendMessage(`❌ User ${targetID} Banned! Reached 3/3 warnings.`, threadID);
+        } else {
+            return api.sendMessage(`⚠️ User ${targetID} reached 3/3 warnings, but I am not an admin to kick them.`, threadID);
+        }
     } else {
         data.warnings.set(targetID, currentWarns);
         await data.save();
         return api.sendMessage(`⚠️ Warning ${currentWarns}/3! Prohibited language. [UID: ${targetID}]`, threadID);
     }
-}
+        }
