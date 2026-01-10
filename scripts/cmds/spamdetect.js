@@ -3,7 +3,7 @@ const spamTracker = new Map();
 module.exports = {
   config: {
     name: "spamdetect",
-    version: "1.0.0",
+    version: "1.0.1",
     author: "AkHi",
     countDown: 5,
     role: 1, // Admins only can toggle
@@ -36,9 +36,13 @@ module.exports = {
     // Check if protector is active
     if (!global.spamProtect || !global.spamProtect.get(threadID)) return;
 
-    // Skip bot and admins
+    // সরাসরি ফেসবুক থেকে রিয়েল-টাইম ডাটা নেওয়া
     const threadInfo = await api.getThreadInfo(threadID);
-    if (senderID === api.getCurrentUserID() || threadInfo.adminIDs.some(admin => admin.id === senderID)) return;
+    const botID = api.getCurrentUserID();
+    const adminIDs = threadInfo.adminIDs.map(admin => admin.id);
+
+    // Skip bot and admins
+    if (senderID === botID || adminIDs.includes(senderID)) return;
 
     const userKey = `${threadID}_${senderID}`;
     const now = Date.now();
@@ -62,6 +66,12 @@ module.exports = {
 
     // Kick at 6 messages
     if (userData.count >= 6) {
+      // কিক করার আগে বট নিজে অ্যাডমিন কি না চেক করা
+      if (!adminIDs.includes(botID)) {
+        spamTracker.delete(userKey); // রিসেট করা হলো যাতে বারবার মেসেজ না দেয়
+        return message.reply("🚫 Security Alert: Spam detected, but I cannot remove the user because I am not an admin in this group.");
+      }
+
       spamTracker.delete(userKey);
       try {
         await api.removeUserFromGroup(senderID, threadID);
