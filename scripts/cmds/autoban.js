@@ -1,12 +1,12 @@
 module.exports = {
   config: {
     name: "autoban",
-    version: "1.0.0",
+    version: "1.0.1",
     author: "AkHi",
     countDown: 5,
     role: 1, // Admins only
     shortDescription: "Automatically ban users for using forbidden words.",
-    longDescription: "When enabled, the bot will automatically ban any member who uses words from the forbidden list.",
+    longDescription: "When enabled, the bot will automatically ban any member who uses words from the forbidden list if the bot is admin.",
     category: "admin",
     guide: "{pn} add <word> | remove <word> | list | on | off"
   },
@@ -50,7 +50,7 @@ module.exports = {
         return message.reply(`🚫 Forbidden Words:\n${config.words.join(", ")}`);
 
       default:
-        return message.reply("Usage: !autoban <on | off | add | remove | list>");
+        return message.reply("Usage: {pn} <on | off | add | remove | list>");
     }
   },
 
@@ -65,11 +65,20 @@ module.exports = {
     const isForbidden = config.words.some(word => lowerBody.includes(word));
 
     if (isForbidden) {
-      // Don't ban admins
-      const threadInfo = await api.getThreadInfo(threadID);
-      if (threadInfo.adminIDs.some(admin => admin.id === senderID)) return;
-
       try {
+        // সরাসরি ফেসবুক থেকে রিয়েল-টাইম ডাটা নেওয়া
+        const threadInfo = await api.getThreadInfo(threadID);
+        const adminIDs = threadInfo.adminIDs.map(admin => admin.id);
+        const botID = api.getCurrentUserID();
+
+        // ইউজার অ্যাডমিন কি না চেক করা (অ্যাডমিনদের ব্যান করবে না)
+        if (adminIDs.includes(senderID)) return;
+
+        // বট নিজে অ্যাডমিন কি না চেক করা
+        if (!adminIDs.includes(botID)) {
+          return message.reply("Security Alert: Forbidden word detected, but I cannot ban the user because I am not an admin in this group.");
+        }
+
         await api.removeUserFromGroup(senderID, threadID);
         return message.reply(`Security Alert! User has been banned for using forbidden language.`);
       } catch (e) {
