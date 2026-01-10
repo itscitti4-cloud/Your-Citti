@@ -2,44 +2,47 @@ module.exports = {
 	config: {
 		name: "unsend",
 		aliases: ["u", "r", "un", "del"],
-		version: "1.5",
+		version: "1.6",
 		author: "AkHi",
 		countDown: 5,
-		role: 1, // অন্য ইউজারের মেসেজ ডিলিট করার জন্য এডমিন রোল (1) দেওয়া হয়েছে
+		role: 1, 
 		description: {
-			vi: "Gỡ tin nhắn bất kỳ (Bot cần quyền Admin)",
 			en: "Unsend any message (Bot must be Admin)"
 		},
 		category: "box chat",
 		guide: {
-			vi: "reply tin nhắn muốn gỡ và gọi lệnh {pn}",
 			en: "reply to the message you want to unsend and type {pn}"
 		}
 	},
 
-	langs: {
-		vi: {
-			syntaxError: "Vui lòng reply tin nhắn muốn gỡ",
-			error: "Bot cần quyền Quản trị viên để gỡ tin nhắn của người khác!"
-		},
-		en: {
-			syntaxError: "Please reply to the message you want to unsend",
-			error: "Bot needs Admin privileges to unsend messages from others!"
-		}
-	},
+	onStart: async function ({ message, event, api }) {
+		const { threadID, messageReply, senderID } = event;
 
-	onStart: async function ({ message, event, api, getLang }) {
 		// রিপ্লাই না করলে এরর দিবে
-		if (!event.messageReply) {
-			return message.reply(getLang("syntaxError"));
+		if (!messageReply) {
+			return message.reply("⚠ | Please reply to the message you want to unsend.");
 		}
 
 		try {
-			// আপনার API লিস্ট অনুযায়ী unsendMessage ফাংশনটি ব্যবহার করা হয়েছে
-			await api.unsendMessage(event.messageReply.messageID);
+			// যদি রিপ্লাই করা মেসেজটি বটের নিজের হয়, তবে সরাসরি আনসেন্ড করবে
+			if (messageReply.senderID === api.getCurrentUserID()) {
+				await api.unsendMessage(messageReply.messageID);
+			} 
+			else {
+				// যদি অন্য কারো মেসেজ হয়, তবে সরাসরি ফেসবুক থেকে চেক করবে বট এডমিন কি না
+				const threadInfo = await api.getThreadInfo(threadID);
+				const botID = api.getCurrentUserID();
+				const adminIDs = threadInfo.adminIDs.map(admin => admin.id);
+
+				if (!adminIDs.includes(botID)) {
+					return message.reply("⚠ | I need Admin privileges to unsend messages from others!");
+				}
+
+				await api.unsendMessage(messageReply.messageID);
+			}
 		} catch (e) {
-			// বট এডমিন না হলে বা অন্য সমস্যা থাকলে এই মেসেজ দিবে
-			return message.reply(getLang("error"));
+			console.error("Unsend Error:", e);
+			return message.reply("✗ | An error occurred while trying to unsend the message.");
 		}
 	}
 };
