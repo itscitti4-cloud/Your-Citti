@@ -13,7 +13,7 @@
                 "moment-hijri": "^2.1.2",
                 "moment": "^2.29.4",
 			    "@google/generative-ai": "^0.21.0",
-			    "fca-neokex": "^1.5.8",
+			    "fca-neokex": "latest",
                 "@distube/ytdl-core": "^4.13.3",
                 "axios": "^1.6.0",
                 "bcrypt": "^5.0.1",
