@@ -3,10 +3,8 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const path = require("path");
 
-// MongoDB Connection String
 const MONGO_URI = "mongodb+srv://shahryarsabu_db_user:7jYCAFNDGkemgYQI@cluster0.rbclxsq.mongodb.net/test?retryWrites=true&w=majority&appName=Cluster0";
 
-// Database Schema
 const lockSchema = new mongoose.Schema({
   threadID: { type: String, unique: true },
   name: String,
@@ -21,10 +19,10 @@ const LockModel = mongoose.models.GroupLock || mongoose.model("GroupLock", lockS
 module.exports = {
   config: {
     name: "lock",
-    version: "2.0.0",
+    version: "2.1.0",
     role: 1,
     author: "AkHi",
-    description: "Group name, theme, Emoji and cover lock using MongoDB",
+    description: "Group info and cover lock with auto-restore",
     category: "admin",
     guide: "{pn} on/off",
     countDown: 5
@@ -51,7 +49,6 @@ module.exports = {
           return message.reply("⚠️ | I need admin privileges to lock group information.");
         }
 
-        // Save Image to local folder for persistent backup
         const imgPath = path.join(__dirname, "cache", "groupCovers", `${threadID}.jpg`);
         if (threadInfo.imageSrc) {
           const response = await axios.get(threadInfo.imageSrc, { responseType: 'arraybuffer' });
@@ -70,7 +67,7 @@ module.exports = {
           { upsert: true }
         );
 
-        return message.reply("🔒 | Group info lock ON successfully ✅. Information has been synced to Database.");
+        return message.reply("🔒 | Group info lock ON successfully ✅.");
       } catch (err) {
         return message.reply("❌ Error: " + err.message);
       }
@@ -84,54 +81,56 @@ module.exports = {
     return message.reply("Use: lock on/off");
   },
 
-  onEvent: async function ({ api, event, message }) {
+  onEvent: async function ({ api, event }) {
     const { threadID, logMessageType, logMessageData, author } = event;
     const botID = api.getCurrentUserID();
 
-    if (author === botID) return;
+    if (author === botID || !threadID) return;
 
     const groupData = await LockModel.findOne({ threadID, status: true });
     if (!groupData) return;
 
     const warnMsg = "Access Restrictions ⚠️.\nThe Group information is locked so you can't change any information ❌.";
 
-    try {
-      const threadInfo = await api.getThreadInfo(threadID);
-      if (!threadInfo.adminIDs.some(admin => admin.id === botID)) return;
+    const restore = async () => {
+      try {
+        const threadInfo = await api.getThreadInfo(threadID);
+        if (!threadInfo.adminIDs.some(admin => admin.id === botID)) return;
 
-      switch (logMessageType) {
-        case "log:thread-name":
-          if (logMessageData.name !== groupData.name) {
-            await message.reply(warnMsg);
-            api.setTitle(groupData.name, threadID);
-          }
-          break;
+        // নাম পরিবর্তন হলে রিসেট
+        if (logMessageType === "log:thread-name") {
+            await api.sendMessage(warnMsg, threadID);
+            return api.setTitle(groupData.name, threadID);
+        }
 
-        case "log:thread-icon":
-          if (logMessageData.thread_icon !== groupData.emoji) {
-            await message.reply(warnMsg);
-            api.setChatEmoji(groupData.emoji, threadID);
-          }
-          break;
+        // ইমোজি পরিবর্তন হলে রিসেট
+        if (logMessageType === "log:thread-icon") {
+            await api.sendMessage(warnMsg, threadID);
+            return api.setChatEmoji(groupData.emoji, threadID);
+        }
 
-        case "log:thread-color":
-        case "log:thread-style":
-          if (logMessageData.thread_color !== groupData.color) {
-            await message.reply(warnMsg);
-            api.changeThreadColor(groupData.color, threadID);
-          }
-          break;
+        // থিম/কালার পরিবর্তন হলে রিসেট
+        if (logMessageType === "log:thread-color" || logMessageType === "log:thread-style") {
+            await api.sendMessage(warnMsg, threadID);
+            return api.changeThreadColor(groupData.color, threadID);
+        }
 
-        case "log:thread-image":
-          if (fs.existsSync(groupData.imagePath)) {
-            await message.reply(warnMsg);
-            api.changeGroupImage(fs.createReadStream(groupData.imagePath), threadID);
-          }
-          break;
+        // কভার ফটো পরিবর্তন হলে রিসেট
+        if (logMessageType === "log:thread-image") {
+            if (fs.existsSync(groupData.imagePath)) {
+                await api.sendMessage(warnMsg, threadID);
+                return api.changeGroupImage(fs.createReadStream(groupData.imagePath), threadID);
+            }
+        }
+      } catch (e) {
+        console.error("Restore Error:", e);
       }
-    } catch (e) {
-      console.error("Lock Error:", e);
+    };
+
+    // চেক করা হচ্ছে ইভেন্টটি আমাদের লকের সাথে মিলে কি না
+    const lockEvents = ["log:thread-name", "log:thread-icon", "log:thread-color", "log:thread-style", "log:thread-image"];
+    if (lockEvents.includes(logMessageType)) {
+      await restore();
     }
   }
 };
-              
