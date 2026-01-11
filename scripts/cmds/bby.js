@@ -1,5 +1,5 @@
 const axios = require('axios');
-const baseApiUrl = "https://nawab-api.onrender.com/api/bby";
+const baseApiUrl = "https://nawab-api-i2z3.onrender.com/api/bby";
 
 // অনুমোদিত গ্রুপ আইডির তালিকা
 const allowedThreads = ["2593974107646263", "25416434654648555"];
