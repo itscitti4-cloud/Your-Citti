@@ -22,7 +22,7 @@ const DairyModel = mongoose.models.Dairy || mongoose.model("Dairy", dairySchema)
 module.exports = {
   config: {
     name: "dairy",
-    version: "4.0.0",
+    version: "4.1.0",
     role: 0,
     author: "NAWAB",
     description: "Secure diary with Private Delivery and Reset Option",
@@ -37,10 +37,13 @@ module.exports = {
     }
   },
 
-  onStart: async function ({ api, event, args, message, Users }) {
+  onStart: async function ({ api, event, args, message }) {
     const { threadID, messageID, senderID } = event;
-    const userData = await Users.getData(senderID);
-    const name = userData.name;
+    
+    // ফিক্স: Users.getData এর পরিবর্তে api.getUserInfo ব্যবহার
+    const info = await api.getUserInfo(senderID);
+    const name = info[senderID]?.name || "User";
+    
     const currentTime = new Date().toLocaleString("en-US", { hour12: true, dateStyle: 'medium', timeStyle: 'short' });
 
     let userDairy = await DairyModel.findOne({ userID: senderID });
@@ -120,7 +123,7 @@ module.exports = {
       const privateMsg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n      📖  𝐏𝐀𝐆𝐄 ${entry.page} 𝐃𝐄𝐓𝐀𝐈𝐋𝐒\n╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n────────────────────────\n\n${entry.content}\n\n────────────────────────\n✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: Shahryar Sabu\n🕒 𝐕𝐢𝐞𝐰𝐞𝐝 𝐚𝐭: ${currentTime}`;
       
       api.sendMessage(privateMsg, senderID, (err) => {
-        if (err) return message.reply("❌ I couldn't send you a private message. Please check if your inbox is open.");
+        if (err) return message.reply("❌ I couldn't send you a inbox. Please check if your inbox is open.");
         return message.reply(`📬 𝐂𝐡𝐞𝐜𝐤 𝐲𝐨𝐮𝐫 𝐈𝐧𝐛𝐨𝐱! I have sent Page ${pageNum} to your inbox.`);
       });
       return;
@@ -138,20 +141,24 @@ module.exports = {
     }, messageID);
   },
 
-  onReply: async function ({ api, event, handleReply, message, Users }) {
+  onReply: async function ({ api, event, handleReply, message }) {
     const { body, senderID } = event;
     if (senderID !== handleReply.author) return;
 
     if (!isNaN(body)) {
       const userDairy = await DairyModel.findOne({ userID: senderID });
-      const userData = await Users.getData(senderID);
+      
+      // ফিক্স: এখানেও api.getUserInfo ব্যবহার করা হয়েছে
+      const info = await api.getUserInfo(senderID);
+      const name = info[senderID]?.name || "User";
+      
       const pageNum = parseInt(body);
       const currentTime = new Date().toLocaleString("en-US", { hour12: true, dateStyle: 'medium', timeStyle: 'short' });
 
       if (!userDairy || !userDairy.entries[pageNum - 1]) return message.reply(`❌ Page ${pageNum} doesn't exist.`);
 
       const entry = userDairy.entries[pageNum - 1];
-      const privateMsg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n      📖  𝐏𝐀𝐆𝐄 ${entry.page} 𝐃𝐄𝐓𝐀𝐈𝐋𝐒\n╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n────────────────────────\n\n${entry.content}\n\n────────────────────────\n✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: Shahryar Sabu\n🕒 𝐕𝐢𝐞𝐰𝐞𝐝 𝐚𝐭: ${currentTime}`;
+      const privateMsg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n      📖  𝐏𝐀𝐆𝐄 ${entry.page} 𝐃𝐄𝐓𝐀𝐈𝐋𝐒\n╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n────────────────────────\n\n${entry.content}\n\n────────────────────────\n✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: Shahryar Sabu\n🕒 𝐓𝐢𝐦𝐞: ${currentTime}`;
 
       api.sendMessage(privateMsg, senderID, (err) => {
         if (err) return message.reply("❌ Failed to send Private Message.");
@@ -160,4 +167,3 @@ module.exports = {
     }
   }
 };
-                                                                           
