@@ -6,7 +6,7 @@ module.exports = {
   config: {
     name: "cricket",
     aliases: ["cscore", "cric"],
-    version: "10.6.0",
+    version: "10.6.6",
     author: "The Nawab",
     countDown: 5,
     role: 0,
@@ -34,24 +34,13 @@ module.exports = {
     let query = args[0]?.toLowerCase();
     const action = args[1]?.toLowerCase();
 
-    // Mapping short keywords to full names for better filtering
     const keyMap = {
-      "ipl": "indian premier league",
-      "bpl": "bangladesh premier league",
-      "psl": "pakistan super league",
-      "cpl": "caribbean premier league",
-      "bbl": "big bash league",
-      "sa20": "sa20",
-      "ilt20": "international league t20",
-      "mlc": "major league cricket",
-      "gt20": "global t20 canada",
-      "100": "the hundred",
-      "blast": "t20 blast",
-      "lpl": "lanka premier league",
-      "milc": "minor league cricket",
-      "wc": "world cup",
-      "asia": "asia cup",
-      "series": "tour"
+      "ipl": "indian premier league", "bpl": "bangladesh premier league",
+      "psl": "pakistan super league", "cpl": "caribbean premier league",
+      "bbl": "big bash league", "sa20": "sa20", "ilt20": "international league t20",
+      "mlc": "major league cricket", "gt20": "global t20 canada", "100": "the hundred",
+      "blast": "t20 blast", "lpl": "lanka premier league", "milc": "minor league cricket",
+      "wc": "world cup", "asia": "asia cup", "series": "tour"
     };
 
     const searchTarget = keyMap[query] || query;
@@ -68,19 +57,15 @@ module.exports = {
     message.reply(`🏏 Connecting to server, please wait...`);
 
     try {
-      // Step 1: Fetch Live/Recent Matches
       let res = await axios.get(`https://api.cricapi.com/v1/currentMatches?apikey=${API_KEY}&offset=0`);
       let matches = res.data.data || [];
 
-      // Step 2: Fallback to Fixtures/All Matches
       let resAll = await axios.get(`https://api.cricapi.com/v1/matches?apikey=${API_KEY}&offset=0`);
       let allMatches = resAll.data.data || [];
 
-      // Combine both lists and remove duplicates by ID
       let combinedMatches = [...matches, ...allMatches];
       let uniqueMatches = Array.from(new Map(combinedMatches.map(m => [m.id, m])).values());
 
-      // Filter Logic
       if (query && query !== "auto") {
         uniqueMatches = uniqueMatches.filter(m => 
           m.name.toLowerCase().includes(searchTarget) || 
@@ -90,10 +75,9 @@ module.exports = {
       }
 
       if (uniqueMatches.length === 0) {
-        return message.reply(`❌ No matches found for "${query.toUpperCase()}".\nNote: If the league hasn't started yet, it won't appear.${footer}`);
+        return message.reply(`❌ No matches found for "${query ? query.toUpperCase() : 'LIVE'}".\nNote: If the league hasn't started yet, it won't appear.${footer}`);
       }
 
-      // Step 3: Categorize matches (Handles Men/Women automatically)
       const categorized = {};
       uniqueMatches.forEach(m => {
         const seriesName = m.name.split(',')[0] || "Global Series";
@@ -106,7 +90,6 @@ module.exports = {
       let count = 1;
 
       for (const series in categorized) {
-        // Limit to 10 series to avoid message length limits
         if (count > 20) break; 
         responseText += `\n🏆 **${series.toUpperCase()}**\n━━━━━━━━━━━━━━━━━━━━\n`;
         categorized[series].slice(0, 5).forEach(m => {
@@ -148,12 +131,16 @@ module.exports = {
     if (!match) return message.reply(`❌ Please select a valid match number.`);
 
     const getScoreData = async (id) => {
-      const res = await axios.get(`https://api.cricapi.com/v1/match_scorecard?apikey=${apiKey}&id=${id}`);
-      return res.data.data;
+      try {
+        const res = await axios.get(`https://api.cricapi.com/v1/match_scorecard?apikey=${apiKey}&id=${id}`);
+        if (res.data.data && res.data.data.score) return res.data.data;
+      } catch (e) {}
+      
+      const resFallback = await axios.get(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}&offset=0`);
+      return resFallback.data.data.find(m => m.id === id);
     };
 
     try {
-      // Auto Update Logic
       if (isAutoOn || input.includes("auto on")) {
         if (global.cricketIntervals.has(event.threadID)) clearInterval(global.cricketIntervals.get(event.threadID));
         message.reply(`✅ Auto-Notification On for ${match.name}`);
@@ -161,6 +148,7 @@ module.exports = {
         const interval = setInterval(async () => {
           try {
             const d = await getScoreData(match.id);
+            if (!d) return;
             let msg = `🔄 **LIVE UPDATE**\n🏏 ${d.name}\n📊 ${d.status}\n\n`;
             if (d.score) d.score.forEach(i => msg += `🚩 ${i.inning}: ${i.r}/${i.w} (${i.o} ov)\n`);
             api.sendMessage(msg + footer, event.threadID);
@@ -171,9 +159,9 @@ module.exports = {
       }
 
       const d = await getScoreData(match.id);
-      let replyMsg = "";
+      if (!d) throw new Error("No Data");
 
-      // Additional Stats Logic (partnership, predictor, etc)
+      let replyMsg = "";
       if (input.includes("partnership all")) {
         replyMsg = `🤝 **ALL PARTNERSHIPS**\n`;
         d.scorecard?.forEach(sc => {
@@ -193,9 +181,9 @@ module.exports = {
         replyMsg = `⏳ **UPCOMING BATSMEN**\n`;
         d.scorecard?.[0]?.yetToBat?.forEach(p => replyMsg += `• ${p.name}\n`);
       } else {
-        // Default Match Details
-        replyMsg = `🏏 **MATCH DETAILS**\n━━━━━━━━━━━━━━━━━━━━\n📝 ${d.name}\n🏟️ ${d.venue}\n📊 ${d.status}\n\n`;
+        replyMsg = `🏏 **MATCH DETAILS**\n━━━━━━━━━━━━━━━━━━━━\n📝 ${d.name}\n🏟️ ${d.venue || 'International Stadium'}\n📊 ${d.status}\n\n`;
         if (d.score) d.score.forEach(i => replyMsg += `🚩 ${i.inning}: ${i.r}/${i.w} (${i.o} ov)\n`);
+        else replyMsg += `🚫 Score not updated yet.\n`;
         replyMsg += `\n💡 Reply with 'partnership', 'predictor', 'wicket' or 'upnext' for more.`;
       }
 
@@ -209,8 +197,7 @@ module.exports = {
         });
       });
     } catch (e) {
-      message.reply(`⚠️ Details not available yet for this match.${footer}`);
+      message.reply(`⚠️ Details currently unavailable. Please wait for the match to progress.${footer}`);
     }
   }
 };
-  
