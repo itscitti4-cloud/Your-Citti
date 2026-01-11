@@ -3,7 +3,7 @@ const { getTime } = global.utils;
 module.exports = {
     config: {
         name: "gc",
-        version: "2.6",
+        version: "2.7",
         author: "AkHi",
         countDown: 2,
         role: 2,
@@ -36,13 +36,15 @@ module.exports = {
 
         switch (type) {
             case "list": {
-                const allThreads = await threadsData.getAll();
-                const activeThreads = allThreads.filter(t => t.threadID.length > 10);
-                let msg = "🌐 Group List:\n";
+                // বর্তমানে বট যে গ্রুপগুলোতে জয়েন আছে শুধু সেগুলো নেওয়া হচ্ছে
+                const list = await api.getThreadList(100, null, ["INBOX"]);
+                const activeThreads = list.filter(t => t.isGroup && t.threadID !== threadID);
+                
+                let msg = "🌐 Group List:\n\n";
                 activeThreads.forEach((t, i) => {
-                    msg += `${i + 1}. ${t.threadName || "Unknown"} (${t.threadID})\n`;
+                    msg += `${i + 1}. ${t.name || "Unknown"}\n    ${t.threadID}\n\n`;
                 });
-                msg += "\nReply with: [number] info | ban [reason] | unban | join";
+                msg += "Reply with: [number] info | ban [reason] | unban | join";
                 
                 return message.reply(msg, (err, info) => {
                     global.GoatBot.onReply.set(info.messageID, {
@@ -80,11 +82,11 @@ module.exports = {
                 const bannedThreads = allThreads.filter(t => t.banned?.status);
                 if (bannedThreads.length === 0) return message.reply("No banned groups found.");
 
-                let msg = "🚫 Banned Groups:\n";
+                let msg = "🚫 Banned Groups:\n\n";
                 bannedThreads.forEach((t, i) => {
-                    msg += `${i + 1}. ${t.threadName} (${t.threadID})\n`;
+                    msg += `${i + 1}. ${t.threadName || "Unknown"}\n    ${t.threadID}\n\n`;
                 });
-                msg += "\nReply with: [number] [reason to unban]";
+                msg += "Reply with: [number] [reason to unban]";
 
                 return message.reply(msg, (err, info) => {
                     global.GoatBot.onReply.set(info.messageID, {
@@ -123,7 +125,7 @@ module.exports = {
                 let admins = [];
                 for (let id of adminIDs) {
                     const info = await usersData.get(id);
-                    admins.push(info.name);
+                    admins.push(info?.name || id);
                 }
                 
                 const msg = `» ID: ${tid}\n» Name: ${threadInfo.threadName}\n» Members: ${threadInfo.participantIDs.length}\n» Admins: ${admins.join(", ")}`;
@@ -134,19 +136,21 @@ module.exports = {
                 const reason = input.slice(2).join(" ") || "বারবার স্পাম করার জন্য ব্যান করলাম।";
                 await threadsData.set(tid, { banned: { status: true, reason } });
                 api.sendMessage(this.formatNotice(adminName, reason, "BAN"), tid);
-                return message.reply(`Banned: ${targetThread.threadName}`);
+                return message.reply(`Banned: ${targetThread.name || targetThread.threadName}`);
             }
 
             if (action === "unban") {
                 const reason = input.slice(2).join(" ") || "আর স্পাম করো না কেউ।";
                 await threadsData.set(tid, { banned: { status: false } });
                 api.sendMessage(this.formatNotice(adminName, reason, "UNBAN"), tid);
-                return message.reply(`Unbanned: ${targetThread.threadName}`);
+                return message.reply(`Unbanned: ${targetThread.name || targetThread.threadName}`);
             }
 
             if (action === "join") {
-                await api.addUserToGroup(event.senderID, tid);
-                return message.reply(`Added you to: ${targetThread.threadName}`);
+                api.addUserToGroup(event.senderID, tid, (err) => {
+                    if (err) return message.reply("Cannot add you to this group. Check if I'm still there.");
+                    return message.reply(`Added you to: ${targetThread.name || targetThread.threadName}`);
+                });
             }
         }
 
@@ -172,3 +176,4 @@ module.exports = {
                `🌸         Thank You Everyone        🌸`;
     }
 };
+                    
