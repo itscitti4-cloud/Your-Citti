@@ -20,12 +20,12 @@ const DairyModel = mongoose.models.Dairy || mongoose.model("Dairy", dairySchema)
 module.exports = {
   config: {
     name: "dairy",
-    version: "4.2.0",
+    version: "4.2.1",
     role: 0,
-    author: "NAWAB",
+    author: "Shahryar Sabu",
     description: "Personal diary with professional UI (Group Access)",
     category: "user",
-    guide: "{pn} add [Headline] <Content> | {pn} delete [Headline] | {pn} [page number]",
+    guide: "{pn} add Headline Content | {pn} delete Headline | {pn} [page number]",
     countDown: 2
   },
 
@@ -46,13 +46,10 @@ module.exports = {
 
     // 1. Add Entry
     if (args[0] === "add") {
-      const input = args.slice(1).join(" ");
-      const regex = /\[(.*?)\]\s*<(.*)>/s;
-      const match = input.match(regex);
-      if (!match) return message.reply("📑 Usage: !dairy add [Headline] <Message>");
-
-      const headline = match[1];
-      const contentWithTime = `${match[2]}\n\n[ Saved on: ${currentTime} ]`;
+      if (args.length < 3) return message.reply("📑 Usage: !dairy add Headline Content");
+      const headline = args[1];
+      const content = args.slice(2).join(" ");
+      const contentWithTime = `${content}\n\n[ Saved on: ${currentTime} ]`;
 
       if (!userDairy) userDairy = new DairyModel({ userID: senderID, userName: name, entries: [] });
       userDairy.entries.push({ page: userDairy.entries.length + 1, headline, content: contentWithTime });
@@ -62,79 +59,60 @@ module.exports = {
 
     // 2. Delete Entry
     if (args[0] === "delete") {
-        const headlineToDel = args.slice(1).join(" ").replace(/[\[\]]/g, "");
+        const headlineToDel = args.slice(1).join(" ");
         if (!userDairy || userDairy.entries.length === 0) return message.reply("📭 Your diary is empty.");
-        
-        const initialLen = userDairy.entries.length;
         userDairy.entries = userDairy.entries.filter(e => e.headline.toLowerCase() !== headlineToDel.toLowerCase());
-        
-        if (userDairy.entries.length === initialLen) return message.reply("❌ Headline not found.");
-        
         userDairy.entries.forEach((e, i) => e.page = i + 1);
         await userDairy.save();
-        return message.reply(`🗑️ Entry '${headlineToDel}' deleted and pages re-indexed.`);
+        return message.reply(`🗑️ Entry '${headlineToDel}' deleted.`);
     }
 
-    // 3. View Specific Page (Directly in Group)
+    // 3. View Specific Page
     if (args[0] && !isNaN(args[0])) {
       const pageNum = parseInt(args[0]);
       if (!userDairy || !userDairy.entries[pageNum - 1]) return message.reply(`❌ Page ${pageNum} is empty.`);
-
       const entry = userDairy.entries[pageNum - 1];
-      const msg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n` +
-                  `      📖  𝐌𝐘 𝐏𝐄𝐑𝐒𝐎𝐍𝐀𝐋 𝐃𝐈𝐀𝐑𝐘\n` +
-                  `╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n` +
-                  `📑 𝐏𝐚𝐠𝐞: ${entry.page}\n` +
-                  `📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n` +
-                  `────────────────────────\n\n` +
-                  `${entry.content}\n\n` +
-                  `────────────────────────\n` +
-                  `✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: ${name}\n` +
-                  `🕒 𝐕𝐢𝐞𝐰𝐞𝐝: ${currentTime}`;
-      
+      const msg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n      📖  𝐌𝐘 𝐏𝐄𝐑𝐒𝐎𝐍𝐀𝐋 𝐃𝐈𝐀𝐑𝐘\n╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n📑 𝐏𝐚𝐠𝐞: ${entry.page}\n📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n────────────────────────\n\n${entry.content}\n\n────────────────────────\n✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: Shahryar Sabu\n👤 𝐔𝐬𝐞𝐫: ${name}\n🕒 𝐕𝐢𝐞𝐰𝐞𝐝: ${currentTime}`;
       return message.reply(msg);
     }
 
     // 4. List Collection
-    if (!userDairy || userDairy.entries.length === 0) return message.reply("📭 Your diary is empty. Use '!dairy add [Headline] <Content>' to write.");
+    if (!userDairy || userDairy.entries.length === 0) return message.reply("📭 Your diary is empty. Use '!dairy add Headline Content' to write.");
 
     let listMsg = `╔═════════════════╗\n   📂 𝐃𝐈𝐀𝐑𝐘 𝐂𝐎𝐋𝐋𝐄𝐂𝐓𝐈𝐎𝐍\n╚═════════════════╝\n`;
     userDairy.entries.forEach(e => { listMsg += `[ ${e.page} ] ➜ ${e.headline}\n`; });
-    listMsg += `\n──────────────────\n✍️ 𝐔𝐬𝐞𝐫: ${name}\n💡 Reply with Number to read full entry.`;
+    listMsg += `\n──────────────────\n✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: Shahryar Sabu\n👤 𝐔𝐬𝐞𝐫: ${name}\n💡 Reply with Number to read full entry.`;
 
     return api.sendMessage(listMsg, threadID, (err, info) => {
-      global.client.handleReply.push({ name: this.config.name, messageID: info.messageID, author: senderID });
+      if (err) return console.log(err);
+      // Fixed: Using GoatBot's standard onReply storage
+      if (global.GoatBot && global.GoatBot.onReply) {
+          global.GoatBot.onReply.set(info.messageID, {
+              commandName: this.config.name,
+              messageID: info.messageID,
+              author: senderID
+          });
+      }
     }, messageID);
   },
 
-  onReply: async function ({ api, event, handleReply, message }) {
+  onReply: async function ({ api, event, Reply, message }) {
     const { body, senderID } = event;
-    if (senderID !== handleReply.author) return;
+    if (senderID !== Reply.author) return;
 
     if (!isNaN(body)) {
       const userDairy = await DairyModel.findOne({ userID: senderID });
       const info = await api.getUserInfo(senderID);
       const name = info[senderID]?.name || "User";
-      
       const pageNum = parseInt(body);
       const currentTime = new Date().toLocaleString("en-US", { hour12: true, dateStyle: 'medium', timeStyle: 'short' });
 
       if (!userDairy || !userDairy.entries[pageNum - 1]) return message.reply(`❌ Page ${pageNum} doesn't exist.`);
 
       const entry = userDairy.entries[pageNum - 1];
-      const msg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n` +
-                  `      📖  𝐌𝐘 𝐏𝐄𝐑𝐒𝐎𝐍𝐀𝐋 𝐃𝐈𝐀𝐑𝐘\n` +
-                  `╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n` +
-                  `📑 𝐏𝐚𝐠𝐞: ${entry.page}\n` +
-                  `📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n` +
-                  `────────────────────────\n\n` +
-                  `${entry.content}\n\n` +
-                  `────────────────────────\n` +
-                  `✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: ${name}\n` +
-                  `🕒 𝐓𝐢𝐦𝐞: ${currentTime}`;
-
+      const msg = `╭────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╮\n      📖  𝐌𝐘 𝐏𝐄𝐑𝐒𝐎𝐍𝐀𝐋 𝐃𝐈𝐀𝐑𝐘\n╰────── ⋅ ⋅ ── ✩ ── ⋅ ⋅ ──────╯\n📑 𝐏𝐚𝐠𝐞: ${entry.page}\n📌 𝐇𝐞𝐚𝐝𝐥𝐢𝐧𝐞: ${entry.headline.toUpperCase()}\n────────────────────────\n\n${entry.content}\n\n────────────────────────\n✍️ 𝐀𝐮𝐭𝐡𝐨𝐫: Shahryar Sabu\n👤 𝐔𝐬𝐞𝐫: ${name}\n🕒 𝐓𝐢𝐦𝐞: ${currentTime}`;
       return message.reply(msg);
     }
   }
 };
-    
+            
