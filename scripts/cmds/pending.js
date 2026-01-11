@@ -11,9 +11,7 @@ module.exports = {
     shortDescription: "Group pending management",
     longDescription: "Show pending list, use for approve or remove",
     category: "admin",
-    guide: {
-      en: "{pn} to show all pending requests."
-    }
+    guide: "{pn} to show all pending requests."
   },
 
   onStart: async function ({ api, event }) {
@@ -25,7 +23,7 @@ module.exports = {
       const list = [...spam, ...pending].filter(group => group.isSubscribed && group.isGroup);
 
       if (list.length === 0) {
-        return api.sendMessage("Ma'am, There are no pending requests ❎", threadID, messageID);
+        return api.sendMessage("There are no pending requests ❎", threadID, messageID);
       }
 
       let msg = "👑 𝐏𝐄𝐍𝐃𝐈𝐍𝐆 𝐆𝐑𝐎𝐔𝐏 𝐋𝐈𝐒𝐓 👑\n━━━━━━━━━━━━━━━━━━\n";
@@ -45,7 +43,7 @@ module.exports = {
       }, messageID);
 
     } catch (e) {
-      return api.sendMessage("Sorry Ma'am, something went wrong while fetching list.", threadID, messageID);
+      return api.sendMessage("Sorry, something went wrong while fetching list.", threadID, messageID);
     }
   },
 
@@ -60,6 +58,10 @@ module.exports = {
     // বিরতি ফাংশন (২.৫ সেকেন্ড)
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+    // অ্যাপ্রুভকারীর নাম বের করা
+    const userInfo = await api.getUserInfo(senderID);
+    const senderName = userInfo[senderID].name;
+
     // ১. ক্যানসেল অপারেশন (c)
     if (input === 'c') {
       api.unsendMessage(Reply.messageID);
@@ -73,16 +75,16 @@ module.exports = {
       for (const item of pendingList) {
         await delay(2500); // ২.৫ সেকেন্ড বিরতি
         try {
-          await api.sendMessage(`😀 Congratulations! Your group has been approved by Lubna Jannat 💚.`, item.threadID);
+          await api.sendMessage(`😀 Congratulations! Your group has been approved by ${senderName} 💚.`, item.threadID);
           count++;
         } catch (e) { console.log(`Error approving: ${item.threadID}`); }
       }
-      return api.sendMessage(`✅ ${count} Request Approved Successfully Ma'am`, threadID);
+      return api.sendMessage(`✅ ${count} Request Approved Successfully`, threadID);
     }
 
     // ৩. সব রিমুভ (all r)
     if (input === 'all r') {
-      api.sendMessage(`⏳ ${pendingList.length} Request Remove processing Ma'am`, threadID);
+      api.sendMessage(`⏳ ${pendingList.length} Request Remove processing`, threadID);
       let count = 0;
       for (const item of pendingList) {
         await delay(2500); // ২.৫ সেকেন্ড বিরতি
@@ -91,7 +93,7 @@ module.exports = {
           count++;
         } catch (e) { console.log(`Error deleting: ${item.threadID}`); }
       }
-      return api.sendMessage(`✅ ${count} Request Remove Successfully Ma'am.`, threadID);
+      return api.sendMessage(`✅ ${count} Request Remove Successfully.`, threadID);
     }
 
     // ৪. সিঙ্গেল রিমুভ (নাম্বার r)
@@ -108,10 +110,10 @@ module.exports = {
     const index = parseInt(input) - 1;
     if (!isNaN(index) && pendingList[index]) {
       const group = pendingList[index];
-      await api.sendMessage(`Congratulations! "${group.name}" group is approved by AkHi Ma'am!`, group.threadID);
+      await api.sendMessage(`Congratulations! "${group.name}" group is approved by ${senderName}!`, group.threadID);
       return api.sendMessage(`✅ Group '${group.name}' approved successfully!`, threadID);
     }
 
-    return api.sendMessage("⚠️ Wrong format! Ma'am, please try again with correct number or command.", threadID, messageID);
+    return api.sendMessage("⚠️ Wrong format!, please try again with correct number or command.", threadID, messageID);
   }
 };
