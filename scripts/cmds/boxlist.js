@@ -1,4 +1,5 @@
 const axios = require("axios");
+const moment = require("moment-timezone");
 
 module.exports = {
   config: {
@@ -9,11 +10,12 @@ module.exports = {
     role: 2,
     description: "Group list and management (Only active groups)",
     category: "admin",
-    guide: "{pn} work with reply"
+    guide: {
+      en: "{pn} work with reply"
+    }
   },
 
   onStart: async function ({ api, event }) {
-    // শুধুমাত্র সেই গ্রুপগুলো নেবে যেখানে বট বর্তমানে মেম্বার হিসেবে আছে
     const threadList = await api.getThreadList(100, null, ["INBOX"]);
     const activeGroups = threadList.filter(thread => thread.isGroup && thread.isSubscribed);
 
@@ -53,7 +55,22 @@ module.exports = {
     const args = input.split(/\s+/);
     const action = args[0].toLowerCase();
     
-    const premiumStyle = (text) => `✨ 𝐍𝐎𝐓𝐈𝐅𝐈𝐂𝐀𝐓𝐈𝐎𝐍 ✨\n━━━━━━━━━━━━━━━━━━\n\n${text}\n\n━━━━━━━━━━━━━━━━━━\n👤 𝐀𝐝𝐦𝐢𝐧: AkHi`;
+    // সময় এবং নাম সংগ্রহের লজিক
+    const time = moment.tz("Asia/Dhaka").format("hh:mm A");
+    const userInfo = await api.getUserInfo(event.senderID);
+    const senderName = userInfo[event.senderID].name;
+
+    const premiumStyle = (text) => `»—💝— **𝙽𝙾𝚃𝙸𝙵𝙸𝙲𝙰𝚃𝙸𝙾𝙽** —💝—«
+
+ ➤ 𝐓𝐢𝐦𝐞: ${time}
+ ➤ 𝐀𝐝𝐦𝐢𝐧: ${senderName}
+
+»———————— 𝐂𝐨𝐧𝐭𝐞𝐧𝐭 ————————«
+
+${text}
+
+»────────────────────«
+🌸         Thank You Everyone        🌸`;
 
     const handleLeave = async (threadID, threadName, msgContent) => {
       try {
@@ -107,6 +124,7 @@ module.exports = {
       const group = list[index];
       if (group) {
         const messageContent = args.slice(1).join(" ");
+        if (!messageContent) return api.sendMessage("⚠️ Please provide a message content.", event.threadID);
         try {
           await api.sendMessage(premiumStyle(messageContent), group.threadID);
           return api.sendMessage(`✅ Sent to: ${group.threadName}`, event.threadID);
@@ -119,3 +137,4 @@ module.exports = {
     return api.sendMessage("⚠️ Wrong format!", event.threadID);
   }
 };
+        
