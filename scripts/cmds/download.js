@@ -13,6 +13,7 @@ const supportedDomains = [
 
 function getMainDomain(url) {
   try {
+    if (!url) return null;
     const hostname = new URL(url).hostname;
     if (hostname === 'youtu.be') {
       return 'youtube.com';
@@ -34,8 +35,9 @@ function getDefaultCookie(domain) {
 
 function parseArgs(args) {
   const params = {};
+  if (!args || !Array.isArray(args)) return params;
   args.forEach((arg, i) => {
-    if (arg.startsWith('--')) {
+    if (arg && arg.startsWith('--')) {
       const key = arg.slice(2).toLowerCase();
       const value = args[i + 1];
       switch (key) {
@@ -48,16 +50,18 @@ function parseArgs(args) {
         case 'format':
         case 'media':
         case 'f':
-          if (['video', 'audio'].includes(value.toLowerCase())) {
+          if (value && ['video', 'audio'].includes(value.toLowerCase())) {
             params.format = value.toLowerCase();
           }
           break;
         case 'cookie':
         case 'cookies':
         case 'c':
-          const cookiePath = path.join(process.cwd(), value);
-          if (fs.existsSync(cookiePath)) {
-            params.cookies = fs.readFileSync(cookiePath, 'utf-8');
+          if (value) {
+            const cookiePath = path.join(process.cwd(), value);
+            if (fs.existsSync(cookiePath)) {
+              params.cookies = fs.readFileSync(cookiePath, 'utf-8');
+            }
           }
           break;
         default:
@@ -72,7 +76,7 @@ async function download({ url, params, message, event, usersData }) {
   try {
     const domain = getMainDomain(url);
     const platformName = domain ? domain.split('.')[0].toUpperCase() : "Media";
-    const userData = await usersData.get(event.senderID);
+    const userData = await usersData.get(event.senderID) || {};
     const userName = userData.name || "User";
 
     if (!params.cookies) {
@@ -96,10 +100,14 @@ async function download({ url, params, message, event, usersData }) {
       ...(params.cookies && { cookies: params.cookies }),
     };
     
-    const apiUrl = (await axios.get('https://raw.githubusercontent.com/Tanvir0999/stuffs/refs/heads/main/raw/addresses.json')).data.megadl;
+    const resAddr = await axios.get('https://raw.githubusercontent.com/Tanvir0999/stuffs/refs/heads/main/raw/addresses.json');
+    const apiUrl = resAddr.data.megadl;
+    
     const response = await axios.post(apiUrl, requestBody);
     const data = response.data;
     
+    if (!data || !data.url) throw new Error("Invalid API Response");
+
     await message.reply({
       body: `𝙷𝚎𝚢 ${userName} 𝚑𝚎𝚛𝚎 𝚒𝚜 𝚢𝚘𝚞𝚛 ${platformName} 𝚟𝚒𝚍𝚎𝚘. 𝙿𝚘𝚠𝚎𝚛𝚎𝚍 𝚋𝚢 𝙻𝚄𝙱𝙽𝙰 𝙹𝙰𝙽𝙽𝙰𝚃 𝙰𝙺𝙷𝙸.`,
       attachment: await global.utils.getStreamFromUrl(data.url),
@@ -108,7 +116,7 @@ async function download({ url, params, message, event, usersData }) {
     message.reaction('✅', event.messageID);
   } catch (error) {
     message.reaction('❌', event.messageID);
-    console.error(error);
+    console.error("Download Error:", error.message);
   }
 }
 
@@ -133,7 +141,7 @@ module.exports = {
     if (args[0] === 'on' || args[0] === 'off') {
       if (role < 1) return message.reply('You do not have permission.');
       const choice = args[0] === 'on';
-      const gcData = await threadsData.get(event.threadID, "data");
+      const gcData = await threadsData.get(event.threadID, "data") || {};
       await threadsData.set(event.threadID, { data: { ...gcData, autoDownload: choice } });
       return message.reply(`Auto-download has been turned ${choice ? 'on' : 'off'} for this group.`);
     }
@@ -152,20 +160,19 @@ module.exports = {
   },
   
   onChat: async function({ event, message, threadsData, usersData }) {
-    if (event.senderID === global.botID) return;
-    const threadData = await threadsData.get(event.threadID);
+    if (!event.body || event.senderID === global.botID) return;
     
-    // Default ON করার জন্য এই লাইনটি আপডেট করা হয়েছে
+    const threadData = await threadsData.get(event.threadID) || {};
     if (threadData.data && threadData.data.autoDownload === false) return;
     
     try {
       const urlRegex = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/g;
       const match = event.body.match(urlRegex);
+      
       if (match) {
         const url = match[0];
         const domain = getMainDomain(url);
         if (supportedDomains.some(entry => entry.domain === domain)) {
-          // কাস্টম মেসেজ বা প্রিফিক্স থাকলে ডাউনলোড এড়িয়ে চলবে
           const prefix = await global.utils.getPrefix(event.threadID);
           if (event.body.startsWith(prefix)) return;
 
@@ -174,8 +181,7 @@ module.exports = {
         }
       }
     } catch (error) {
-      console.error('onChat Error:', error);
+      console.error('onChat Error:', error.message);
     }
   },
 };
-                          
