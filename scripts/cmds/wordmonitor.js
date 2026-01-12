@@ -19,12 +19,12 @@ module.exports = {
     config: {
         name: "wordmonitor",
         aliases: ["wm", "wrdmntr"],
-        version: "3.5.1",
-        role: 0, 
+        version: "3.5.3",
+        role: 0, // Base role is 0, logic handles specific admin checks
         author: "AkHi",
         description: "Automatic badword filter (Supports Group & Bot Admin)",
         category: "Box",
-        guide: "{pn} on | off | add [words] | active | unban"
+        guide: "{pn} on | off | add [words] | active | unban | list | rem [word]"
     },
 
     onChat: async function ({ api, event }) {
@@ -38,7 +38,6 @@ module.exports = {
             const addedParticipants = logMessageData.addedParticipants;
             for (let user of addedParticipants) {
                 if (data.bannedUsers.includes(user.userFbId)) {
-                    // রিয়েল-টাইম এডমিন চেক
                     const threadInfo = await api.getThreadInfo(threadID);
                     if (threadInfo.adminIDs.some(admin => admin.id === api.getCurrentUserID())) {
                         api.removeUserFromGroup(user.userFbId, threadID);
@@ -59,10 +58,14 @@ module.exports = {
     },
 
     onStart: async function ({ api, event, args, role }) {
-        const { threadID, messageID, type, messageReply, mentions, body } = event;
+        const { threadID, messageID, type, messageReply, mentions, body, senderID } = event;
         
-        // --- Role Check: Group Admin (1) OR Bot Admin (2) ---
-        if (role < 1) {
+        // --- Custom Admin Check (Group Admin OR Bot Admin) ---
+        const threadInfo = await api.getThreadInfo(threadID);
+        const isGroupAdmin = threadInfo.adminIDs.some(admin => admin.id === senderID);
+        const isBotAdmin = role >= 2; // Usually role 2 is for Bot Admins
+
+        if (!isGroupAdmin && !isBotAdmin) {
             return api.sendMessage("❌ Only Group Admins or Bot Admins can use this command.", threadID, messageID);
         }
 
@@ -91,8 +94,21 @@ module.exports = {
                 await data.save();
                 return api.sendMessage(`✅ Added ${words.length} words to the database.`, threadID);
 
+            case "list":
+                if (data.badWords.length === 0) return api.sendMessage("⚠️ No bad words found in the database.", threadID);
+                return api.sendMessage(`📋 Current Bad Words:\n\n${data.badWords.join(", ")}`, threadID);
+
+            case "rem":
+            case "remove":
+                const wordToRemove = args.slice(1).join(" ").toLowerCase();
+                if (!wordToRemove) return api.sendMessage("Usage: rem [word]", threadID);
+                if (!data.badWords.includes(wordToRemove)) return api.sendMessage(`❌ "${wordToRemove}" is not in the list.`, threadID);
+                data.badWords = data.badWords.filter(w => w !== wordToRemove);
+                await data.save();
+                return api.sendMessage(`✅ Removed "${wordToRemove}" from the database.`, threadID);
+
             case "active":
-                if (type !== "message_reply") return api.sendMessage("Please reply to a message to take action.", threadID);
+                if (type !== "message_reply") return api.sendMessage("Please reply to a message to take action manually.", threadID);
                 return await handleViolation(api, messageReply, data, messageReply.senderID);
 
             case "unban":
@@ -103,20 +119,17 @@ module.exports = {
                 return api.sendMessage(`✅ User ${targetID} has been unbanned.`, threadID);
 
             default:
-                return api.sendMessage("Usage: !wordmonitor [on/off/add/active/unban]", threadID);
+                return api.sendMessage("Usage: !wm [on/off/add/list/rem/active/unban]", threadID);
         }
     }
 };
 
 async function handleViolation(api, event, data, targetID) {
     const { threadID, messageID } = event;
-    
-    // রিয়েল-টাইম ডাটা নিয়ে এডমিন চেক
     const threadInfo = await api.getThreadInfo(threadID);
     const botID = api.getCurrentUserID();
-    const isBotAdmin = threadInfo.adminIDs.some(admin => admin.id === botID);
+    const isBotAdminInGroup = threadInfo.adminIDs.some(admin => admin.id === botID);
 
-    // ১. মেসেজ ডিলিট (বট এডমিন না হলেও নিজের মেসেজ বা সাধারণ ক্ষেত্রে ট্রাই করবে, এরর হ্যান্ডেল করা আছে)
     try {
         await api.unsendMessage(messageID);
     } catch (e) { console.error("Unsend failed:", e); }
@@ -128,7 +141,7 @@ async function handleViolation(api, event, data, targetID) {
         data.warnings.set(targetID, 0);
         await data.save();
 
-        if (isBotAdmin) {
+        if (isBotAdminInGroup) {
             api.removeUserFromGroup(targetID, threadID);
             return api.sendMessage(`❌ User ${targetID} Banned! Reached 3/3 warnings.`, threadID);
         } else {
@@ -139,4 +152,4 @@ async function handleViolation(api, event, data, targetID) {
         await data.save();
         return api.sendMessage(`⚠️ Warning ${currentWarns}/3! Prohibited language. [UID: ${targetID}]`, threadID);
     }
-        }
+}
