@@ -12,7 +12,7 @@ function getEmoji() {
 
 // টেক্সট ক্লিন করার ফাংশন
 function cleanText(text) {
-    if (!text) return "";
+    if (!text || typeof text !== 'string') return "";
     return text.replace(/[^\w\s\u0980-\u09FF]/gi, '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
@@ -50,7 +50,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             const randomMsg = ran[Math.floor(Math.random() * ran.length)];
             
             return api.sendMessage(randomMsg, event.threadID, (error, info) => {
-                global.GoatBot.onReply.set(info.messageID, {
+                if (!error) global.GoatBot.onReply.set(info.messageID, {
                     commandName: this.config.name,
                     author: event.senderID
                 });
@@ -94,6 +94,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
             if (!allowedThreads.includes(event.threadID)) return api.sendMessage(`⚠️ Access Restrictions! ${getEmoji()}`, event.threadID, event.messageID);
             const content = dipto.replace("remove ", "");
             const [ask, ans] = content.split(/\s*-\s*/);
+            if (!ask || !ans) return api.sendMessage('❌ Use: remove ask - ans', event.threadID, event.messageID);
             const res = await axios.get(`${baseApiUrl}/remove`, { params: { ask: cleanText(ask), ans: ans.trim() }, timeout: 15000 });
             return api.sendMessage(res.data.status === "success" ? `✅ Removed! ${getEmoji()}` : `❌ Not found! ${getEmoji()}`, event.threadID, event.messageID);
         }
@@ -114,7 +115,7 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 
         if (chatRes.data && chatRes.data.reply) {
             return api.sendMessage(`${chatRes.data.reply} ${getEmoji()}`, event.threadID, (error, info) => {
-                global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
+                if (!error) global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
             }, event.messageID);
         } else {
             throw new Error("Empty Response");
@@ -127,7 +128,6 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
-    // Reply অবজেক্ট ব্যবহার করে নিশ্চিত করা হয়েছে যে এটি এই কমান্ডেরই রিপ্লাই
     try {
         const cleanedReply = cleanText(event.body);
         if (!cleanedReply) return;
@@ -135,27 +135,25 @@ module.exports.onReply = async ({ api, event, Reply }) => {
         const res = await axios.get(`${baseApiUrl}`, { params: { text: cleanedReply }, timeout: 20000 });
         if (res.data && res.data.reply) {
             return api.sendMessage(`${res.data.reply} ${getEmoji()}`, event.threadID, (error, info) => {
-                global.GoatBot.onReply.set(info.messageID, { 
-                    commandName: this.config.name, 
+                if (!error) global.GoatBot.onReply.set(info.messageID, { 
+                    commandName: "citti", 
                     author: event.senderID 
                 });
             }, event.messageID);
         }
     } catch (err) {
         console.error("Reply Error:", err.message);
-        return api.sendMessage(`⚠️ Connection ektu slow, abar reply dao! ${getEmoji()}`, event.threadID, event.messageID);
     }
 };
 
 module.exports.onChat = async ({ api, event, usersData }) => {
     if (event.body) {
         const body = event.body.toLowerCase();
-        const triggers = ["baby", "bby", "citti", "hinata", "বট", "বেবি", "বটু", "বটলা", "হিনাতা", "চিট্টি", "bot", "botla", "botu", "@HI NA TA"];
+        const triggers = ["baby", "bby", "citti", "hinata", "বট", "বেবি", "বটু", "বটলা", "হিনাতা", "চিট্টি", "bot", "botla", "botu"];
         const hasTrigger = triggers.some(t => body.startsWith(t));
         const hasPrefix = global.GoatBot.config.prefix && body.startsWith(global.GoatBot.config.prefix);
 
         if (hasTrigger && !hasPrefix) {
-            // ট্রিগার শব্দটা বাদ দিয়ে মেইন টেক্সট বের করা
             const triggerUsed = triggers.find(t => body.startsWith(t));
             const rawText = body.slice(triggerUsed.length).trim();
             const cleanedText = cleanText(rawText);
@@ -163,22 +161,20 @@ module.exports.onChat = async ({ api, event, usersData }) => {
             const uid = event.senderID;
             const userData = await usersData.get(uid);
             let displayName = userData?.name || "User";
-            if (uid === "61585634146171") displayName = "Sir";
-            else if (uid === "61583939430347") displayName = "Ma'am";
             
             if (!cleanedText) return api.sendMessage(`Yes ${displayName}, bolo ki bolbe? ${getEmoji()}`, event.threadID, (error, info) => {
-                global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
+                if (!error) global.GoatBot.onReply.set(info.messageID, { commandName: "citti", author: event.senderID });
             });
 
             try {
                 const res = await axios.get(`${baseApiUrl}`, { params: { text: cleanedText }, timeout: 20000 });
                 if (res.data && res.data.reply) {
                     return api.sendMessage(`${res.data.reply} ${getEmoji()}`, event.threadID, (error, info) => {
-                        global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
+                        if (!error) global.GoatBot.onReply.set(info.messageID, { commandName: "citti", author: event.senderID });
                     }, event.messageID);
                 }
             } catch (err) { console.log("onChat Busy"); }
         }
     }
 };
-                                 
+                
