@@ -5,7 +5,7 @@ module.exports = {
 		version: "1.6",
 		author: "AkHi",
 		countDown: 5,
-		role: 1, 
+		role: 0, 
 		description: {
 			en: "Unsend any message (Bot must be Admin)"
 		},
