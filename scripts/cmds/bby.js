@@ -34,9 +34,10 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     const uid = event.senderID;
     const userData = await usersData.get(uid);
     
+    // Special ID Check Logic Fix
     let displayName = userData?.name || "User";
-    if (uid === "61585634146171") displayName = "Sir";
-    else if (uid === "61583939430347") displayName = "Ma'am";
+    if (uid == "61585634146171") displayName = "Sir";
+    else if (uid == "61583939430347") displayName = "Ma'am";
 
     try {
         if (!args[0]) {
@@ -127,7 +128,6 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
 };
 
 module.exports.onReply = async ({ api, event, Reply }) => {
-    // Reply অবজেক্ট ব্যবহার করে নিশ্চিত করা হয়েছে যে এটি এই কমান্ডেরই রিপ্লাই
     try {
         const cleanedReply = cleanText(event.body);
         if (!cleanedReply) return;
@@ -155,16 +155,17 @@ module.exports.onChat = async ({ api, event, usersData }) => {
         const hasPrefix = global.GoatBot.config.prefix && body.startsWith(global.GoatBot.config.prefix);
 
         if (hasTrigger && !hasPrefix) {
-            // ট্রিগার শব্দটা বাদ দিয়ে মেইন টেক্সট বের করা
             const triggerUsed = triggers.find(t => body.startsWith(t));
             const rawText = body.slice(triggerUsed.length).trim();
             const cleanedText = cleanText(rawText);
             
             const uid = event.senderID;
             const userData = await usersData.get(uid);
+            
+            // Special ID Check Logic Fix for onChat
             let displayName = userData?.name || "User";
-            if (uid === "61585634146171") displayName = "Sir";
-            else if (uid === "61583939430347") displayName = "Ma'am";
+            if (uid == "61585634146171") displayName = "Sir";
+            else if (uid == "61583939430347") displayName = "Ma'am";
             
             if (!cleanedText) return api.sendMessage(`Yes ${displayName}, bolo ki bolbe? ${getEmoji()}`, event.threadID, (error, info) => {
                 global.GoatBot.onReply.set(info.messageID, { commandName: this.config.name, author: event.senderID });
@@ -181,4 +182,3 @@ module.exports.onChat = async ({ api, event, usersData }) => {
         }
     }
 };
-                                                 
