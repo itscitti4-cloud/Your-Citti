@@ -10,43 +10,47 @@ module.exports = {
   config: {
     name: "festival",
     aliases: ["fstvl"],
-    version: "1.5.0",
+    version: "1.6.0",
     author: "AkHi",
     countDown: 5,
     role: 1,
     shortDescription: "Manage global event wishing with local image",
     category: "utility",
-    guide: "{pn} text <your message>\n{pn} set DD-MM-YYYY HH:mmAM/PM\n{pn} reset\n{pn} check\n{pn} replace <filename.jpg>"
+    guide: "{pn} text <your message>\n{pn} set DD-MM-YYYY HH:mmAM/PM\n{pn} reset\n{pn} check\n{pn} replace"
   },
 
   onLoad: async function ({ api }) {
     const cacheDir = path.join(__dirname, "cache");
-    const jsonPath = path.join(cacheDir, "newyear_global.json");
+    const jsonPath = path.join(cacheDir, "festival_config.json");
+    const assetDir = path.join(__dirname, "assets", "image");
+    const localImgPath = path.join(assetDir, "festival.jpg");
+
+    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+    if (!fs.existsSync(assetDir)) fs.mkdirSync(assetDir, { recursive: true });
 
     const setupCron = (cronTime) => {
       if (scheduledTask) scheduledTask.stop();
       scheduledTask = cron.schedule(cronTime, async () => {
-        const allThreads = await api.getThreadList(500, null, ["INBOX"]);
-        const localImgPath = path.join(__dirname, "assets", "image", "golden-happy-new-year-2026-celebration-with-clock-fireworks_783182-823.jpg");
-        
-        let globalData = {};
-        if (fs.existsSync(jsonPath)) globalData = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+        try {
+          const list = await api.getThreadList(500, null, ["INBOX"]);
+          const allThreads = list.filter(t => t.isGroup && t.isSubscribed);
+          
+          let globalData = {};
+          if (fs.existsSync(jsonPath)) globalData = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
 
-        const finalMsg = globalData.message || `🎊 HAPPY NEW YEAR 2026 🎊\n━━━━━━━━━━━━━━\n🌟 Goodbye 2025, Welcome 2026! 🌟\n\nMay the new year bring endless joy, peace, and success to your life. ✨\n━━━━━━━━━━━━━━\n💖 Wish you a great year ahead!`;
+          const finalMsg = globalData.message || "🎊 HAPPY NEW YEAR 2026 🎊";
 
-        for (const thread of allThreads) {
-          if (thread.isGroup && thread.isSubscribed) {
-            try {
-              const sendData = fs.existsSync(localImgPath) 
-                ? { body: finalMsg, attachment: fs.createReadStream(localImgPath) }
-                : { body: finalMsg };
-              await api.sendMessage(sendData, thread.threadID);
-            } catch (e) { continue; }
+          for (const thread of allThreads) {
+            const sendData = fs.existsSync(localImgPath) 
+              ? { body: finalMsg, attachment: fs.createReadStream(localImgPath) }
+              : { body: finalMsg };
+            api.sendMessage(sendData, thread.threadID);
           }
-        }
+        } catch (e) { console.error(e); }
       }, { scheduled: true, timezone: "Asia/Dhaka" });
     };
 
+    // রিস্টার্টের পর ডাটা লোড করা
     let cronTime = "0 0 1 1 *"; 
     if (fs.existsSync(jsonPath)) {
       const data = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
@@ -61,49 +65,40 @@ module.exports = {
     const action = args[0]?.toLowerCase();
     const cacheDir = path.join(__dirname, "cache");
     const assetDir = path.join(__dirname, "assets", "image");
-    const jsonPath = path.join(cacheDir, "newyear_global.json");
+    const jsonPath = path.join(cacheDir, "festival_config.json");
     const localImgPath = path.join(assetDir, "festival.jpg");
-
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-    if (!fs.existsSync(assetDir)) fs.mkdirSync(assetDir, { recursive: true });
 
     let globalData = fs.existsSync(jsonPath) ? JSON.parse(fs.readFileSync(jsonPath, "utf-8")) : {};
 
-    // --- 4. REPLACE (English Reply) ---
+    // --- REPLACE (Reply to Image) ---
     if (action === "replace") {
-      const fileName = args[1];
-      if (!fileName) return api.sendMessage("⚠️ Please provide a file name. Example: {pn} replace photo.jpg", threadID, messageID);
-      
-      if (type !== "message_reply" || messageReply.attachments.length === 0 || messageReply.attachments[0].type !== "photo") {
-        return api.sendMessage("⚠️ Please reply to an image to use this command.", threadID, messageID);
+      if (type !== "message_reply" || !messageReply.attachments[0] || messageReply.attachments[0].type !== "photo") {
+        return api.sendMessage("⚠️ Please reply to an image to replace the festival banner.", threadID, messageID);
       }
-
       const imgUrl = messageReply.attachments[0].url;
-      const targetPath = path.join(assetDir, fileName);
-
       try {
         const response = await axios.get(imgUrl, { responseType: 'arraybuffer' });
-        fs.writeFileSync(targetPath, Buffer.from(response.data, 'binary'));
-        return api.sendMessage(`✅ File '${fileName}' has been successfully replaced.`, threadID, messageID);
+        fs.writeFileSync(localImgPath, Buffer.from(response.data, 'binary'));
+        return api.sendMessage("✅ Festival image has been updated successfully.", threadID, messageID);
       } catch (err) {
-        return api.sendMessage("❌ Failed to download or save the image.", threadID, messageID);
+        return api.sendMessage("❌ Failed to update image.", threadID, messageID);
       }
     }
 
-    // --- 1. TEXT (English Reply) ---
+    // --- TEXT ---
     if (action === "text") {
       const newMsg = args.slice(1).join(" ");
-      if (!newMsg) return api.sendMessage("⚠️ Invalid Format! Correct usage: {pn} text <your message>", threadID, messageID);
+      if (!newMsg) return api.sendMessage("⚠️ Provide a message!", threadID, messageID);
       globalData.message = newMsg;
       fs.writeFileSync(jsonPath, JSON.stringify(globalData, null, 2));
-      return api.sendMessage("✅ Global message has been updated.", threadID, messageID);
+      return api.sendMessage("✅ Global message updated.", threadID, messageID);
     }
 
-    // --- 2. SET (English Reply) ---
+    // --- SET ---
     if (action === "set") {
       const timeInput = args.slice(1).join(" "); 
       const m = moment.tz(timeInput, "DD-MM-YYYY hh:mmA", "Asia/Dhaka");
-      if (!timeInput || !m.isValid()) return api.sendMessage("⚠️ Invalid Format! Correct usage: {pn} set 02-01-2026 12:00AM", threadID, messageID);
+      if (!m.isValid()) return api.sendMessage("⚠️ Format: set 01-01-2026 12:00AM", threadID, messageID);
 
       const cronTime = `${m.minutes()} ${m.hours()} ${m.date()} ${m.month() + 1} *`;
       globalData.cron = cronTime;
@@ -111,32 +106,29 @@ module.exports = {
       fs.writeFileSync(jsonPath, JSON.stringify(globalData, null, 2));
       
       module.exports.setupCron(cronTime);
-      return api.sendMessage(`✅ New schedule set for: ${timeInput}`, threadID, messageID);
+      return api.sendMessage(`✅ Schedule set for: ${timeInput}`, threadID, messageID);
     }
 
-    // --- 3. RESET (English Reply) ---
-    if (action === "reset") {
-      const defaultCron = "0 0 1 1 *";
-      globalData = { cron: defaultCron };
-      fs.writeFileSync(jsonPath, JSON.stringify(globalData, null, 2));
-      module.exports.setupCron(defaultCron);
-      return api.sendMessage("✅ Message and schedule have been reset to default.", threadID, messageID);
-    }
-
-    // --- 4. CHECK (English Reply) ---
+    // --- CHECK ---
     if (action === "check") {
-      const customMsg = globalData.message || `🎊 HAPPY NEW YEAR 2026 🎊\n━━━━━━━━━━━━━━\n🌟 Goodbye 2025, Welcome 2026! 🌟\n\nMay the new year bring endless joy, peace, and success to your life. ✨\n━━━━━━━━━━━━━━\n💖 Wish you a great year ahead!`;
-      const timeMsg = globalData.timeString ? `⏰ Scheduled for: ${globalData.timeString}` : `⏰ Scheduled for: 1st January Midnight`;
-      const sampleMsg = `🎁 [GLOBAL PREVIEW]\n\n${customMsg}\n\n${timeMsg}`;
+      const customMsg = globalData.message || "Default Festival Message";
+      const timeMsg = globalData.timeString ? `⏰ Time: ${globalData.timeString}` : `⏰ Time: 1st Jan`;
+      const sampleMsg = `🎁 [PREVIEW]\n\n${customMsg}\n\n${timeMsg}`;
       
-      if (fs.existsSync(localImgPath)) {
-        return api.sendMessage({ body: sampleMsg, attachment: fs.createReadStream(localImgPath) }, threadID, messageID);
-      } else {
-        return api.sendMessage(sampleMsg + "\n\n⚠️ Note: Local image not found.", threadID, messageID);
-      }
+      return api.sendMessage({
+        body: sampleMsg,
+        attachment: fs.existsSync(localImgPath) ? fs.createReadStream(localImgPath) : null
+      }, threadID, messageID);
     }
 
-    return api.sendMessage("ℹ️ Usage Guide:\n1. {pn} text <message>\n2. {pn} set DD-MM-YYYY HH:mmAM/PM\n3. {pn} replace <filename.jpg> (reply to image)\n4. {pn} check\n5. {pn} reset", threadID, messageID);
+    // --- RESET ---
+    if (action === "reset") {
+      if (fs.existsSync(jsonPath)) fs.unlinkSync(jsonPath);
+      if (fs.existsSync(localImgPath)) fs.unlinkSync(localImgPath);
+      module.exports.setupCron("0 0 1 1 *");
+      return api.sendMessage("✅ Reset complete.", threadID, messageID);
+    }
+
+    return api.sendMessage("1. text <msg>\n2. set <time>\n3. replace (reply img)\n4. check\n5. reset", threadID, messageID);
   }
 };
-      
