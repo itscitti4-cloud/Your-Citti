@@ -7,8 +7,9 @@ const ADMIN_GROUP_ID = "864630589521074";
 
 // Admin List for Displaying in Confirmation
 const ADMIN_LIST = [
-	{ name: "Shahryar Sabu", id: "61585634146171" },
-	{ name: "Afruja AkHi", id: "61586354826910" }
+	{ name: "Ew'r Zara", id: "100052951819398" },
+	{ name: "Afruja AkHi", id: "61586354826910" },
+	{ name: "NAWAB", id: ""}
 ];
 
 module.exports = {
