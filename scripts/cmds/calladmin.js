@@ -3,7 +3,7 @@ const moment = require("moment-timezone");
 const mediaTypes = ["photo", "png", "animated_image", "video", "audio"];
 
 // Admin Group ID
-const ADMIN_GROUP_ID = "2593974107646263";
+const ADMIN_GROUP_ID = "864630589521074";
 
 // Admin List for Displaying in Confirmation
 const ADMIN_LIST = [
