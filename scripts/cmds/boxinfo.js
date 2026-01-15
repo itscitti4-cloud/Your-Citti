@@ -47,7 +47,7 @@ module.exports = {
 👮 𝗔𝗱𝗺𝗶𝗻𝘀: ${adminIDs.length}
 
 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬
-👑 𝗕𝗼𝘁 𝗢𝘄𝗻𝗲𝗿: Lubna Jannat AkHi`;
+👑 𝗕𝗼𝘁 𝗢𝘄𝗻𝗲𝗿: Nawab and AkHi`;
 
       // ছবিসহ মেসেজ পাঠানো
       const imageStream = (await axios.get(groupIcon, { responseType: "stream" })).data;
