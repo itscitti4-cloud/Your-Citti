@@ -20,11 +20,12 @@ module.exports = {
 
   onStart: async function ({ api, event, args }) {
     let threadID;
+    const senderID = event.senderID; // ডিফাইন করা হলো যাতে মেসেজে আইডিটি আসে
 
     if (!args[0]) {
       threadID = event.threadID;
     } else {
-      threadID = parseInt(args[0]);
+      threadID = args[0]; // parseInt এর বদলে সরাসরি স্ট্রিং নেওয়া নিরাপদ কারণ ID বড় হয়
       if (isNaN(threadID)) {
         return api.sendMessage("⚠️ | Invalid thread ID provided.", event.threadID);
       }
@@ -33,11 +34,12 @@ module.exports = {
     // Send styled leaving message
     const leaveMsg = `
 👋 **Goodbye everyone!**
-🤖 I’m leaving this group as order of Lubna Jannat AkHi.
+🤖 I’m leaving this group as order of ${senderID}.
 🫶 Thanks for having me — take care and stay awesome!
 `;
 
-    api.sendMessage(leaveMsg, threadID, () => {
+    api.sendMessage(leaveMsg, threadID, (err) => {
+      if (err) return api.sendMessage("❌ | Could not send message, but attempting to leave...", event.threadID);
       api.removeUserFromGroup(api.getCurrentUserID(), threadID);
     });
   }
