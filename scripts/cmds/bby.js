@@ -2,7 +2,7 @@ const axios = require('axios');
 const baseApiUrl = "https://nawab-api-gcbd.onrender.com/api/bby";
 
 // অনুমোদিত গ্রুপ আইডির তালিকা
-const allowedThreads = ["2593974107646263", "25416434654648555"];
+const allowedThreads = ["1128938025925990", "25416434654648555"];
 
 // র্যান্ডম ইমোজি ফাংশন
 function getEmoji() {
@@ -36,8 +36,8 @@ module.exports.onStart = async ({ api, event, args, usersData }) => {
     
     // Special ID Check Logic Fix
     let displayName = userData?.name || "User";
-    if (uid == "61585634146171") displayName = "Sir";
-    else if (uid == "61583939430347") displayName = "Ma'am";
+    if (uid == "61586632438983") displayName = "Sir";
+    else if (uid == "61586354826910") displayName = "Ma'am";
 
     try {
         if (!args[0]) {
@@ -150,7 +150,7 @@ module.exports.onReply = async ({ api, event, Reply }) => {
 module.exports.onChat = async ({ api, event, usersData }) => {
     if (event.body) {
         const body = event.body.toLowerCase();
-        const triggers = ["baby", "bby", "citti", "hinata", "বট", "বেবি", "বটু", "বটলা", "হিনাতা", "চিট্টি", "bot", "botla", "botu", "@HI NA TA"];
+        const triggers = ["baby", "bby", "citti", "Pori", "বট", "বেবি", "বটু", "বটলা", "পরি", "পরী", "চিট্টি", "bot", "botla", "botu", "@HI NA TA"];
         const hasTrigger = triggers.some(t => body.startsWith(t));
         const hasPrefix = global.GoatBot.config.prefix && body.startsWith(global.GoatBot.config.prefix);
 
