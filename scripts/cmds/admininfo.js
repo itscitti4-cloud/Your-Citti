@@ -45,9 +45,9 @@ module.exports = {
 ╭────[ BOT ADMIN INFO ]────╮
 ├‣ Name: LUBNA JANNAT
 ├‣ Gender: Female
-├‣ UID: 61583939430347
-├‣ Username: LubnaaJannat.AkHi
-├‣ FB: fb.com/LubnaaJannat.AkHi
+├‣ UID: 61586354826910
+├‣ Username: Afruzaa.AkHi
+├‣ FB: fb.com/Afruzaa.AkHi
 ├‣ IG: ig.com/lubnajannat_
 ├‣ Birthday: 27 October
 ├‣ Nickname: AkHi
