@@ -146,7 +146,7 @@ module.exports = {
         ` ➤ 𝐃𝐚𝐭𝐞: ${engDate}\n` +
         ` ➤ বাংলা: ${bngDateFinal}\n` +
         ` ➤ হিজরী: ${hijriDateFinal}\n\n` +
-        `»——— @Lubna Jannat ———«`;
+        `»——— NAWAB & AKHI ———«`;
 
       return message.reply(premiumReply);
 
