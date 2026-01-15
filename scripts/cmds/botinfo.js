@@ -57,7 +57,7 @@ module.exports = {
   🔰 Prefix: ${botPrefix}
   👤 Owner: Nawab & AkHi
   👤 Dev: Shahryar Sabu (Nawab)
-  👤 Dev 2: Lubna Jannat (AkHi)
+  👤 Dev 2: Afruza AkHi (Lubna)
   
   📆 Date: ${date}
   ⏰ Time: ${time}
