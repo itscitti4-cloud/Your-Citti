@@ -45,9 +45,9 @@ module.exports = {
 ╭──[ BOT DEVELOPER INFO ]──╮
 ├‣ Name: SHAHRYAR SABU
 ├‣ Gender: Male
-├‣ UID: 61585634146171
-├‣ Username: shahryarsabu.nawab
-├‣ FB: fb.com/shahryarsabu.nawab
+├‣ UID: 61586632438983
+├‣ Username: nawab.shahryarsabu
+├‣ FB: fb.com/nawab.shahryarsabu
 ├‣ IG: ig.com/shahryar.sabu
 ├‣ WA: +8801607-533743
 ├‣ WA: +8801607-533744
