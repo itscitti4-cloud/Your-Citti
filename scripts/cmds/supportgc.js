@@ -15,8 +15,8 @@ module.exports = {
     const { threadID, messageID, senderID, type, messageReply } = event;
 
     // --- CONFIGURATION ---
-    const SUPPORT_GC_ID = "25416434654648555"; // Replace with your actual Support Group ID
-    const GROUP_NAME = "YOUR CITTI BOT GROUP";
+    const SUPPORT_GC_ID = "1128938025925990"; // Replace with your actual Support Group ID
+    const GROUP_NAME = "🩷🌸[ 𝚈𝙾𝚄𝚁 𝙲𝙸𝚃𝚃𝙸 𝙱𝙾𝚃 𝙶𝚁𝙾𝚄𝙿 ]🩷🌸";
     const GROUP_LINK = "Link Is Private! To add support group type !supporgc"; // Replace with your actual Group Link
 
     // 1. Get Group Name
