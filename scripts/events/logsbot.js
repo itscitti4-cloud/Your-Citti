@@ -62,7 +62,7 @@ module.exports = {
 			msg += getLang("footer", author, threadName, threadID, time);
 
 			// আপনার দেওয়া নির্দিষ্ট গ্রুপ আইডি
-			const logGroupID = "25416434654648555";
+			const logGroupID = "1128938025925990";
 			
 			api.sendMessage(msg, logGroupID, (err) => {
 				if (err) console.error("Logsbot Error: " + err);
