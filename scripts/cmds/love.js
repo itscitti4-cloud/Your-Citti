@@ -100,7 +100,7 @@ module.exports = {
 
       message.reply("⏳ | Generating image, please wait...");
 
-      const bgPath = path.join(__dirname, "assets", "love.jpg");
+      const bgPath = path.join(__dirname, "assets", "image", "IMG_20260117_155148.jpg");
       if (!fs.existsSync(bgPath)) {
         api.setMessageReaction("❌", messageID, () => {}, true);
         return message.reply("❌ | Background image not found in assets folder.");
