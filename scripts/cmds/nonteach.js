@@ -2,7 +2,7 @@ const axios = require('axios');
 const baseApiUrl = "https://nawab-api-gcbd.onrender.com/api/bby";
 
 // অনুমোদিত গ্রুপ আইডির তালিকা
-const allowedThreads = ["2593974107646263", "25416434654648555"];
+const allowedThreads = ["1128938025925990", "25416434654648555"];
 const supportGroupURL = "https://m.me/j/Aba7VamWeZbYqZDQ/"; // আপনার সাপোর্ট গ্রুপের আসল লিংক এখানে দিন
 
 module.exports.config = {
