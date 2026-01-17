@@ -21,8 +21,8 @@ module.exports = {
 
     const react = (emoji) => api.setMessageReaction(emoji, messageID, () => {}, true);
 
-    const specialUser1 = "61583939430347";
-    const specialUser2 = "61585634146171";
+    const specialUser1 = "61586354826910";
+    const specialUser2 = "61586632438983";
     const specialList = [specialUser1, specialUser2];
 
     react("⏳");
