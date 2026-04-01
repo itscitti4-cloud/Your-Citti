@@ -8,7 +8,7 @@ module.exports = {
     aliases: ["adinfo", "adminke"],
     version: "1.0",
     role: 0,
-    author: "AkHi",
+    author: "Nawab",
     Description: "Get user information with local canvas image",
     category: "information",
     countDown: 10,
@@ -36,28 +36,28 @@ module.exports = {
 
     try {
       // আপনার নির্দিষ্ট করা ক্যানভাস ইমেজ পাথ
-      const imagePath = __dirname + "/assets/image/Picsart_25-12-16_05-40-59-008.jpg";
+      const imagePath = __dirname + "/assets/image/IMG_20251121_163554.jpg";
       
       // ফাইলটি সিস্টেমে আছে কি না চেক করে স্ট্রিম তৈরি করা
       const imageStream = fs.createReadStream(imagePath);
 
       const userInformation = `
 ╭────[ BOT ADMIN INFO ]────╮
-├‣ Name: LUBNA JANNAT
-├‣ Gender: Female
-├‣ UID: 61586354826910
-├‣ Username: Afruzaa.AkHi
-├‣ FB: fb.com/Afruzaa.AkHi
-├‣ IG: ig.com/lubnajannat_
-├‣ Birthday: 27 October
-├‣ Nickname: AkHi
-├‣ Status: Married
-├‣ Husband: Shahryar Sabu
-├‣ Weeding date: 20 February, 2025
-├‣ Profession: Teacher
-├‣ Study: BBA Honours
-├‣ Institute: University of Dhaka
-├‣ Lives in: Lalbagh, Dhaka
+├‣ Name: ‣ Name: SHAHRYAR SABU
+├‣ Gender: Male
+├‣ UID: 61586632438983
+├‣ Username: nawab.shahryarsabu
+├‣ FB: fb.com/nawab.shahryarsabu
+├‣ IG: ig.com/shahryar.sabu
+├‣ WA: +8801607-533743
+├‣ WA: +8801607-533744
+├‣ Birthday: 30 May
+├‣ Nickname: Nawab
+├‣ Status: Single
+├‣ Profession: Electrician
+├‣ Study: H.S.C (2021)
+├‣ Institute: Bepza Public school & college
+├‣ Lives in: Dhaka, Bangladesh.
 ╰‣ From: Bhandaria, Pirojpur, Barishal`;
 
       return api.sendMessage({
