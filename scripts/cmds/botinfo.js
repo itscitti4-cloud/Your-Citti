@@ -8,7 +8,7 @@ module.exports = {
         name: "botinfo",
         aliases: ["inf", "info", "in4"],
         version: "2.7",
-        author: "AkHi",
+        author: "Nawab",
         countDown: 5,
         role: 0,
         shortDescription: "Sends bot and developer info.",
@@ -49,22 +49,20 @@ module.exports = {
                 const uptimeString = `${days}d ${hours}h ${minutes}m ${seconds}s`.replace(/^0d 0h /, "");
 
                 // ইমেজের পাথ সেট করা
-                const imagePath = path.join(process.cwd(), "scripts/cmds/assets/image/Picsart_25-11-04_14-05-39-316.jpg");
+                const imagePath = path.join(process.cwd(), "scripts/cmds/assets/image/IMG_20251121_163554.jpg");
 
                 const msgBody = `
 ╭──── BOT & DEV INFO ────╮
   🤖 Bot: ${botName}
   🔰 Prefix: ${botPrefix}
-  👤 Owner: Nawab & AkHi
+  👤 Owner: Nawab
   👤 Dev: Shahryar Sabu (Nawab)
-  👤 Dev 2: Afruza AkHi (Lubna)
   
   📆 Date: ${date}
   ⏰ Time: ${time}
   ⚙️ Uptime: ${uptimeString}
   
-  🌐 Dev info: {pn} dinfo
-  🌐 Dev2 info: {pn} adinfo
+  🌐 Dev info: {pn} dinfo/adinfo
 ╰────────────────────╯`;
 
                 // চেক করা হচ্ছে ফাইলটি ওই লোকেশনে আছে কি না
