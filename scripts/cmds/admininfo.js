@@ -43,7 +43,7 @@ module.exports = {
 
       const userInformation = `
 ╭────[ BOT ADMIN INFO ]────╮
-├‣ Name: ‣ Name: SHAHRYAR SABU
+├‣ Name: SHAHRYAR SABU
 ├‣ Gender: Male
 ├‣ UID: 61586632438983
 ├‣ Username: nawab.shahryarsabu
