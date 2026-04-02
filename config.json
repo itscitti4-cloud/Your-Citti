@@ -139,7 +139,7 @@
     "presence": false
   },
   "optionsFca": {
-    "forceLogin": true,
+    "forceLogin": false,
     "listenEvents": true,
     "updatePresence": true,
     "listenTyping": true,
