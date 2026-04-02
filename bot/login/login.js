@@ -784,7 +784,7 @@ async function startBot(loginWithEmail) {
                                 log.err("ERROR", "Can't get notifications data");
                                 process.exit();
                         }
-                        if (global.GoatBot.config.autoRefreshFbstate == true) {
+                        if (global.GoatBot.config.autoRefreshFbstate == false) {
                                 changeFbStateByCode = true;
                                 try {
                                         writeFileSync(dirAccount, JSON.stringify(filterKeysAppState(api.getAppState()), null, 2));
