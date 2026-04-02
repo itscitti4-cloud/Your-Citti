@@ -93,7 +93,7 @@
     "ignoreEvents": "",
     "notes": "auto load settings..."
   },
-  "autoRefreshFbstate": true,
+  "autoRefreshFbstate": false,
   "autoReloginWhenChangeAccount": false,
   "autoRestartWhenListenMqttError": false,
   "restartListenMqtt": {
